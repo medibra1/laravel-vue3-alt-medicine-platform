@@ -6,12 +6,13 @@
     "license": "proprietary",
     "require": {
         "php": "^8.3",
+        "endroid/qr-code": "^6.0",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
-        "endroid/qr-code": "^6.0",
         "maatwebsite/excel": "^3.1",
+        "spatie/browsershot": "^5.0",
         "spatie/laravel-activitylog": "^4.12",
         "spatie/laravel-medialibrary": "^11.23",
         "spatie/laravel-model-status": "^1.20",
@@ -19,7 +20,6 @@
         "spatie/laravel-query-builder": "^7.3",
         "spatie/laravel-sluggable": "^4.0",
         "spatie/laravel-translatable": "^6.14",
-        "spatie/browsershot": "^5.0",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

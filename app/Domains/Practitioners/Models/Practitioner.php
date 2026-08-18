@@ -3,10 +3,15 @@
 namespace App\Domains\Practitioners\Models;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Billing\Models\Bonus;
+use App\Domains\Billing\Models\Employment;
+use App\Domains\Billing\Models\PayPeriodShare;
+use App\Domains\Billing\Models\SalaryAdvance;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Grade;
-use App\Domains\Patients\Models\Treatment;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\ModelStatus\HasStatuses;
 
 class Practitioner extends Model
@@ -17,48 +22,53 @@ class Practitioner extends Model
 
     protected $casts = ['level' => 'int', 'hired_at' => 'date'];
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function center()
+    /** @return BelongsTo<Center, $this> */
+    public function center(): BelongsTo
     {
         return $this->belongsTo(Center::class);
     }
 
-    public function grade()
+    /** @return BelongsTo<Grade, $this> */
+    public function grade(): BelongsTo
     {
         return $this->belongsTo(Grade::class);
     }
 
-    public function attendances()
+    /** @return HasMany<PractitionerAttendance, $this> */
+    public function attendances(): HasMany
     {
-        return $this->hasMany(\App\Domains\Practitioners\Models\PractitionerAttendance::class);
+        return $this->hasMany(PractitionerAttendance::class);
     }
 
-    public function salaryAdvances()
+    /** @return HasMany<SalaryAdvance, $this> */
+    public function salaryAdvances(): HasMany
     {
-        return $this->hasMany(\App\Domains\Billing\Models\SalaryAdvance::class);
+        return $this->hasMany(SalaryAdvance::class);
     }
 
-    public function payPeriodShares()
+    /** @return HasMany<PayPeriodShare, $this> */
+    public function payPeriodShares(): HasMany
     {
-        return $this->hasMany(\App\Domains\Billing\Models\PayPeriodShare::class);
+        return $this->hasMany(PayPeriodShare::class);
     }
 
-    public function employments()
+    /** @return HasMany<Employment, $this> */
+    public function employments(): HasMany
     {
-        return $this->hasMany(\App\Domains\Billing\Models\Employment::class);
+        return $this->hasMany(Employment::class);
     }
 
-    public function bonuses()
+    /** @return HasMany<Bonus, $this> */
+    public function bonuses(): HasMany
     {
-        return $this->hasMany(\App\Domains\Billing\Models\Bonus::class);
+        return $this->hasMany(Bonus::class);
     }
 
-    public function treatments()
-    {
-        return $this->hasMany(Treatment::class);
-    }
+    // treatments(): HasMany<Treatment> — added once App\Domains\Patients\Models\Treatment exists.
 }

@@ -4,6 +4,7 @@ namespace App\Domains\Billing\Services;
 
 use App\Domains\Billing\Models\PayPeriod;
 use App\Domains\Billing\Models\PayPeriodShare;
+use App\Domains\Core\Models\Grade;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Practitioners\Models\PractitionerAttendance;
 use Illuminate\Support\Collection;
@@ -50,7 +51,8 @@ class PayPeriodCalculator
 
         $weights = $practitioners->mapWithKeys(function (Practitioner $practitioner) use ($payPeriod) {
             $attendanceDays = $this->attendanceDays($practitioner, $payPeriod);
-            $coefficient = (float) ($practitioner->grade?->coefficient ?? 1.0);
+            $grade = $practitioner->grade;
+            $coefficient = $grade instanceof Grade ? (float) $grade->coefficient : 1.0;
 
             return [$practitioner->id => [
                 'attendance_days' => $attendanceDays,
@@ -103,7 +105,7 @@ class PayPeriodCalculator
             ->where('center_id', $payPeriod->center_id)
             ->with('grade')
             ->get()
-            ->filter(fn (Practitioner $p) => $p->statuses()->latest()->first()?->name !== 'inactive');
+            ->filter(fn (Practitioner $p) => $p->latestStatus()?->name !== 'inactive');
     }
 
     protected function attendanceDays(Practitioner $practitioner, PayPeriod $payPeriod): int
