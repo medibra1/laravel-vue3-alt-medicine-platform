@@ -1,0 +1,668 @@
+[
+  {
+    "number": 1,
+    "title": "MALADIES DIGESTIVES",
+    "diseases": [
+      {
+        "code": "101",
+        "duration_months": 3,
+        "name": "Acidité-brûlure",
+        "description": ""
+      },
+      {
+        "code": "102",
+        "duration_months": 3,
+        "name": "Ulcère",
+        "description": "Il faut que la médecine ait identifié une plaie dans l’estomac"
+      },
+      {
+        "code": "103",
+        "duration_months": 3,
+        "name": "Constipation",
+        "description": ""
+      },
+      {
+        "code": "104",
+        "duration_months": 3,
+        "name": "Diarrhée",
+        "description": ""
+      },
+      {
+        "code": "105",
+        "duration_months": 3,
+        "name": "Ballonnement",
+        "description": ""
+      },
+      {
+        "code": "106",
+        "duration_months": 3,
+        "name": "Hémorroïdes",
+        "description": "Interne, externe ou avec saignement"
+      },
+      {
+        "code": "107",
+        "duration_months": 3,
+        "name": "Douleur abdominale",
+        "description": "Générale ou localisée"
+      },
+      {
+        "code": "108",
+        "duration_months": 3,
+        "name": "Prise de poids",
+        "description": "Soit la personne mange trop, soit elle grossit dans raison"
+      },
+      {
+        "code": "109",
+        "duration_months": 3,
+        "name": "Perte de poids",
+        "description": "Soit la personne ne se nourrit plus, soit elle maigrit sans raison"
+      },
+      {
+        "code": "110",
+        "duration_months": 3,
+        "name": "Plaie dans la bouche",
+        "description": "Ou douleurs dans la gorge"
+      },
+      {
+        "code": "111",
+        "duration_months": 3,
+        "name": "Enflure de la gencive",
+        "description": ""
+      },
+      {
+        "code": "112",
+        "duration_months": 3,
+        "name": "Mauvaise odeur",
+        "description": "Se dégageant de toute partie du corps"
+      },
+      {
+        "code": "113",
+        "duration_months": 12,
+        "name": "Maladie de Crohn",
+        "description": "Inflammation chronique de l’intestin ou de tout l’appareil digestif"
+      },
+      {
+        "code": "114",
+        "duration_months": 3,
+        "name": "Ascite",
+        "description": "Accumulation de liquide dans le ventre"
+      },
+      {
+        "code": "115",
+        "duration_months": 3,
+        "name": "Infection urinaire",
+        "description": "Douleurs de vessie et urinaire, calculs dans la vessie"
+      },
+      {
+        "code": "116",
+        "duration_months": 6,
+        "name": "Faiblesse des reins",
+        "description": "Cela provoque une faiblesse générale mais ne nécessite pas la dialyse"
+      },
+      {
+        "code": "117",
+        "duration_months": 6,
+        "name": "Arrêt des reins",
+        "description": "Nécessité de dialyse et de greffe de rein"
+      },
+      {
+        "code": "118",
+        "duration_months": 6,
+        "name": "Autres",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "number": 2,
+    "title": "MALADIES DE LA PEAU",
+    "diseases": [
+      {
+        "code": "201",
+        "duration_months": 6,
+        "name": "Psoriasis",
+        "description": "Eczéma grave, étendu et non traitable"
+      },
+      {
+        "code": "202",
+        "duration_months": 3,
+        "name": "Eczéma",
+        "description": "Y compris démangeaisons, acné, rougeurs, boutons"
+      },
+      {
+        "code": "203",
+        "duration_months": 3,
+        "name": "Plaie ouverte",
+        "description": "Souvent purulente et puante"
+      },
+      {
+        "code": "204",
+        "duration_months": 3,
+        "name": "Abcès et boutons persistants",
+        "description": "Dont abcès anal"
+      },
+      {
+        "code": "205",
+        "duration_months": 3,
+        "name": "Enflure inexpliquée",
+        "description": "Comme les jambes d’éléphant, à distinguer des enflures dues au cancer"
+      },
+      {
+        "code": "206",
+        "duration_months": 6,
+        "name": "Chutes de cheveux",
+        "description": ""
+      },
+      {
+        "code": "207",
+        "duration_months": 6,
+        "name": "Chéloïde",
+        "description": "Plaie cicatrisant avec une excroissance de la peau"
+      },
+      {
+        "code": "208",
+        "duration_months": 6,
+        "name": "Vitiligo, Dépigmentation",
+        "description": "Nous n’avons pas pu retrouver la pigmentation, mais nous essayons de stopper l’expansion de la dépigmentation"
+      },
+      {
+        "code": "209",
+        "duration_months": 6,
+        "name": "Autres",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "number": 3,
+    "title": "MALADIES DU SEXE",
+    "diseases": [
+      {
+        "code": "301",
+        "duration_months": 3,
+        "name": "Kyste",
+        "description": "Ou fibrome  dans l’ovaire ou l’utérus"
+      },
+      {
+        "code": "302",
+        "duration_months": 6,
+        "name": "Règles irrégulières",
+        "description": "Ainsi que saignement en dehors des menstrues"
+      },
+      {
+        "code": "303",
+        "duration_months": 3,
+        "name": "Douleurs de bas-ventre",
+        "description": "Très forte douleur pendant les règles ou en dehors, aux ovaires ou à l’utérus"
+      },
+      {
+        "code": "304",
+        "duration_months": 12,
+        "name": "Ménopause précoce",
+        "description": "Arrêt des règles longtemps avant 50 ans"
+      },
+      {
+        "code": "305",
+        "duration_months": 12,
+        "name": "Règles jamais venues",
+        "description": "Femme adulte n’a jamais eu les règles"
+      },
+      {
+        "code": "306",
+        "duration_months": 6,
+        "name": "Infertilité inexpliquée",
+        "description": "Absence de grossesse"
+      },
+      {
+        "code": "307",
+        "duration_months": 12,
+        "name": "Fausses couches",
+        "description": "Répétées, l’enfant vient après plusieurs fausses couches"
+      },
+      {
+        "code": "308",
+        "duration_months": 12,
+        "name": "Fausses couches",
+        "description": "Systématiques, la grossesse n’aboutit jamais"
+      },
+      {
+        "code": "309",
+        "duration_months": 3,
+        "name": "Vaginisme",
+        "description": "Contraction des muscles entourant le vagin conduisant à sa fermeture et l’impossibilité des rapports"
+      },
+      {
+        "code": "310",
+        "duration_months": 3,
+        "name": "Sécheresse vaginale",
+        "description": "Provoquant des douleurs lors de l’acte intime"
+      },
+      {
+        "code": "311",
+        "duration_months": 3,
+        "name": "Infection vaginale",
+        "description": "Boutons et irritations persistants rendant l’acte pénible"
+      },
+      {
+        "code": "312",
+        "duration_months": 3,
+        "name": "Frigidité",
+        "description": "Absence de désir et de plaisir sexuels"
+      },
+      {
+        "code": "313",
+        "duration_months": 3,
+        "name": "Répulsion",
+        "description": "Colère, rejet, ne pas se supporter, refuser les rapports"
+      },
+      {
+        "code": "314",
+        "duration_months": 3,
+        "name": "Faiblesse sexuelle",
+        "description": "Perte de 50% ou plus de capacité sexuelle"
+      },
+      {
+        "code": "315",
+        "duration_months": 3,
+        "name": "Impuissance",
+        "description": "Absence d’érection permanente ou au moment des rapports ou pendant les rapports"
+      },
+      {
+        "code": "316",
+        "duration_months": 6,
+        "name": "Stérilité de l’homme",
+        "description": "Absence totale de spermatozoïdes"
+      },
+      {
+        "code": "317",
+        "duration_months": 6,
+        "name": "Stérilité de l’homme",
+        "description": "Spermatozoïdes insuffisants en nombre ou en qualité"
+      },
+      {
+        "code": "318",
+        "duration_months": 3,
+        "name": "Éjaculation précoce",
+        "description": ""
+      },
+      {
+        "code": "319",
+        "duration_months": 6,
+        "name": "Autres mâle",
+        "description": ""
+      },
+      {
+        "code": "320",
+        "duration_months": 6,
+        "name": "Autres femme",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "number": 4,
+    "title": "MALADIES MENTALES ET CEREBRALES",
+    "diseases": [
+      {
+        "code": "401",
+        "duration_months": 3,
+        "name": "Psychose",
+        "description": "Perte de contact avec la réalité (folie), délires, propos absurdes"
+      },
+      {
+        "code": "402",
+        "duration_months": 3,
+        "name": "Psychose épisodique",
+        "description": "Un moment et le patient revient à la réalité"
+      },
+      {
+        "code": "403",
+        "duration_months": 3,
+        "name": "Hallucination",
+        "description": "Visions, voix, odeurs"
+      },
+      {
+        "code": "404",
+        "duration_months": 3,
+        "name": "Dépression",
+        "description": "Le patient abandonne ses activités par découragement et s’isole"
+      },
+      {
+        "code": "405",
+        "duration_months": 3,
+        "name": "Anxiété",
+        "description": "Le patient ne peut conduire ou dormir ou rester seul ou rester dans un endroit fermé ou passer un examen. Ceci inclut la sorcellerie qui empêche ces actes"
+      },
+      {
+        "code": "406",
+        "duration_months": 3,
+        "name": "Addiction",
+        "description": "Drogues, pornographie, sexe, alcool, jeux de hasard"
+      },
+      {
+        "code": "407",
+        "duration_months": 3,
+        "name": "Rébellion",
+        "description": "Enfant désobéissant, vol, mensonge, fugue, violence, délinquance"
+      },
+      {
+        "code": "408",
+        "duration_months": 3,
+        "name": "Blocage religion",
+        "description": "Ablutions, prière, coran, prêche, voile"
+      },
+      {
+        "code": "409",
+        "duration_months": 6,
+        "name": "TOC",
+        "description": "Troubles obsessionnels compulsifs, manies fortes et handicapantes"
+      },
+      {
+        "code": "410",
+        "duration_months": 3,
+        "name": "Colère incontrôlée",
+        "description": "Causant des problèmes au foyer, au travail ou dans les relations"
+      },
+      {
+        "code": "411",
+        "duration_months": 3,
+        "name": "Instabilité émotionnelle",
+        "description": "Bipolarité, cyclothymie (passer rapidement et par cycle de l’exaltation à la mélancolie)"
+      },
+      {
+        "code": "412",
+        "duration_months": 3,
+        "name": "Pb concentration",
+        "description": "Entraînant un blocage ou un ralentissement de l’apprentissage ou du travail ; Y compris l’incapacité qui surgit lors d’un examen ou entretien"
+      },
+      {
+        "code": "413",
+        "duration_months": 3,
+        "name": "Pb de mémoire",
+        "description": "Difficulté d’apprentissage, de travail ou dans la vie"
+      },
+      {
+        "code": "414",
+        "duration_months": 3,
+        "name": "Manque de volonté",
+        "description": "Négligence, retard,"
+      },
+      {
+        "code": "415",
+        "duration_months": 6,
+        "name": "Épilepsie",
+        "description": "Perte de contrôle du corps, mouvements, tremblements, paroles, perte de connaissance ou de conscience. On ne distingue pas l’épilepsie nerveuse et la possession"
+      },
+      {
+        "code": "416",
+        "duration_months": 3,
+        "name": "Epilepsie occasionnelle",
+        "description": "Moins d’une fois par semaine, ou juste dans la ruqya"
+      },
+      {
+        "code": "417",
+        "duration_months": 6,
+        "name": "Paralysie AVC",
+        "description": "Paralysie de la moitié du corps due à un Accident Vasculaire Cérébral 1) dû à l’arrêt de la circulation du sang dans une zone du cerveau 2) ou dû à une hémorragie intracérébrale"
+      },
+      {
+        "code": "418",
+        "duration_months": 6,
+        "name": "Paralysie du visage",
+        "description": "La bouche ne se ferme plus ou l’œil ou la joue reste déformée"
+      },
+      {
+        "code": "419",
+        "duration_months": 6,
+        "name": "Paralysie inexpliquée",
+        "description": "D’une partie du corps"
+      },
+      {
+        "code": "420",
+        "duration_months": 3,
+        "name": "Retard mental",
+        "description": "Chez l’enfant, comme s’il a plusieurs années de moins. Nous n’espérons pas la guérison des pathologies de naissance, mais un pourcentage d’amélioration (%)"
+      },
+      {
+        "code": "421",
+        "duration_months": 3,
+        "name": "Enfant handicapé",
+        "description": "Dans la forme ou les fonctions de son corps (%)"
+      },
+      {
+        "code": "422",
+        "duration_months": 3,
+        "name": "Autisme",
+        "description": "La communication de l’enfant avec notre monde est absente ou imparfaite. Hyperactivité (%)"
+      },
+      {
+        "code": "423",
+        "duration_months": 12,
+        "name": "Sclérose en plaque",
+        "description": "Affaiblissement du système nerveux entraînant faiblesse musculaire, trouble de l’équilibre, diminution de la sensibilité, troubles de la mémoire et de la concentration"
+      },
+      {
+        "code": "424",
+        "duration_months": 3,
+        "name": "Acouphène",
+        "description": "Bourdonnements, sons permanents"
+      },
+      {
+        "code": "425",
+        "duration_months": 3,
+        "name": "Céphalée-migraine",
+        "description": "Mal de tête"
+      },
+      {
+        "code": "426",
+        "duration_months": 3,
+        "name": "Polyarthrite",
+        "description": "Douleurs de l’ensemble des articulations, genoux, épaules et autres"
+      },
+      {
+        "code": "427",
+        "duration_months": 3,
+        "name": "Douleur inexpliquée",
+        "description": "Autres que la tête, le ventre et le bas-ventre"
+      },
+      {
+        "code": "428",
+        "duration_months": 3,
+        "name": "Coma",
+        "description": "Inexpliqué et prolongé"
+      },
+      {
+        "code": "429",
+        "duration_months": 6,
+        "name": "Autres",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "number": 5,
+    "title": "MALADIES INFECTIEUSES",
+    "diseases": [
+      {
+        "code": "501",
+        "duration_months": 3,
+        "name": "Infection persistante",
+        "description": "Du sang, des poumons, du foie ou autre"
+      },
+      {
+        "code": "502",
+        "duration_months": 3,
+        "name": "Tuberculose persistante",
+        "description": "Les médecins ont détecté la bactérie, mais la maladie ne part pas malgré le traitement"
+      },
+      {
+        "code": "503",
+        "duration_months": 3,
+        "name": "Tuberculose non détectée",
+        "description": "Les médecins n’ont rien trouvé, mais ont déclaré que c’est la tuberculose à cause des symptômes"
+      },
+      {
+        "code": "504",
+        "duration_months": 3,
+        "name": "Fièvre typhoïde",
+        "description": "Dans 40% des cas, la bactérie n’est pas détectable"
+      },
+      {
+        "code": "505",
+        "duration_months": 3,
+        "name": "Inflammation non spécifiée",
+        "description": "Les médecins voient l’inflammation qui cause la douleur du patient mais ne trouvent aucune explication"
+      },
+      {
+        "code": "506",
+        "duration_months": 3,
+        "name": "Mort lente",
+        "description": "Le patient perd sa mobilité, son appétit et la parole sans raison médicale jusqu’à la mort"
+      }
+    ]
+  },
+  {
+    "number": 6,
+    "title": "LA POITRINE ET LES YEUX",
+    "diseases": [
+      {
+        "code": "601",
+        "duration_months": 3,
+        "name": "Poitrine serrée",
+        "description": "palpitation, difficulté à respirer, douleur au cœur ou à la poitrine"
+      },
+      {
+        "code": "602",
+        "duration_months": 3,
+        "name": "Toux persistante",
+        "description": ""
+      },
+      {
+        "code": "603",
+        "duration_months": 6,
+        "name": "Kystes",
+        "description": "dans les seins ou les aisselles"
+      },
+      {
+        "code": "604",
+        "duration_months": 3,
+        "name": "Eau dans les poumons",
+        "description": "Entraînant l’asphyxie comme une noyade"
+      },
+      {
+        "code": "605",
+        "duration_months": 3,
+        "name": "Baisse de la vision",
+        "description": ""
+      },
+      {
+        "code": "606",
+        "duration_months": 6,
+        "name": "Glaucome",
+        "description": "Le glaucome est une dégénérescence irréversible du nerf optique. Nous n’avons jamais pu le guérir, mais nous essayons de stopper sa progression"
+      },
+      {
+        "code": "607",
+        "duration_months": 6,
+        "name": "Perte de la vision",
+        "description": "Décollement de la rétine, voile sur les yeux, autre raison"
+      },
+      {
+        "code": "608",
+        "duration_months": 6,
+        "name": "Cécité inexpliquée",
+        "description": "L’œil est totalement sain, mais la personne ne voit pas"
+      },
+      {
+        "code": "609",
+        "duration_months": 6,
+        "name": "Autres",
+        "description": ""
+      }
+    ]
+  },
+  {
+    "number": 7,
+    "title": "MALADIES HEREDITAIRES ET CANCER",
+    "diseases": [
+      {
+        "code": "701",
+        "duration_months": 6,
+        "name": "Drépanocytose",
+        "description": "Maladie héréditaire des globules rouges"
+      },
+      {
+        "code": "702",
+        "duration_months": 6,
+        "name": "Hémophilie",
+        "description": "Le sang ne coagule pas, les coupures se cicatrisent très difficilement"
+      },
+      {
+        "code": "703",
+        "duration_months": 6,
+        "name": "Maladies orphelines",
+        "description": "Maladies rares touchant moins de 5 personnes sur 10 000 et ne bénéficiant pas de traitement efficace"
+      },
+      {
+        "code": "704",
+        "duration_months": 6,
+        "name": "Autre héréditaire",
+        "description": ""
+      },
+      {
+        "code": "705",
+        "duration_months": 6,
+        "name": "Cancer début",
+        "description": "Le patient n’a pas commencé de traitement médical"
+      },
+      {
+        "code": "706",
+        "duration_months": 6,
+        "name": "Cancer en traitement",
+        "description": "Le protocole médical a des chances raisonnables de réussir"
+      },
+      {
+        "code": "707",
+        "duration_months": 6,
+        "name": "Cancer dominant",
+        "description": "La médecine n’a plus de solution"
+      },
+      {
+        "code": "708",
+        "duration_months": 6,
+        "name": "Toute autre",
+        "description": "Maladie n’entrant dans aucune catégorie précédente"
+      }
+    ]
+  },
+  {
+    "number": 8,
+    "title": "BLOCAGES",
+    "diseases": [
+      {
+        "code": "801",
+        "duration_months": 3,
+        "name": "Travail",
+        "description": "Tous les cas ci-dessous"
+      },
+      {
+        "code": "802",
+        "duration_months": 3,
+        "name": "Argent",
+        "description": "Tous les cas ci-dessous"
+      },
+      {
+        "code": "803",
+        "duration_months": 6,
+        "name": "Administratif",
+        "description": "Tous les cas"
+      },
+      {
+        "code": "804",
+        "duration_months": 12,
+        "name": "Mariage",
+        "description": "Tous les cas ci-dessous"
+      }
+    ]
+  }
+]

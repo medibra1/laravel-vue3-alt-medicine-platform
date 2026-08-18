@@ -1,0 +1,25 @@
+/vendor
+/node_modules
+/public/build
+/public/hot
+/storage/*.key
+.env
+.env.backup
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea
+/.vscode
+.DS_Store
+
+# Contexte de continuité Claude Code — jamais poussé (même convention
+# qu'InvoicePro et Geneva Bengal), voir raisonnement dans l'historique
+# de conversation si besoin de le rejustifier.
+CLAUDE.md
+
+# Jamais de versions figées à l'avance dans le scaffold initial — le
+# premier install résout vers les dernières stables. Une fois posé par
+# Claude Code, ces lock files DOIVENT être committés (comportement normal).
+

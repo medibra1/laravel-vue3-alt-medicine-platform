@@ -1,0 +1,86 @@
+{
+  "801": [
+    {
+      "label": "Pas de travail",
+      "description": "Le patient ne trouve pas de travail ou le travail ne dure pas"
+    },
+    {
+      "label": "Travail médiocre",
+      "description": "Le travail est sous la qualification ou le patient est exploité"
+    },
+    {
+      "label": "Stagnation au travail",
+      "description": "Pas de promotion, les nouveaux le dépassent, le travail ne se développe pas"
+    },
+    {
+      "label": "Problèmes avec les supérieurs",
+      "description": "Ils bloquent la carrière du patient"
+    },
+    {
+      "label": "Collègues ou employés",
+      "description": "Ils créent des problèmes au patient"
+    },
+    {
+      "label": "Problèmes au travail",
+      "description": "Machines, clients, paiements…"
+    }
+  ],
+  "802": [
+    {
+      "label": "Argent dépensé inutilement",
+      "description": "Le patient va tout dépenser dès qu'il touche l'argent"
+    },
+    {
+      "label": "Argent pris par les problèmes",
+      "description": "Des imprévus surgissent dès que l'argent vient"
+    },
+    {
+      "label": "Argent disparaît",
+      "description": "Des poches ou de la maison"
+    },
+    {
+      "label": "Revenus instables",
+      "description": "Quand il a une somme, il ne peut plus rien gagner jusqu'à la finir"
+    }
+  ],
+  "803": [
+    {
+      "label": "Papiers",
+      "description": null
+    },
+    {
+      "label": "Voyage",
+      "description": null
+    },
+    {
+      "label": "Inscription",
+      "description": null
+    },
+    {
+      "label": "Démarches",
+      "description": null
+    }
+  ],
+  "804": [
+    {
+      "label": "Désintérêt général",
+      "description": "Personne ne s'intéresse au patient"
+    },
+    {
+      "label": "Prétendants inadéquats",
+      "description": "Seules les personnes inadéquates viennent"
+    },
+    {
+      "label": "Rejet familial",
+      "description": "La personne n'est pas acceptée par la famille"
+    },
+    {
+      "label": "Rupture de la relation",
+      "description": "La relation coupe après un temps, après les rapports, quand ils parlent de mariage, ou à l'approche du mariage"
+    },
+    {
+      "label": "Divorces répétés",
+      "description": "Le divorce survient chaque fois"
+    }
+  ]
+}
