@@ -123,4 +123,19 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Initial Super Admin
+    |--------------------------------------------------------------------------
+    |
+    | Used by SuperAdminSeeder to bootstrap the first super_admin account —
+    | there's no admin UI to create one yet.
+    |
+    */
+
+    'super_admin' => [
+        'email' => env('SUPER_ADMIN_EMAIL'),
+        'password' => env('SUPER_ADMIN_PASSWORD'),
+    ],
+
 ];

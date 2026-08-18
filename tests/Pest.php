@@ -1,6 +1,10 @@
 <?php
 
+use App\Domains\Auth\Models\User;
+use App\Domains\Core\Models\Center;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /*
@@ -29,10 +33,6 @@ pest()->extend(TestCase::class)
 |
 */
 
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
-});
-
 /*
 |--------------------------------------------------------------------------
 | Functions
@@ -44,7 +44,66 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * The permission set used across the Practitioners domain — defined
+ * here rather than relying on RolesAndPermissionsSeeder so tests stay
+ * fast (RefreshDatabase, no full seed) and explicit about what they need.
+ */
+function grantPractitionerPermissions(): void
 {
-    // ..
+    collect([
+        'practitioners.viewAny',
+        'practitioners.view',
+        'practitioners.create',
+        'practitioners.update',
+        'practitioners.delete',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
+ * A global super_admin, mirroring RolesAndPermissionsSeeder's sentinel
+ * team-pivot pattern (see User::isSuperAdmin()).
+ */
+function actingAsSuperAdmin(): User
+{
+    grantPractitionerPermissions();
+
+    $user = User::factory()->create();
+
+    $role = Role::query()->firstOrCreate(
+        ['name' => 'super_admin', 'guard_name' => 'web', 'team_id' => null],
+    );
+    $role->syncPermissions(Permission::all());
+
+    setPermissionsTeamId(0);
+    $user->assignRole('super_admin');
+    setPermissionsTeamId(null);
+
+    return $user;
+}
+
+/**
+ * A manager scoped to a single center via a team-pivoted 'manager' role
+ * — mirrors how EnsureCenterAccess resolves the active team at request
+ * time via User::managedCenterId().
+ */
+function actingAsManagerOf(Center $center): User
+{
+    grantPractitionerPermissions();
+
+    $user = User::factory()->create();
+
+    setPermissionsTeamId($center->id);
+    $role = Role::findOrCreate('manager', 'web');
+    $role->syncPermissions([
+        'practitioners.viewAny',
+        'practitioners.view',
+        'practitioners.create',
+        'practitioners.update',
+        'practitioners.delete',
+    ]);
+    $user->assignRole('manager');
+    setPermissionsTeamId(null);
+
+    return $user;
 }

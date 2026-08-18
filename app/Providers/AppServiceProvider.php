@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -46,6 +47,18 @@ class AppServiceProvider extends ServiceProvider
             $domain = $segments->implode('\\');
 
             return "App\\Domains\\{$domain}\\Models\\{$model}";
+        });
+
+        // Same story for policies: App\Domains\{Domain}\Models\{Model} ->
+        // App\Domains\{Domain}\Policies\{Model}Policy. Laravel's built-in
+        // guesser only handles a bare "\Models\" segment, not one nested
+        // this deep under Domains.
+        Gate::guessPolicyNamesUsing(function (string $modelName) {
+            $path = Str::of($modelName)
+                ->after('App\\Domains\\')
+                ->replace('\\Models\\', '\\Policies\\');
+
+            return "App\\Domains\\{$path}Policy";
         });
     }
 }
