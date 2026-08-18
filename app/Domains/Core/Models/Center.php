@@ -5,12 +5,15 @@ namespace App\Domains\Core\Models;
 use App\Domains\Billing\Models\Employment;
 use App\Domains\Core\Enums\PayrollMode;
 use App\Domains\Practitioners\Models\Practitioner;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Center extends Model
 {
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $casts = ['active' => 'bool', 'payroll_mode' => PayrollMode::class];

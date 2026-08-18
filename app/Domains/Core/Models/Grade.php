@@ -3,13 +3,14 @@
 namespace App\Domains\Core\Models;
 
 use App\Domains\Practitioners\Models\Practitioner;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
 
 class Grade extends Model
 {
-    use HasTranslations;
+    use HasFactory, HasTranslations;
 
     protected $guarded = ['id'];
 

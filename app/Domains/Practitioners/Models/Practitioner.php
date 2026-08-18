@@ -9,6 +9,7 @@ use App\Domains\Billing\Models\PayPeriodShare;
 use App\Domains\Billing\Models\SalaryAdvance;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Grade;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,7 +17,7 @@ use Spatie\ModelStatus\HasStatuses;
 
 class Practitioner extends Model
 {
-    use HasStatuses;
+    use HasFactory, HasStatuses;
 
     protected $guarded = ['id', 'full_code'];
 
