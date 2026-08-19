@@ -2,7 +2,7 @@ import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import Aura from '@primeuix/themes/aura';
+import Aura from '@primevue/themes/aura';
 import PrimeVue from 'primevue/config';
 import { createApp, DefineComponent, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';

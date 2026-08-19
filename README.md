@@ -17,7 +17,7 @@ README aussi.
 
 ## Stack
 
-- **Backend** : Laravel 13, PHP 8.3+, MySQL 8, `spatie/laravel-permission`
+- **Backend** : Laravel 13, PHP 8.4+, MySQL 8, `spatie/laravel-permission`
   (mode teams — un manager par centre), `spatie/laravel-model-status`
   (statuts historisés), `spatie/laravel-translatable` (contenu
   multilingue), système `EnumOption`/`ModelOption` maison (options
@@ -73,7 +73,10 @@ spécifiques à Patients, zéro régression), 4 tests Vitest (composable
 d'autosave), `pint --test` clean, Larastan niveau 5 clean, et parcours
 navigateur réel vérifié (Playwright headless) : création → autosave →
 confirmation → apparition dans la liste. Premier domaine à implémenter
-le pattern "wizard résilient" (voir `CLAUDE.md`).
+le pattern "wizard résilient" (voir `CLAUDE.md`). Cette vérification
+navigateur a aussi révélé et corrigé une dérive `package.json` : `primevue`
+avait glissé vers `^5.0.1` (licence payante depuis PrimeVue 5) ; refixé
+sur `^4.5` (MIT) — voir `CLAUDE.md` "Politique de versions".
 
 **Système de paie** : deux modes au choix par centre (`payroll_mode`) —
 répartition d'une cagnotte par présence/coefficient (implémenté,
