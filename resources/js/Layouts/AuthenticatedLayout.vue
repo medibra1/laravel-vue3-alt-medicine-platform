@@ -39,6 +39,18 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    :href="route('admin.patients.index')"
+                                    :active="route().current('admin.patients.*')"
+                                >
+                                    Patients
+                                </NavLink>
+                                <NavLink
+                                    :href="route('admin.practitioners.index')"
+                                    :active="route().current('admin.practitioners.*')"
+                                >
+                                    Practitioners
+                                </NavLink>
                             </div>
                         </div>
 
@@ -145,6 +157,18 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('dashboard')"
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('admin.patients.index')"
+                            :active="route().current('admin.patients.*')"
+                        >
+                            Patients
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('admin.practitioners.index')"
+                            :active="route().current('admin.practitioners.*')"
+                        >
+                            Practitioners
                         </ResponsiveNavLink>
                     </div>
 

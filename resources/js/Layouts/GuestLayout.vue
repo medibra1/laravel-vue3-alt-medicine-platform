@@ -4,19 +4,17 @@ import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <div
-        class="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0"
-    >
-        <div>
-            <Link href="/">
-                <ApplicationLogo class="h-20 w-20 fill-current text-gray-500" />
-            </Link>
-        </div>
+    <v-app>
+        <v-main class="bg-grey-lighten-4">
+            <v-container class="d-flex flex-column align-center justify-center" style="min-height: 100vh">
+                <Link href="/" class="mb-6">
+                    <ApplicationLogo class="h-16 w-16 fill-current text-grey-darken-1" style="height: 4rem; width: 4rem" />
+                </Link>
 
-        <div
-            class="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg"
-        >
-            <slot />
-        </div>
-    </div>
+                <v-card class="w-100 pa-6" max-width="440" elevation="2">
+                    <slot />
+                </v-card>
+            </v-container>
+        </v-main>
+    </v-app>
 </template>
