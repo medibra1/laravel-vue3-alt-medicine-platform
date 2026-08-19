@@ -2,12 +2,15 @@
 
 namespace App\Domains\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
 
 class Country extends Model
 {
-    use HasTranslations;
+    use HasFactory, HasTranslations;
 
     protected $guarded = ['id'];
 
@@ -15,12 +18,14 @@ class Country extends Model
 
     public array $translatable = ['name'];
 
-    public function zone()
+    /** @return BelongsTo<Zone, $this> */
+    public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
     }
 
-    public function centers()
+    /** @return HasMany<Center, $this> */
+    public function centers(): HasMany
     {
         return $this->hasMany(Center::class);
     }

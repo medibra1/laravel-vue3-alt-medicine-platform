@@ -7,9 +7,7 @@ use App\Domains\Practitioners\Services\PractitionerCodeGenerator;
 
 class PractitionerObserver
 {
-    public function __construct(private readonly PractitionerCodeGenerator $codeGenerator)
-    {
-    }
+    public function __construct(private readonly PractitionerCodeGenerator $codeGenerator) {}
 
     public function saving(Practitioner $practitioner): void
     {
