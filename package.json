@@ -8,30 +8,30 @@
         "test": "vitest run"
     },
     "devDependencies": {
-        "@inertiajs/vue3": "^2.0.0",
-        "@tailwindcss/forms": "^0.5.11",
+        "@inertiajs/vue3": "^3.7.0",
         "@tailwindcss/vite": "^4.3.3",
         "@vitejs/plugin-vue": "^6.0.0",
+        "@vue/server-renderer": "^3.4.0",
         "@vue/test-utils": "^2.4.11",
         "jsdom": "^30.0.1",
         "laravel-vite-plugin": "^3.1",
         "tailwindcss": "^4.3.3",
-        "typescript": "^5.6.3",
+        "typescript": "^6.0.3",
         "vite": "^8.0.0",
         "vitest": "^4.1.10",
         "vue": "^3.4.0",
-        "vue-tsc": "^2.0.24"
+        "vue-tsc": "^3.3.10"
     },
     "dependencies": {
-        "@primeuix/themes": "^1.2.5",
-        "@vueuse/core": "^11.3.0",
+        "@primeuix/themes": "^3.0.0",
+        "@vueuse/core": "^14.4.0",
         "chart.js": "^4.5.1",
         "dexie": "^4.0.9",
-        "primeicons": "^7.0.0",
-        "primevue": "^4.5.5",
+        "primeicons": "^8.0.0",
+        "primevue": "^5.0.1",
         "vee-validate": "^4.15.1",
         "vue-i18n": "^11.4.8",
         "ziggy-js": "^2.6.3",
-        "zod": "^3.25.76"
+        "zod": "^4.4.3"
     }
 }

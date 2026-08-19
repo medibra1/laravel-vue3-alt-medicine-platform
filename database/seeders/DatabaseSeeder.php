@@ -19,8 +19,8 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             GradeSeeder::class,
             DiseaseCategorySeeder::class,
-            // RolesAndPermissionsSeeder::class,   // to add with the Auth domain
-            // SuperAdminSeeder::class,             // same — bootstraps the first account
+            RolesAndPermissionsSeeder::class,
+            SuperAdminSeeder::class,
         ]);
     }
 }

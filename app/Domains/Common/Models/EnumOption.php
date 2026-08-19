@@ -42,7 +42,7 @@ class EnumOption extends Model
      */
     public static function cachedByType(string $enumType, ?string $domain = null)
     {
-        $cacheKey = "enum_options:{$enumType}" . ($domain ? ":{$domain}" : '');
+        $cacheKey = "enum_options:{$enumType}".($domain ? ":{$domain}" : '');
 
         return Cache::rememberForever($cacheKey, function () use ($enumType, $domain) {
             return static::query()
@@ -56,7 +56,7 @@ class EnumOption extends Model
 
     public static function flushCache(string $enumType, ?string $domain = null): void
     {
-        Cache::forget("enum_options:{$enumType}" . ($domain ? ":{$domain}" : ''));
+        Cache::forget("enum_options:{$enumType}".($domain ? ":{$domain}" : ''));
     }
 
     protected static function booted(): void
