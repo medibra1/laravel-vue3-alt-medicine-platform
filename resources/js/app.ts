@@ -2,9 +2,8 @@ import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import Aura from '@primeuix/themes/aura';
-import PrimeVue from 'primevue/config';
 import { createApp, DefineComponent, h } from 'vue';
+import { vuetify } from '@/lib/vuetify';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -20,12 +19,7 @@ createInertiaApp({
         createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
-            .use(PrimeVue, {
-                theme: {
-                    preset: Aura,
-                    options: { darkModeSelector: '.dark' },
-                },
-            })
+            .use(vuetify)
             .mount(el);
     },
     progress: {

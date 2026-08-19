@@ -57,7 +57,10 @@ app/
 │   │   │   ├── Practitioner.php
 │   │   │   └── PractitionerAttendance.php   # présence jour par jour, source de vérité pour la paie
 │   │   ├── Http/
-│   │   │   └── Controllers/Admin/PractitionerController.php
+│   │   │   ├── Controllers/Admin/PractitionerController.php
+│   │   │   └── Requests/
+│   │   │       ├── StorePractitionerRequest.php   # center_id forcé/prohibé selon super_admin ou manager
+│   │   │       └── UpdatePractitionerRequest.php
 │   │   ├── Services/
 │   │   │   └── PractitionerCodeGenerator.php   # calcule full_code (pays+centre+diplôme)
 │   │   ├── Observers/
@@ -67,7 +70,7 @@ app/
 │   │
 │   ├── Patients/
 │   │   ├── Models/
-│   │   │   ├── Patient.php
+│   │   │   ├── Patient.php                       # HasStatuses draft/confirmed — voir CLAUDE.md
 │   │   │   ├── ExternalMedicalRecord.php
 │   │   │   ├── DiseaseCategory.php
 │   │   │   ├── Disease.php
@@ -75,14 +78,14 @@ app/
 │   │   │   └── TreatmentSession.php
 │   │   ├── Http/
 │   │   │   ├── Controllers/Admin/
-│   │   │   │   ├── PatientController.php
+│   │   │   │   ├── PatientController.php         # index/create/edit/storeDraft/updateDraft/confirm/destroy
 │   │   │   │   ├── TreatmentController.php
 │   │   │   │   └── DiseaseController.php
 │   │   │   └── Requests/
-│   │   │       ├── PatientDraftStepRequest.php   # autosave par étape (wizard)
+│   │   │       ├── StorePatientDraftRequest.php  # validation relâchée (pas de required)
+│   │   │       ├── UpdatePatientDraftRequest.php # idem
+│   │   │       ├── ConfirmPatientRequest.php     # vraie validation required, draft -> confirmed
 │   │   │       └── StoreTreatmentRequest.php
-│   │   ├── Services/
-│   │   │   └── PatientWizardDraftService.php     # logique brouillon/validation finale
 │   │   ├── Policies/
 │   │   │   ├── PatientPolicy.php
 │   │   │   └── TreatmentPolicy.php
@@ -200,6 +203,16 @@ tests/
         ├── Catalog/...
         ├── Billing/...
         └── Reporting/...
+
+resources/js/
+├── lib/
+│   ├── db.ts                          # Dexie/IndexedDB — DB app-wide, une table par resource
+│   └── http.ts                        # wrapper fetch minimal (pas d'axios dans ce projet)
+├── composables/
+│   └── useResilientForm.ts            # autosave local+serveur, voir CLAUDE.md — Patient en est le premier consommateur, Treatment le prochain
+└── Pages/Admin/{Domain}/
+    ├── Index.vue                      # liste DataTable, filtre/tri/pagination server-side
+    └── Form.vue / Create.vue+Edit.vue # selon si create/edit partagent la même logique d'autosave (les deux plient vers un seul composant si c'est le cas)
 ```
 
 ## Décisions notables
@@ -219,3 +232,9 @@ tests/
   fichier ne connaît que les routes de son domaine, chargé depuis
   `RouteServiceProvider::boot()` avec le bon groupe de middleware
   (`role:manager`, `permission:...`, préfixe `/admin/{domain}`...).
+- **`Http/Requests/` par domaine** — non prévu dans le plan initial,
+  ajouté en pratique dès `Practitioners` (FormRequests dédiées pour la
+  validation scopée manager↔centre). Pattern à reprendre pour les
+  prochains domaines dès qu'un controller a une validation non triviale
+  (scoping, règles conditionnelles selon le rôle) plutôt que de valider
+  inline dans le controller.

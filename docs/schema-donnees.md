@@ -78,17 +78,44 @@ is_active · timestamps
 Statut (actif/inactif) → `spatie/laravel-model-status` (`HasStatuses`),
 plus l'historique associé (utile pour tracer une suspension temporaire).
 
+Unicité en deux temps : `full_code` est unique en base (contrainte SQL,
+dernier filet de sécurité), mais la validation formulaire porte sur
+`diploma_number` scopé par `center_id`
+(`Rule::unique('practitioners')->where('center_id', ...)` dans
+`StorePractitionerRequest`) — c'est ce champ que l'utilisateur saisit
+réellement, `full_code` étant généré. Valider le champ saisi plutôt que
+le champ généré évite qu'un doublon remonte comme une exception SQL au
+lieu d'une erreur de formulaire.
+
 ---
 
 ## 3. Patients
 
 ### `patients`
-id · first_name · last_name · gender · birth_date, nullable · phone ·
-email, nullable · city · country_id, nullable (résidence) ·
-intake_center_id (fk `centers`, centre d'accueil initial) ·
+id · client_uuid, uuid nullable unique (généré côté client au premier
+brouillon, voir plus bas) · first_name, nullable · last_name, nullable ·
+gender, nullable · birth_date, nullable · phone, nullable · email,
+nullable · city, nullable · country_id, nullable (résidence) ·
+intake_center_id (fk `centers`, centre d'accueil initial, seul champ
+métier requis dès la création du brouillon avec `created_by`) ·
 emergency_contact_name, nullable · emergency_contact_phone, nullable ·
-notes · created_by (fk `users`) · timestamps
-→ statut (draft/confirmed) via `spatie/laravel-model-status`
+notes, nullable · created_by (fk `users`) · timestamps
+→ statut (draft/confirmed) via `spatie/laravel-model-status` — premier
+usage réel du trait dans la codebase (voir CLAUDE.md).
+
+⚠️ Presque toutes les colonnes métier sont nullable en base — volontaire,
+conséquence directe du wizard résilient (CLAUDE.md "UX — wizards
+résilients") : un brouillon peut être incomplet par construction. La
+validation `required` (first_name/last_name/gender/phone/city/
+intake_center_id) n'existe qu'au niveau applicatif, dans
+`ConfirmPatientRequest`, déclenchée uniquement à la transition
+`draft` → `confirmed`.
+
+`client_uuid` rend le tout premier `POST` (création du brouillon)
+idempotent côté serveur — voir `PatientController::storeDraft()` :
+si la réponse HTTP est perdue et que le frontend retente avec le même
+`client_uuid`, le serveur retrouve le brouillon existant au lieu d'en
+créer un doublon.
 
 ### `patients_external_medical_records`
 **Historique médical conventionnel** (médecin/hôpital), pour comparaison
