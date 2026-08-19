@@ -61,12 +61,27 @@ function grantPractitionerPermissions(): void
 }
 
 /**
+ * Same idea as grantPractitionerPermissions(), for the Patients domain.
+ */
+function grantPatientPermissions(): void
+{
+    collect([
+        'patients.viewAny',
+        'patients.view',
+        'patients.create',
+        'patients.update',
+        'patients.delete',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
  * A global super_admin, mirroring RolesAndPermissionsSeeder's sentinel
  * team-pivot pattern (see User::isSuperAdmin()).
  */
 function actingAsSuperAdmin(): User
 {
     grantPractitionerPermissions();
+    grantPatientPermissions();
 
     $user = User::factory()->create();
 
@@ -90,6 +105,7 @@ function actingAsSuperAdmin(): User
 function actingAsManagerOf(Center $center): User
 {
     grantPractitionerPermissions();
+    grantPatientPermissions();
 
     $user = User::factory()->create();
 
@@ -101,6 +117,11 @@ function actingAsManagerOf(Center $center): User
         'practitioners.create',
         'practitioners.update',
         'practitioners.delete',
+        'patients.viewAny',
+        'patients.view',
+        'patients.create',
+        'patients.update',
+        'patients.delete',
     ]);
     $user->assignRole('manager');
     setPermissionsTeamId(null);
