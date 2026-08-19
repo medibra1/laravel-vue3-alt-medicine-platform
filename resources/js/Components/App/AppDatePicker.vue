@@ -2,9 +2,11 @@
 withDefaults(
     defineProps<{
         modelValue: Date | null;
+        label?: string;
         error?: string | null;
     }>(),
     {
+        label: undefined,
         error: null,
     },
 );
@@ -15,8 +17,8 @@ defineEmits<{ 'update:modelValue': [value: Date | null] }>();
 <template>
     <v-date-input
         :model-value="modelValue"
+        :label="label"
         :error-messages="error ?? undefined"
-        density="compact"
         variant="outlined"
         hide-details="auto"
         prepend-icon=""

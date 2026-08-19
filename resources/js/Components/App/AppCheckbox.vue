@@ -11,7 +11,6 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>();
     <v-checkbox
         :model-value="modelValue"
         :label="label"
-        density="compact"
         hide-details="auto"
         @update:model-value="$emit('update:modelValue', Boolean($event))"
     />

@@ -15,11 +15,25 @@ const indigoTheme = {
     },
 };
 
+const indigoThemeDark = {
+    dark: true,
+    colors: {
+        primary: '#818CF8',
+        secondary: '#9CA3AF',
+        error: '#F87171',
+        success: '#4ADE80',
+        warning: '#FBBF24',
+        background: '#111827',
+        surface: '#1F2937',
+    },
+};
+
 export const vuetify = createVuetify({
     theme: {
         defaultTheme: 'indigoTheme',
         themes: {
             indigoTheme,
+            indigoThemeDark,
         },
     },
     locale: {

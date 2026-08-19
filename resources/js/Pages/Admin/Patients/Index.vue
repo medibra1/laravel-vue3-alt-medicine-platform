@@ -83,77 +83,59 @@ function destroy(patient: Patient) {
     <Head title="Patients" />
 
     <AuthenticatedLayout>
-        <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                Patients
-            </h2>
-        </template>
+        <template #header>Patients</template>
 
-        <div class="py-6">
-            <div class="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="flex flex-col gap-1">
-                        <label
-                            for="filter-first-name"
-                            class="text-sm text-gray-600"
-                            >Prénom</label
-                        >
-                        <AppInputText
-                            id="filter-first-name"
-                            v-model="search.first_name"
-                            @keyup.enter="reload()"
-                        />
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label
-                            for="filter-last-name"
-                            class="text-sm text-gray-600"
-                            >Nom</label
-                        >
-                        <AppInputText
-                            id="filter-last-name"
-                            v-model="search.last_name"
-                            @keyup.enter="reload()"
-                        />
-                    </div>
-                    <AppButton label="Filtrer" @click="reload()" />
-                    <Link :href="route('admin.patients.create')" class="ms-auto">
-                        <AppButton label="Nouveau patient" as="span" />
-                    </Link>
-                </div>
-
-                <div class="rounded-lg bg-white shadow">
-                    <AppDataTable
-                        :value="patients.data"
-                        :columns="columns"
-                        :rows="patients.per_page"
-                        :total-records="patients.total"
-                        :page="patients.current_page"
-                        @page="onPage"
-                        @sort="onSort"
-                    >
-                        <template #column-center="{ item }">{{ item.center?.name }}</template>
-                        <template #actions="{ item }">
-                            <div class="flex gap-2">
-                                <Link :href="route('admin.patients.edit', item.id)">
-                                    <AppButton
-                                        label="Modifier"
-                                        severity="secondary"
-                                        size="small"
-                                        as="span"
-                                    />
-                                </Link>
-                                <AppButton
-                                    label="Supprimer"
-                                    severity="danger"
-                                    size="small"
-                                    @click="destroy(item)"
-                                />
-                            </div>
-                        </template>
-                    </AppDataTable>
-                </div>
+        <div class="d-flex flex-column ga-4">
+            <div class="d-flex flex-wrap align-end ga-3">
+                <AppInputText
+                    id="filter-first-name"
+                    v-model="search.first_name"
+                    label="Prénom"
+                    @keyup.enter="reload()"
+                />
+                <AppInputText
+                    id="filter-last-name"
+                    v-model="search.last_name"
+                    label="Nom"
+                    @keyup.enter="reload()"
+                />
+                <AppButton label="Filtrer" @click="reload()" />
+                <Link :href="route('admin.patients.create')" class="ms-auto">
+                    <AppButton label="Nouveau patient" as="span" />
+                </Link>
             </div>
+
+            <v-card>
+                <AppDataTable
+                    :value="patients.data"
+                    :columns="columns"
+                    :rows="patients.per_page"
+                    :total-records="patients.total"
+                    :page="patients.current_page"
+                    @page="onPage"
+                    @sort="onSort"
+                >
+                    <template #column-center="{ item }">{{ item.center?.name }}</template>
+                    <template #actions="{ item }">
+                        <div class="d-flex ga-2">
+                            <Link :href="route('admin.patients.edit', item.id)">
+                                <AppButton
+                                    label="Modifier"
+                                    severity="secondary"
+                                    size="small"
+                                    as="span"
+                                />
+                            </Link>
+                            <AppButton
+                                label="Supprimer"
+                                severity="danger"
+                                size="small"
+                                @click="destroy(item)"
+                            />
+                        </div>
+                    </template>
+                </AppDataTable>
+            </v-card>
         </div>
     </AuthenticatedLayout>
 </template>

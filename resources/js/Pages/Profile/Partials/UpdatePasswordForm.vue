@@ -36,53 +36,47 @@ const updatePassword = () => {
 <template>
     <section>
         <header>
-            <h2 class="text-lg font-medium text-gray-900">
+            <h2 class="text-h6 font-weight-medium">
                 Update Password
             </h2>
 
-            <p class="mt-1 text-sm text-gray-600">
+            <p class="text-body-2 text-medium-emphasis mt-1">
                 Ensure your account is using a long, random password to stay
                 secure.
             </p>
         </header>
 
-        <form @submit.prevent="updatePassword" class="mt-6 space-y-6">
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Current Password</label>
-                <AppInputText
-                    id="current_password"
-                    ref="currentPasswordInput"
-                    v-model="form.current_password"
-                    type="password"
-                    autocomplete="current-password"
-                    :error="form.errors.current_password"
-                />
-            </div>
+        <form @submit.prevent="updatePassword" class="d-flex flex-column ga-4 mt-6">
+            <AppInputText
+                id="current_password"
+                ref="currentPasswordInput"
+                v-model="form.current_password"
+                type="password"
+                label="Current Password"
+                autocomplete="current-password"
+                :error="form.errors.current_password"
+            />
 
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">New Password</label>
-                <AppInputText
-                    id="password"
-                    ref="passwordInput"
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="new-password"
-                    :error="form.errors.password"
-                />
-            </div>
+            <AppInputText
+                id="password"
+                ref="passwordInput"
+                v-model="form.password"
+                type="password"
+                label="New Password"
+                autocomplete="new-password"
+                :error="form.errors.password"
+            />
 
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Confirm Password</label>
-                <AppInputText
-                    id="password_confirmation"
-                    v-model="form.password_confirmation"
-                    type="password"
-                    autocomplete="new-password"
-                    :error="form.errors.password_confirmation"
-                />
-            </div>
+            <AppInputText
+                id="password_confirmation"
+                v-model="form.password_confirmation"
+                type="password"
+                label="Confirm Password"
+                autocomplete="new-password"
+                :error="form.errors.password_confirmation"
+            />
 
-            <div class="flex items-center gap-4">
+            <div class="d-flex align-center ga-4">
                 <AppButton type="submit" label="Save" :loading="form.processing" />
 
                 <Transition
@@ -93,7 +87,7 @@ const updatePassword = () => {
                 >
                     <p
                         v-if="form.recentlySuccessful"
-                        class="text-sm text-gray-600"
+                        class="text-body-2 text-medium-emphasis"
                     >
                         Saved.
                     </p>

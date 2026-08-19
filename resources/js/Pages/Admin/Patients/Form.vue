@@ -120,98 +120,66 @@ async function confirmPatient() {
     <Head :title="patient ? 'Modifier le patient' : 'Nouveau patient'" />
 
     <AuthenticatedLayout>
-        <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">
-                {{ patient ? 'Modifier le patient' : 'Nouveau patient' }}
-            </h2>
-        </template>
+        <template #header>{{ patient ? 'Modifier le patient' : 'Nouveau patient' }}</template>
 
-        <div class="py-6">
-            <div class="mx-auto max-w-2xl space-y-4 px-4 sm:px-6 lg:px-8">
-                <p class="text-sm text-gray-500">{{ savedLabel }}</p>
+        <div class="mx-auto" style="max-width: 640px">
+            <p class="text-body-2 text-medium-emphasis mb-4">{{ savedLabel }}</p>
 
-                <form class="flex flex-col gap-4 rounded-lg bg-white p-6 shadow" @submit.prevent="confirmPatient">
-                    <div v-if="centers.length" class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Centre d'accueil</label>
+            <v-card>
+                <v-card-text>
+                    <form class="d-flex flex-column ga-4" @submit.prevent="confirmPatient">
                         <AppSelect
+                            v-if="centers.length"
                             v-model="form.intake_center_id"
                             :options="centers"
                             option-label="name"
                             option-value="id"
+                            label="Centre d'accueil"
                             placeholder="Choisir un centre"
                             :error="confirmErrors.intake_center_id"
                         />
-                    </div>
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Prénom</label>
-                        <AppInputText v-model="form.first_name" :error="confirmErrors.first_name" />
-                    </div>
+                        <AppInputText v-model="form.first_name" label="Prénom" :error="confirmErrors.first_name" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Nom</label>
-                        <AppInputText v-model="form.last_name" :error="confirmErrors.last_name" />
-                    </div>
+                        <AppInputText v-model="form.last_name" label="Nom" :error="confirmErrors.last_name" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Genre</label>
                         <AppSelect
                             v-model="form.gender"
                             :options="genderOptions"
                             option-label="label"
                             option-value="value"
+                            label="Genre"
                             show-clear
                             placeholder="Non renseigné"
                             :error="confirmErrors.gender"
                         />
-                    </div>
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Date de naissance</label>
-                        <AppDatePicker v-model="birthDateBinding" />
-                    </div>
+                        <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Téléphone</label>
-                        <AppInputText v-model="form.phone" :error="confirmErrors.phone" />
-                    </div>
+                        <AppInputText v-model="form.phone" label="Téléphone" :error="confirmErrors.phone" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Email</label>
-                        <AppInputText v-model="form.email" type="email" />
-                    </div>
+                        <AppInputText v-model="form.email" type="email" label="Email" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Ville</label>
-                        <AppInputText v-model="form.city" :error="confirmErrors.city" />
-                    </div>
+                        <AppInputText v-model="form.city" label="Ville" :error="confirmErrors.city" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Contact d'urgence — nom</label>
-                        <AppInputText v-model="form.emergency_contact_name" />
-                    </div>
+                        <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Contact d'urgence — téléphone</label>
-                        <AppInputText v-model="form.emergency_contact_phone" />
-                    </div>
+                        <AppInputText v-model="form.emergency_contact_phone" label="Contact d'urgence — téléphone" />
 
-                    <div class="flex flex-col gap-1">
-                        <label class="text-sm text-gray-600">Notes</label>
-                        <AppTextarea v-model="form.notes" :rows="3" />
-                    </div>
+                        <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
 
-                    <div class="flex justify-end gap-2">
-                        <AppButton
-                            type="button"
-                            label="Retour à la liste"
-                            severity="secondary"
-                            @click="router.get(route('admin.patients.index'))"
-                        />
-                        <AppButton type="submit" label="Confirmer" :loading="confirming" />
-                    </div>
-                </form>
-            </div>
+                        <div class="d-flex justify-end ga-2">
+                            <AppButton
+                                type="button"
+                                label="Retour à la liste"
+                                severity="secondary"
+                                @click="router.get(route('admin.patients.index'))"
+                            />
+                            <AppButton type="submit" label="Confirmer" :loading="confirming" />
+                        </div>
+                    </form>
+                </v-card-text>
+            </v-card>
         </div>
     </AuthenticatedLayout>
 </template>

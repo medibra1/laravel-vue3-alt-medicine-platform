@@ -1,222 +1,176 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { useAppDensity, type AppDensity } from '@/lib/useAppDensity';
+import { useAppTheme } from '@/lib/useAppTheme';
+import { Link, router } from '@inertiajs/vue3';
+import { onBeforeMount, ref } from 'vue';
+import { useDisplay } from 'vuetify';
 
-const showingNavigationDropdown = ref(false);
+const RAIL_STORAGE_KEY = 'ruqya-nav-rail';
+
+const { mdAndUp } = useDisplay();
+
+const drawer = ref(mdAndUp.value);
+const rail = ref(localStorage.getItem(RAIL_STORAGE_KEY) === '1');
+
+const { density, setDensity } = useAppDensity();
+const { toggle: toggleTheme, isDark, init: initTheme } = useAppTheme();
+
+const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
+    { value: 'default', label: 'Confortable large', icon: 'mdi-view-agenda-outline' },
+    { value: 'comfortable', label: 'Confortable', icon: 'mdi-view-sequential-outline' },
+    { value: 'compact', label: 'Compact', icon: 'mdi-view-headline' },
+];
+
+const navItems = [
+    { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: () => route('dashboard'), active: () => route().current('dashboard') },
+    { label: 'Patients', icon: 'mdi-account-heart-outline', href: () => route('admin.patients.index'), active: () => route().current('admin.patients.*') },
+    { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: () => route('admin.practitioners.index'), active: () => route().current('admin.practitioners.*') },
+];
+
+function toggleRail() {
+    rail.value = !rail.value;
+    localStorage.setItem(RAIL_STORAGE_KEY, rail.value ? '1' : '0');
+}
+
+function logout() {
+    router.post(route('logout'));
+}
+
+onBeforeMount(() => {
+    initTheme();
+});
 </script>
 
 <template>
-    <div>
-        <div class="min-h-screen bg-gray-100">
-            <nav
-                class="border-b border-gray-100 bg-white"
-            >
-                <!-- Primary Navigation Menu -->
-                <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div class="flex h-16 justify-between">
-                        <div class="flex">
-                            <!-- Logo -->
-                            <div class="flex shrink-0 items-center">
-                                <Link :href="route('dashboard')">
-                                    <ApplicationLogo
-                                        class="block h-9 w-auto fill-current text-gray-800"
-                                    />
-                                </Link>
-                            </div>
+    <v-defaults-provider :defaults="{ global: { density } }">
+    <v-app>
+        <v-navigation-drawer
+            v-model="drawer"
+            :rail="mdAndUp ? rail : false"
+            :permanent="mdAndUp"
+            :temporary="!mdAndUp"
+            border="0"
+            class="app-drawer"
+        >
+            <div class="d-flex align-center px-3 py-3" style="min-height: 64px">
+                <Link :href="route('dashboard')" class="d-flex align-center flex-1-1-0" style="overflow: hidden">
+                    <ApplicationLogo class="app-drawer-logo flex-shrink-0" />
+                    <span v-if="!rail" class="text-subtitle-1 font-weight-bold ms-2 text-truncate">
+                        Ruqya App
+                    </span>
+                </Link>
 
-                            <!-- Navigation Links -->
-                            <div
-                                class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex"
-                            >
-                                <NavLink
-                                    :href="route('dashboard')"
-                                    :active="route().current('dashboard')"
-                                >
-                                    Dashboard
-                                </NavLink>
-                                <NavLink
-                                    :href="route('admin.patients.index')"
-                                    :active="route().current('admin.patients.*')"
-                                >
-                                    Patients
-                                </NavLink>
-                                <NavLink
-                                    :href="route('admin.practitioners.index')"
-                                    :active="route().current('admin.practitioners.*')"
-                                >
-                                    Practitioners
-                                </NavLink>
-                            </div>
-                        </div>
+                <v-btn
+                    v-if="!rail"
+                    icon="mdi-chevron-left"
+                    variant="text"
+                    density="comfortable"
+                    size="small"
+                    class="d-none d-md-inline-flex flex-shrink-0"
+                    @click.stop="toggleRail"
+                />
+            </div>
 
-                        <div class="hidden sm:ms-6 sm:flex sm:items-center">
-                            <!-- Settings Dropdown -->
-                            <div class="relative ms-3">
-                                <Dropdown align="right" width="48">
-                                    <template #trigger>
-                                        <span class="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
-                                            >
-                                                {{ $page.props.auth.user.name }}
+            <div v-if="rail" class="d-flex justify-center pb-2 d-none d-md-flex">
+                <v-btn
+                    icon="mdi-chevron-right"
+                    variant="text"
+                    density="comfortable"
+                    size="small"
+                    @click.stop="toggleRail"
+                />
+            </div>
 
-                                                <svg
-                                                    class="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fill-rule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clip-rule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </template>
+            <v-divider />
 
-                                    <template #content>
-                                        <DropdownLink
-                                            :href="route('profile.edit')"
-                                        >
-                                            Profile
-                                        </DropdownLink>
-                                        <DropdownLink
-                                            :href="route('logout')"
-                                            method="post"
-                                            as="button"
-                                        >
-                                            Log Out
-                                        </DropdownLink>
-                                    </template>
-                                </Dropdown>
-                            </div>
-                        </div>
+            <v-list nav density="comfortable">
+                <v-list-item
+                    v-for="item in navItems"
+                    :key="item.label"
+                    :prepend-icon="item.icon"
+                    :title="item.label"
+                    :active="item.active()"
+                    :href="item.href()"
+                    rounded="lg"
+                />
+            </v-list>
+        </v-navigation-drawer>
 
-                        <!-- Hamburger -->
-                        <div class="-me-2 flex items-center sm:hidden">
-                            <button
-                                @click="
-                                    showingNavigationDropdown =
-                                        !showingNavigationDropdown
-                                "
-                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
-                            >
-                                <svg
-                                    class="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        :class="{
-                                            hidden: showingNavigationDropdown,
-                                            'inline-flex':
-                                                !showingNavigationDropdown,
-                                        }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        :class="{
-                                            hidden: !showingNavigationDropdown,
-                                            'inline-flex':
-                                                showingNavigationDropdown,
-                                        }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        <v-app-bar border="0" flat>
+            <v-app-bar-nav-icon
+                class="d-md-none"
+                @click="drawer = !drawer"
+            />
 
-                <!-- Responsive Navigation Menu -->
-                <div
-                    :class="{
-                        block: showingNavigationDropdown,
-                        hidden: !showingNavigationDropdown,
-                    }"
-                    class="sm:hidden"
-                >
-                    <div class="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            :href="route('dashboard')"
-                            :active="route().current('dashboard')"
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            :href="route('admin.patients.index')"
-                            :active="route().current('admin.patients.*')"
-                        >
-                            Patients
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            :href="route('admin.practitioners.index')"
-                            :active="route().current('admin.practitioners.*')"
-                        >
-                            Practitioners
-                        </ResponsiveNavLink>
-                    </div>
+            <v-app-bar-title>
+                <slot name="header" />
+            </v-app-bar-title>
 
-                    <!-- Responsive Settings Options -->
-                    <div
-                        class="border-t border-gray-200 pb-1 pt-4"
-                    >
-                        <div class="px-4">
-                            <div
-                                class="text-base font-medium text-gray-800"
-                            >
-                                {{ $page.props.auth.user.name }}
-                            </div>
-                            <div class="text-sm font-medium text-gray-500">
-                                {{ $page.props.auth.user.email }}
-                            </div>
-                        </div>
+            <v-spacer />
 
-                        <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.edit')">
-                                Profile
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                :href="route('logout')"
-                                method="post"
-                                as="button"
-                            >
-                                Log Out
-                            </ResponsiveNavLink>
-                        </div>
-                    </div>
-                </div>
-            </nav>
+            <v-menu>
+                <template #activator="{ props: menuProps }">
+                    <v-btn
+                        v-bind="menuProps"
+                        icon="mdi-tune-variant"
+                        variant="text"
+                    />
+                </template>
+                <v-list density="compact">
+                    <v-list-subheader>Densité</v-list-subheader>
+                    <v-list-item
+                        v-for="option in densityOptions"
+                        :key="option.value"
+                        :prepend-icon="option.icon"
+                        :title="option.label"
+                        :active="density === option.value"
+                        @click="setDensity(option.value)"
+                    />
+                </v-list>
+            </v-menu>
 
-            <!-- Page Heading -->
-            <header
-                class="bg-white shadow"
-                v-if="$slots.header"
-            >
-                <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                    <slot name="header" />
-                </div>
-            </header>
+            <v-btn
+                :icon="isDark() ? 'mdi-weather-sunny' : 'mdi-weather-night'"
+                variant="text"
+                @click="toggleTheme"
+            />
 
-            <!-- Page Content -->
-            <main>
+            <v-menu>
+                <template #activator="{ props: menuProps }">
+                    <v-btn v-bind="menuProps" variant="text" class="text-none">
+                        {{ $page.props.auth.user.name }}
+                        <v-icon icon="mdi-chevron-down" end />
+                    </v-btn>
+                </template>
+                <v-list density="compact">
+                    <v-list-item :href="route('profile.edit')" title="Profil" prepend-icon="mdi-account-outline" />
+                    <v-list-item
+                        title="Se déconnecter"
+                        prepend-icon="mdi-logout"
+                        @click="logout"
+                    />
+                </v-list>
+            </v-menu>
+        </v-app-bar>
+
+        <v-main>
+            <v-container fluid class="py-6">
                 <slot />
-            </main>
-        </div>
-    </div>
+            </v-container>
+        </v-main>
+
+        <v-footer border="0" app class="text-caption text-medium-emphasis justify-center">
+            © {{ new Date().getFullYear() }} Ruqya App — Centre de médecine alternative
+        </v-footer>
+    </v-app>
+    </v-defaults-provider>
 </template>
+
+<style scoped>
+.app-drawer-logo {
+    height: 2rem;
+    width: auto;
+    fill: currentColor;
+}
+</style>

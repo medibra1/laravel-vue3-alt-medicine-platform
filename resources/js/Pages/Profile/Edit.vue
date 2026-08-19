@@ -15,38 +15,29 @@ defineProps<{
     <Head title="Profile" />
 
     <AuthenticatedLayout>
-        <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Profile
-            </h2>
-        </template>
+        <template #header>Profil</template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
+        <div class="d-flex flex-column ga-6" style="max-width: 640px">
+            <v-card>
+                <v-card-text class="pa-6">
                     <UpdateProfileInformationForm
                         :must-verify-email="mustVerifyEmail"
                         :status="status"
-                        class="max-w-xl"
                     />
-                </div>
+                </v-card-text>
+            </v-card>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <UpdatePasswordForm class="max-w-xl" />
-                </div>
+            <v-card>
+                <v-card-text class="pa-6">
+                    <UpdatePasswordForm />
+                </v-card-text>
+            </v-card>
 
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <DeleteUserForm class="max-w-xl" />
-                </div>
-            </div>
+            <v-card>
+                <v-card-text class="pa-6">
+                    <DeleteUserForm />
+                </v-card-text>
+            </v-card>
         </div>
     </AuthenticatedLayout>
 </template>
