@@ -1,17 +1,16 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
+import AppDataTable, {
+    type AppDataTableColumn,
+    type AppDataTableSortEvent,
+} from '@/Components/App/AppDataTable.vue';
+import AppDatePicker from '@/Components/App/AppDatePicker.vue';
+import AppDialog from '@/Components/App/AppDialog.vue';
+import AppInputNumber from '@/Components/App/AppInputNumber.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
+import AppSelect from '@/Components/App/AppSelect.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable, {
-    type DataTablePageEvent,
-    type DataTableSortEvent,
-} from 'primevue/datatable';
-import DatePicker from 'primevue/datepicker';
-import Dialog from 'primevue/dialog';
-import InputNumber from 'primevue/inputnumber';
-import InputText from 'primevue/inputtext';
-import Select from 'primevue/select';
 import { computed, reactive, ref } from 'vue';
 
 function dateBinding(form: { hired_at: string | null }) {
@@ -74,11 +73,11 @@ function reload(extra: Record<string, unknown> = {}) {
     );
 }
 
-function onPage(event: DataTablePageEvent) {
-    reload({ page: event.page + 1 });
+function onPage(page: number) {
+    reload({ page });
 }
 
-function onSort(event: DataTableSortEvent) {
+function onSort(event: AppDataTableSortEvent) {
     if (!event.sortField) {
         return;
     }
@@ -87,6 +86,15 @@ function onSort(event: DataTableSortEvent) {
         event.sortOrder === -1 ? `-${event.sortField}` : `${event.sortField}`;
     reload();
 }
+
+const columns: AppDataTableColumn[] = [
+    { field: 'full_code', header: 'Code', sortable: true },
+    { field: 'diploma_number', header: 'N° diplôme', sortable: true },
+    { field: 'center', header: 'Centre' },
+    { field: 'grade', header: 'Grade' },
+    { field: 'hired_at', header: 'Embauché le', sortable: true },
+    { field: 'actions', header: 'Actions' },
+];
 
 const isCreating = ref(false);
 const editingPractitioner = ref<Practitioner | null>(null);
@@ -169,7 +177,7 @@ function destroy(practitioner: Practitioner) {
                             class="text-sm text-gray-600"
                             >Code</label
                         >
-                        <InputText
+                        <AppInputText
                             id="filter-full-code"
                             v-model="search.full_code"
                             @keyup.enter="reload()"
@@ -181,88 +189,75 @@ function destroy(practitioner: Practitioner) {
                             class="text-sm text-gray-600"
                             >N° diplôme</label
                         >
-                        <InputText
+                        <AppInputText
                             id="filter-diploma"
                             v-model="search.diploma_number"
                             @keyup.enter="reload()"
                         />
                     </div>
-                    <Button label="Filtrer" @click="reload()" />
-                    <Button label="Nouveau praticien" class="ms-auto" @click="openCreate" />
+                    <AppButton label="Filtrer" @click="reload()" />
+                    <AppButton label="Nouveau praticien" class="ms-auto" @click="openCreate" />
                 </div>
 
                 <div class="rounded-lg bg-white shadow">
-                    <DataTable
+                    <AppDataTable
                         :value="practitioners.data"
-                        lazy
-                        paginator
-                        removable-sort
-                        sort-mode="single"
+                        :columns="columns"
                         :rows="practitioners.per_page"
                         :total-records="practitioners.total"
-                        :first="(practitioners.current_page - 1) * practitioners.per_page"
+                        :page="practitioners.current_page"
                         @page="onPage"
                         @sort="onSort"
                     >
-                        <Column field="full_code" header="Code" sortable />
-                        <Column field="diploma_number" header="N° diplôme" sortable />
-                        <Column header="Centre">
-                            <template #body="{ data }">{{ data.center?.name }}</template>
-                        </Column>
-                        <Column header="Grade">
-                            <template #body="{ data }">{{ data.grade?.label ?? '—' }}</template>
-                        </Column>
-                        <Column field="hired_at" header="Embauché le" sortable />
-                        <Column header="Actions">
-                            <template #body="{ data }">
-                                <div class="flex gap-2">
-                                    <Button
-                                        label="Modifier"
-                                        severity="secondary"
-                                        size="small"
-                                        @click="openEdit(data)"
-                                    />
-                                    <Button
-                                        label="Supprimer"
-                                        severity="danger"
-                                        size="small"
-                                        @click="destroy(data)"
-                                    />
-                                </div>
-                            </template>
-                        </Column>
-                    </DataTable>
+                        <template #column-center="{ item }">{{ item.center?.name }}</template>
+                        <template #column-grade="{ item }">{{ item.grade?.label ?? '—' }}</template>
+                        <template #actions="{ item }">
+                            <div class="flex gap-2">
+                                <AppButton
+                                    label="Modifier"
+                                    severity="secondary"
+                                    size="small"
+                                    @click="openEdit(item)"
+                                />
+                                <AppButton
+                                    label="Supprimer"
+                                    severity="danger"
+                                    size="small"
+                                    @click="destroy(item)"
+                                />
+                            </div>
+                        </template>
+                    </AppDataTable>
                 </div>
             </div>
         </div>
 
-        <Dialog v-model:visible="isCreating" modal header="Nouveau praticien" class="w-full max-w-md">
+        <AppDialog v-model:visible="isCreating" header="Nouveau praticien">
             <form class="flex flex-col gap-4" @submit.prevent="submitCreate">
                 <div v-if="centers.length" class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Centre</label>
-                    <Select
+                    <AppSelect
                         v-model="createForm.center_id"
                         :options="centers"
                         option-label="name"
                         option-value="id"
                         placeholder="Choisir un centre"
+                        :error="createForm.errors.center_id"
                     />
-                    <p v-if="createForm.errors.center_id" class="text-sm text-red-600">
-                        {{ createForm.errors.center_id }}
-                    </p>
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">N° diplôme (3 chiffres)</label>
-                    <InputText v-model="createForm.diploma_number" maxlength="3" />
-                    <p v-if="createForm.errors.diploma_number" class="text-sm text-red-600">
-                        {{ createForm.errors.diploma_number }}
-                    </p>
+                    <AppInputText
+                        v-model="createForm.diploma_number"
+                        :maxlength="3"
+                        :error="createForm.errors.diploma_number"
+                    />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Grade</label>
-                    <Select
+                    <AppSelect
                         v-model="createForm.grade_id"
                         :options="grades"
                         option-label="label"
@@ -274,45 +269,44 @@ function destroy(practitioner: Practitioner) {
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Niveau</label>
-                    <InputNumber v-model="createForm.level" :min="0" />
+                    <AppInputNumber v-model="createForm.level" :min="0" />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Date d'embauche</label>
-                    <DatePicker v-model="createHiredAt" date-format="yy-mm-dd" />
+                    <AppDatePicker v-model="createHiredAt" />
                 </div>
 
                 <div class="flex justify-end gap-2">
-                    <Button
+                    <AppButton
                         type="button"
                         label="Annuler"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <Button type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
                 </div>
             </form>
-        </Dialog>
+        </AppDialog>
 
-        <Dialog
+        <AppDialog
             :visible="editingPractitioner !== null"
-            modal
             header="Modifier le praticien"
-            class="w-full max-w-md"
             @update:visible="editingPractitioner = null"
         >
             <form class="flex flex-col gap-4" @submit.prevent="submitEdit">
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">N° diplôme (3 chiffres)</label>
-                    <InputText v-model="editForm.diploma_number" maxlength="3" />
-                    <p v-if="editForm.errors.diploma_number" class="text-sm text-red-600">
-                        {{ editForm.errors.diploma_number }}
-                    </p>
+                    <AppInputText
+                        v-model="editForm.diploma_number"
+                        :maxlength="3"
+                        :error="editForm.errors.diploma_number"
+                    />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Grade</label>
-                    <Select
+                    <AppSelect
                         v-model="editForm.grade_id"
                         :options="grades"
                         option-label="label"
@@ -324,24 +318,24 @@ function destroy(practitioner: Practitioner) {
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Niveau</label>
-                    <InputNumber v-model="editForm.level" :min="0" />
+                    <AppInputNumber v-model="editForm.level" :min="0" />
                 </div>
 
                 <div class="flex flex-col gap-1">
                     <label class="text-sm text-gray-600">Date d'embauche</label>
-                    <DatePicker v-model="editHiredAt" date-format="yy-mm-dd" />
+                    <AppDatePicker v-model="editHiredAt" />
                 </div>
 
                 <div class="flex justify-end gap-2">
-                    <Button
+                    <AppButton
                         type="button"
                         label="Annuler"
                         severity="secondary"
                         @click="editingPractitioner = null"
                     />
-                    <Button type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
                 </div>
             </form>
-        </Dialog>
+        </AppDialog>
     </AuthenticatedLayout>
 </template>
