@@ -2,7 +2,7 @@
 
 Application multi-pays de gestion de centres de médecine alternative :
 patients, soignants, rendez-vous, produits/stock, facturation, paie.
-Laravel 13 / Inertia / Vue 3 / PrimeVue, architecture Domain-Driven.
+Laravel 13 / Inertia / Vue 3 / Vuetify, architecture Domain-Driven.
 
 ## Documentation
 
@@ -22,8 +22,11 @@ README aussi.
   (statuts historisés), `spatie/laravel-translatable` (contenu
   multilingue), système `EnumOption`/`ModelOption` maison (options
   dynamiques, éditables en admin sans déploiement).
-- **Frontend** : Vue 3 + Inertia + TypeScript + PrimeVue 4 (support RTL
-  natif — arabe prévu).
+- **Frontend** : Vue 3 + Inertia + TypeScript + Vuetify 4 (MIT ;
+  remplace PrimeVue depuis le 2026-08-19, voir `CLAUDE.md` "Migration
+  PrimeVue → Vuetify"). Composants Vuetify jamais importés directement
+  dans les vues métier — toujours via les wrappers
+  `resources/js/Components/App/App*.vue`.
 - **i18n** : FR/EN actifs, AR prévu (RTL). Contenu métier (maladies,
   pays, catégories...) traduit dès le seeding — voir
   `database/seeders/`.
@@ -74,9 +77,26 @@ d'autosave), `pint --test` clean, Larastan niveau 5 clean, et parcours
 navigateur réel vérifié (Playwright headless) : création → autosave →
 confirmation → apparition dans la liste. Premier domaine à implémenter
 le pattern "wizard résilient" (voir `CLAUDE.md`). Cette vérification
-navigateur a aussi révélé et corrigé une dérive `package.json` : `primevue`
-avait glissé vers `^5.0.1` (licence payante depuis PrimeVue 5) ; refixé
-sur `^4.5` (MIT) — voir `CLAUDE.md` "Politique de versions".
+navigateur a aussi révélé une dérive `package.json` : `primevue`
+avait glissé vers `^5.0.1` (licence payante depuis PrimeVue 5) — fix
+temporaire à l'époque (refixé sur `^4.5`), remplacé depuis par la
+migration Vuetify ci-dessous.
+
+**Migration PrimeVue → Vuetify** (2026-08-19, branche
+`feature/vuetify-migration`, non mergée — en attente de revue) :
+PrimeVue entièrement retiré, remplacé par Vuetify 4.x (MIT) sur
+`Practitioners` et `Patients`, via une couche de composants wrapper
+(`resources/js/Components/App/App*.vue`) qui isole toute dépendance
+directe à la lib UI — raisonnement complet et décisions techniques
+dans `CLAUDE.md` "Migration PrimeVue → Vuetify". Vérifié : 51 tests
+Pest (zéro régression backend), 4 tests Vitest, `pint --test` clean,
+Larastan clean, build Vite client+SSR OK, et golden path navigateur
+réel (Playwright) sur les deux domaines — login → liste → création →
+autosave → confirmation → liste pour Patients, liste → dialog création
+→ liste pour Practitioners. RTL posé structurellement (`dir` sur
+`<html>`, table `locale.rtl` Vuetify) mais pas encore branché à un
+vrai changement de langue dynamique (`vue-i18n` toujours pas câblé
+côté client — dette pré-existante, pas introduite par cette session).
 
 **Système de paie** : deux modes au choix par centre (`payroll_mode`) —
 répartition d'une cagnotte par présence/coefficient (implémenté,

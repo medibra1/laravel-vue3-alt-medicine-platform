@@ -1,13 +1,12 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
+import AppDataTable, {
+    type AppDataTableColumn,
+    type AppDataTableSortEvent,
+} from '@/Components/App/AppDataTable.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Column from 'primevue/column';
-import DataTable, {
-    type DataTablePageEvent,
-    type DataTableSortEvent,
-} from 'primevue/datatable';
-import InputText from 'primevue/inputtext';
 import { reactive, ref } from 'vue';
 
 interface Center {
@@ -50,11 +49,11 @@ function reload(extra: Record<string, unknown> = {}) {
     );
 }
 
-function onPage(event: DataTablePageEvent) {
-    reload({ page: event.page + 1 });
+function onPage(page: number) {
+    reload({ page });
 }
 
-function onSort(event: DataTableSortEvent) {
+function onSort(event: AppDataTableSortEvent) {
     if (!event.sortField) {
         return;
     }
@@ -63,6 +62,13 @@ function onSort(event: DataTableSortEvent) {
         event.sortOrder === -1 ? `-${event.sortField}` : `${event.sortField}`;
     reload();
 }
+
+const columns: AppDataTableColumn[] = [
+    { field: 'first_name', header: 'Prénom', sortable: true },
+    { field: 'last_name', header: 'Nom', sortable: true },
+    { field: 'center', header: 'Centre' },
+    { field: 'actions', header: 'Actions' },
+];
 
 function destroy(patient: Patient) {
     if (!confirm(`Supprimer le patient ${patient.first_name ?? ''} ${patient.last_name ?? ''} ?`)) {
@@ -92,7 +98,7 @@ function destroy(patient: Patient) {
                             class="text-sm text-gray-600"
                             >Prénom</label
                         >
-                        <InputText
+                        <AppInputText
                             id="filter-first-name"
                             v-model="search.first_name"
                             @keyup.enter="reload()"
@@ -104,57 +110,48 @@ function destroy(patient: Patient) {
                             class="text-sm text-gray-600"
                             >Nom</label
                         >
-                        <InputText
+                        <AppInputText
                             id="filter-last-name"
                             v-model="search.last_name"
                             @keyup.enter="reload()"
                         />
                     </div>
-                    <Button label="Filtrer" @click="reload()" />
+                    <AppButton label="Filtrer" @click="reload()" />
                     <Link :href="route('admin.patients.create')" class="ms-auto">
-                        <Button label="Nouveau patient" as="span" />
+                        <AppButton label="Nouveau patient" as="span" />
                     </Link>
                 </div>
 
                 <div class="rounded-lg bg-white shadow">
-                    <DataTable
+                    <AppDataTable
                         :value="patients.data"
-                        lazy
-                        paginator
-                        removable-sort
-                        sort-mode="single"
+                        :columns="columns"
                         :rows="patients.per_page"
                         :total-records="patients.total"
-                        :first="(patients.current_page - 1) * patients.per_page"
+                        :page="patients.current_page"
                         @page="onPage"
                         @sort="onSort"
                     >
-                        <Column field="first_name" header="Prénom" sortable />
-                        <Column field="last_name" header="Nom" sortable />
-                        <Column header="Centre">
-                            <template #body="{ data }">{{ data.center?.name }}</template>
-                        </Column>
-                        <Column header="Actions">
-                            <template #body="{ data }">
-                                <div class="flex gap-2">
-                                    <Link :href="route('admin.patients.edit', data.id)">
-                                        <Button
-                                            label="Modifier"
-                                            severity="secondary"
-                                            size="small"
-                                            as="span"
-                                        />
-                                    </Link>
-                                    <Button
-                                        label="Supprimer"
-                                        severity="danger"
+                        <template #column-center="{ item }">{{ item.center?.name }}</template>
+                        <template #actions="{ item }">
+                            <div class="flex gap-2">
+                                <Link :href="route('admin.patients.edit', item.id)">
+                                    <AppButton
+                                        label="Modifier"
+                                        severity="secondary"
                                         size="small"
-                                        @click="destroy(data)"
+                                        as="span"
                                     />
-                                </div>
-                            </template>
-                        </Column>
-                    </DataTable>
+                                </Link>
+                                <AppButton
+                                    label="Supprimer"
+                                    severity="danger"
+                                    size="small"
+                                    @click="destroy(item)"
+                                />
+                            </div>
+                        </template>
+                    </AppDataTable>
                 </div>
             </div>
         </div>

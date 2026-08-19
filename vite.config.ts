@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
+import vuetify from 'vite-plugin-vuetify';
 
 export default defineConfig({
     plugins: [
@@ -20,6 +21,7 @@ export default defineConfig({
                 },
             },
         }),
+        vuetify(),
     ],
     resolve: {
         alias: {

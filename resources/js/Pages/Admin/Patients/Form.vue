@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
+import AppDatePicker from '@/Components/App/AppDatePicker.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
+import AppSelect from '@/Components/App/AppSelect.vue';
+import AppTextarea from '@/Components/App/AppTextarea.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
 import { Head, router } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import DatePicker from 'primevue/datepicker';
-import InputText from 'primevue/inputtext';
-import Select from 'primevue/select';
-import Textarea from 'primevue/textarea';
 import { computed, ref, watch } from 'vue';
 
 interface Center {
@@ -133,98 +133,82 @@ async function confirmPatient() {
                 <form class="flex flex-col gap-4 rounded-lg bg-white p-6 shadow" @submit.prevent="confirmPatient">
                     <div v-if="centers.length" class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Centre d'accueil</label>
-                        <Select
+                        <AppSelect
                             v-model="form.intake_center_id"
                             :options="centers"
                             option-label="name"
                             option-value="id"
                             placeholder="Choisir un centre"
+                            :error="confirmErrors.intake_center_id"
                         />
-                        <p v-if="confirmErrors.intake_center_id" class="text-sm text-red-600">
-                            {{ confirmErrors.intake_center_id }}
-                        </p>
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Prénom</label>
-                        <InputText v-model="form.first_name" />
-                        <p v-if="confirmErrors.first_name" class="text-sm text-red-600">
-                            {{ confirmErrors.first_name }}
-                        </p>
+                        <AppInputText v-model="form.first_name" :error="confirmErrors.first_name" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Nom</label>
-                        <InputText v-model="form.last_name" />
-                        <p v-if="confirmErrors.last_name" class="text-sm text-red-600">
-                            {{ confirmErrors.last_name }}
-                        </p>
+                        <AppInputText v-model="form.last_name" :error="confirmErrors.last_name" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Genre</label>
-                        <Select
+                        <AppSelect
                             v-model="form.gender"
                             :options="genderOptions"
                             option-label="label"
                             option-value="value"
                             show-clear
                             placeholder="Non renseigné"
+                            :error="confirmErrors.gender"
                         />
-                        <p v-if="confirmErrors.gender" class="text-sm text-red-600">
-                            {{ confirmErrors.gender }}
-                        </p>
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Date de naissance</label>
-                        <DatePicker v-model="birthDateBinding" date-format="yy-mm-dd" />
+                        <AppDatePicker v-model="birthDateBinding" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Téléphone</label>
-                        <InputText v-model="form.phone" />
-                        <p v-if="confirmErrors.phone" class="text-sm text-red-600">
-                            {{ confirmErrors.phone }}
-                        </p>
+                        <AppInputText v-model="form.phone" :error="confirmErrors.phone" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Email</label>
-                        <InputText v-model="form.email" type="email" />
+                        <AppInputText v-model="form.email" type="email" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Ville</label>
-                        <InputText v-model="form.city" />
-                        <p v-if="confirmErrors.city" class="text-sm text-red-600">
-                            {{ confirmErrors.city }}
-                        </p>
+                        <AppInputText v-model="form.city" :error="confirmErrors.city" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Contact d'urgence — nom</label>
-                        <InputText v-model="form.emergency_contact_name" />
+                        <AppInputText v-model="form.emergency_contact_name" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Contact d'urgence — téléphone</label>
-                        <InputText v-model="form.emergency_contact_phone" />
+                        <AppInputText v-model="form.emergency_contact_phone" />
                     </div>
 
                     <div class="flex flex-col gap-1">
                         <label class="text-sm text-gray-600">Notes</label>
-                        <Textarea v-model="form.notes" rows="3" />
+                        <AppTextarea v-model="form.notes" :rows="3" />
                     </div>
 
                     <div class="flex justify-end gap-2">
-                        <Button
+                        <AppButton
                             type="button"
                             label="Retour à la liste"
                             severity="secondary"
                             @click="router.get(route('admin.patients.index'))"
                         />
-                        <Button type="submit" label="Confirmer" :loading="confirming" />
+                        <AppButton type="submit" label="Confirmer" :loading="confirming" />
                     </div>
                 </form>
             </div>
