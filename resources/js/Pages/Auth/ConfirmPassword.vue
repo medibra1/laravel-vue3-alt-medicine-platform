@@ -1,9 +1,7 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
@@ -29,28 +27,25 @@ const submit = () => {
         </div>
 
         <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="password" value="Password" />
-                <TextInput
+            <div class="flex flex-col gap-1">
+                <label class="text-sm text-gray-600">Password</label>
+                <AppInputText
                     id="password"
-                    type="password"
-                    class="mt-1 block w-full"
                     v-model="form.password"
-                    required
+                    type="password"
                     autocomplete="current-password"
                     autofocus
+                    :error="form.errors.password"
                 />
-                <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
             <div class="mt-4 flex justify-end">
-                <PrimaryButton
+                <AppButton
+                    type="submit"
+                    label="Confirm"
                     class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Confirm
-                </PrimaryButton>
+                    :loading="form.processing"
+                />
             </div>
         </form>
     </GuestLayout>

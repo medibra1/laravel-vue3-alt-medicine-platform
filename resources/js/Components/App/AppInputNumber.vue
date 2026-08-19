@@ -4,11 +4,13 @@ withDefaults(
         modelValue: number | null;
         min?: number;
         max?: number;
+        label?: string;
         error?: string | null;
     }>(),
     {
         min: undefined,
         max: undefined,
+        label: undefined,
         error: null,
     },
 );
@@ -31,8 +33,8 @@ function onInput(value: string | number) {
         :model-value="modelValue"
         :min="min"
         :max="max"
+        :label="label"
         :error-messages="error ?? undefined"
-        density="compact"
         variant="outlined"
         hide-details="auto"
         @update:model-value="onInput"
