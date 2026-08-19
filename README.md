@@ -4,12 +4,6 @@ Application multi-pays de gestion de centres de médecine alternative :
 patients, soignants, rendez-vous, produits/stock, facturation, paie.
 Laravel 13 / Inertia / Vue 3 / PrimeVue, architecture Domain-Driven.
 
-> **Contexte de continuité Claude Code** : lire `CLAUDE.md` (racine,
-> gitignoré) en premier — décisions d'architecture, terminologie,
-> roadmap, état d'avancement, prochaine action suggérée. Ce README
-> donne une vue d'ensemble publique du projet ; `CLAUDE.md` donne le
-> raisonnement détaillé derrière chaque décision.
-
 ## Documentation
 
 - [`docs/schema-donnees.md`](./docs/schema-donnees.md) — schéma complet
@@ -63,12 +57,16 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 | Domaine | État |
 |---|---|
 | Core (zones, pays, centres, grades) | Schéma + seeders faits |
-| Practitioners (soignants, présence) | Schéma fait, controllers/policies à faire |
+| Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
 | Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient`/`Treatment` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
 | Reporting (stats signées) | Pas commencé |
+
+**Vérification Practitioners** (2026-08-19) : 36 tests Pest passent (13
+spécifiques à Practitioners + 23 scaffolding Breeze), `pint --test`
+clean, Larastan niveau 5 clean.
 
 **Système de paie** : deux modes au choix par centre (`payroll_mode`) —
 répartition d'une cagnotte par présence/coefficient (implémenté,

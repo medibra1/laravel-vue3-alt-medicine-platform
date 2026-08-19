@@ -78,6 +78,15 @@ is_active · timestamps
 Statut (actif/inactif) → `spatie/laravel-model-status` (`HasStatuses`),
 plus l'historique associé (utile pour tracer une suspension temporaire).
 
+Unicité en deux temps : `full_code` est unique en base (contrainte SQL,
+dernier filet de sécurité), mais la validation formulaire porte sur
+`diploma_number` scopé par `center_id`
+(`Rule::unique('practitioners')->where('center_id', ...)` dans
+`StorePractitionerRequest`) — c'est ce champ que l'utilisateur saisit
+réellement, `full_code` étant généré. Valider le champ saisi plutôt que
+le champ généré évite qu'un doublon remonte comme une exception SQL au
+lieu d'une erreur de formulaire.
+
 ---
 
 ## 3. Patients
