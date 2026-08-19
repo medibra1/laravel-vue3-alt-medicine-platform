@@ -17,7 +17,7 @@ README aussi.
 
 ## Stack
 
-- **Backend** : Laravel 13, PHP 8.3+, MySQL 8, `spatie/laravel-permission`
+- **Backend** : Laravel 13, PHP 8.4+, MySQL 8, `spatie/laravel-permission`
   (mode teams — un manager par centre), `spatie/laravel-model-status`
   (statuts historisés), `spatie/laravel-translatable` (contenu
   multilingue), système `EnumOption`/`ModelOption` maison (options
@@ -58,7 +58,7 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 |---|---|
 | Core (zones, pays, centres, grades) | Schéma + seeders faits |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient`/`Treatment` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient` (mono-étape) fait ; `ExternalMedicalRecord`/`Treatment` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -67,6 +67,16 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 **Vérification Practitioners** (2026-08-19) : 36 tests Pest passent (13
 spécifiques à Practitioners + 23 scaffolding Breeze), `pint --test`
 clean, Larastan niveau 5 clean.
+
+**Vérification Patient** (2026-08-19) : 51 tests Pest au total (15
+spécifiques à Patients, zéro régression), 4 tests Vitest (composable
+d'autosave), `pint --test` clean, Larastan niveau 5 clean, et parcours
+navigateur réel vérifié (Playwright headless) : création → autosave →
+confirmation → apparition dans la liste. Premier domaine à implémenter
+le pattern "wizard résilient" (voir `CLAUDE.md`). Cette vérification
+navigateur a aussi révélé et corrigé une dérive `package.json` : `primevue`
+avait glissé vers `^5.0.1` (licence payante depuis PrimeVue 5) ; refixé
+sur `^4.5` (MIT) — voir `CLAUDE.md` "Politique de versions".
 
 **Système de paie** : deux modes au choix par centre (`payroll_mode`) —
 répartition d'une cagnotte par présence/coefficient (implémenté,
