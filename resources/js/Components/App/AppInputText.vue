@@ -8,6 +8,7 @@ withDefaults(
         maxlength?: number;
         error?: string | null;
         placeholder?: string;
+        label?: string;
         id?: string;
         autocomplete?: string;
         autofocus?: boolean;
@@ -17,6 +18,7 @@ withDefaults(
         maxlength: undefined,
         error: null,
         placeholder: undefined,
+        label: undefined,
         id: undefined,
         autocomplete: undefined,
         autofocus: false,
@@ -40,10 +42,10 @@ defineExpose({
         :type="type"
         :maxlength="maxlength"
         :placeholder="placeholder"
+        :label="label"
         :autocomplete="autocomplete"
         :autofocus="autofocus"
         :error-messages="error ?? undefined"
-        density="compact"
         variant="outlined"
         hide-details="auto"
         @update:model-value="$emit('update:modelValue', $event)"

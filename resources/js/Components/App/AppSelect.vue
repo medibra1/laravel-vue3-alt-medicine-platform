@@ -8,11 +8,13 @@ const props = withDefaults(
         optionLabel: string;
         optionValue: string;
         placeholder?: string;
+        label?: string;
         showClear?: boolean;
         error?: string | null;
     }>(),
     {
         placeholder: undefined,
+        label: undefined,
         showClear: false,
         error: null,
     },
@@ -35,9 +37,9 @@ const items = computed(() =>
         item-title="title"
         item-value="value"
         :placeholder="placeholder"
+        :label="label"
         :clearable="showClear"
         :error-messages="error ?? undefined"
-        density="compact"
         variant="outlined"
         hide-details="auto"
         @update:model-value="$emit('update:modelValue', $event)"

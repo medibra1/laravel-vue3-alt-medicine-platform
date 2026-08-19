@@ -104,6 +104,16 @@ répartition d'une cagnotte par présence/coefficient (implémenté,
 (schéma posé, moteur de calcul pas encore écrit — volontairement, voir
 `CLAUDE.md`).
 
+**Redesign du shell applicatif** (2026-08-19, branche `develop`) :
+`AuthenticatedLayout.vue` entièrement reconstruit sur `v-app`/
+`v-navigation-drawer`/`v-app-bar`/`v-footer` (fini le top-nav Breeze/
+Tailwind d'origine) — mode nuit (toggle manuel soleil/lune, persistant),
+sélecteur de densité Vuetify (compact/comfortable/default, façon docs
+Vuetify, appliqué globalement via `v-defaults-provider`), aside
+collapsible en rail avec bouton dédié (persistant), footer. Détail
+complet et décisions techniques dans `CLAUDE.md` "Redesign du shell
+applicatif".
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
