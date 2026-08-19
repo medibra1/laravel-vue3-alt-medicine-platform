@@ -22,4 +22,15 @@ export const vuetify = createVuetify({
             indigoTheme,
         },
     },
+    locale: {
+        // Langues prévues (voir CLAUDE.md "i18n") : fr/en en LTR, ar en
+        // RTL. La locale courante n'est pas encore pilotée dynamiquement
+        // (vue-i18n pas câblé côté client) — cette table sera lue
+        // automatiquement dès que ce sera le cas, rien à ajouter ici.
+        rtl: {
+            fr: false,
+            en: false,
+            ar: true,
+        },
+    },
 });
