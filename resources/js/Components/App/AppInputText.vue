@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+
 withDefaults(
     defineProps<{
         modelValue: string | null;
@@ -7,6 +9,8 @@ withDefaults(
         error?: string | null;
         placeholder?: string;
         id?: string;
+        autocomplete?: string;
+        autofocus?: boolean;
     }>(),
     {
         type: 'text',
@@ -14,19 +18,30 @@ withDefaults(
         error: null,
         placeholder: undefined,
         id: undefined,
+        autocomplete: undefined,
+        autofocus: false,
     },
 );
 
 defineEmits<{ 'update:modelValue': [value: string] }>();
+
+const field = ref<{ focus: () => void } | null>(null);
+
+defineExpose({
+    focus: () => field.value?.focus(),
+});
 </script>
 
 <template>
     <v-text-field
+        ref="field"
         :id="id"
         :model-value="modelValue"
         :type="type"
         :maxlength="maxlength"
         :placeholder="placeholder"
+        :autocomplete="autocomplete"
+        :autofocus="autofocus"
         :error-messages="error ?? undefined"
         density="compact"
         variant="outlined"

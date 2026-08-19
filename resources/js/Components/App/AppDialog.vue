@@ -21,7 +21,7 @@ defineEmits<{ 'update:visible': [value: boolean] }>();
         @update:model-value="$emit('update:visible', $event)"
     >
         <v-card>
-            <v-card-title v-if="header">{{ header }}</v-card-title>
+            <v-card-title v-if="header" class="text-wrap">{{ header }}</v-card-title>
             <v-card-text>
                 <slot />
             </v-card-text>
