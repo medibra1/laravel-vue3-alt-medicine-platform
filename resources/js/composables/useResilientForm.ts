@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { http } from '@/lib/http';
-import { reactive, ref } from 'vue';
+import { reactive, ref, toRaw } from 'vue';
 
 interface Endpoints {
     create: string; // POST, first save
@@ -41,7 +41,12 @@ export function useResilientForm<T extends Record<string, unknown>>(
             localId,
             resource,
             serverId: serverId.value,
-            payload: { ...form },
+            // A shallow { ...form } spread keeps nested reactive values (e.g.
+            // an array field like disease_ids) as Vue reactive proxies, which
+            // IndexedDB's structured clone algorithm can't serialize
+            // (DataCloneError). toRaw + JSON round-trip strips every proxy,
+            // reactive or not, at any depth.
+            payload: JSON.parse(JSON.stringify(toRaw(form))),
             updatedAt: Date.now(),
             syncedAt: lastSavedAt.value,
             status: 'draft',

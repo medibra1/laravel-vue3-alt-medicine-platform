@@ -53,7 +53,7 @@ npm run dev
 Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 103 maladies / 19 sous-cas de blocage, en français et en anglais.
 
-## État d'avancement (2026-08-19)
+## État d'avancement (2026-08-20)
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
@@ -61,7 +61,7 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 |---|---|
 | Core (zones, pays, centres, grades) | Schéma + seeders faits |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient` (mono-étape) fait ; `ExternalMedicalRecord`/`Treatment` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient` (mono-étape) fait ; `Treatment` fait ; `TreatmentSession`/`ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -114,6 +114,20 @@ complet et décisions techniques dans `CLAUDE.md` "Redesign du shell
 applicatif". Vérifié : 51 tests Pest, 4 tests Vitest, `pint --test`
 clean, Larastan clean, build Vite client+SSR OK, `vue-tsc --noEmit`
 clean.
+
+**Domaine Treatment** (2026-08-20, branche `feature/treatments`) :
+`Treatment`/`TreatmentSession` (schéma) complètent le domaine Patients
+— même pattern wizard résilient que `Patient` (autosave, draft→confirmed).
+Vérifié : 67 tests Pest (16 nouveaux, zéro régression), 4 tests Vitest,
+`pint --test` clean, Larastan clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean, golden path navigateur réel (Playwright) sur
+les deux thèmes. Deux vrais bugs trouvés et corrigés pendant cette
+vérification (pas par les tests automatisés) : un `DataCloneError`
+Dexie sur le premier champ tableau (`disease_ids`) d'un formulaire
+résilient du projet, et une mauvaise sérialisation JSON d'un champ
+traduisible (`spatie/laravel-translatable`) envoyé à Inertia sans
+résolution explicite de l'accessor. Détail complet et raisonnement
+dans `CLAUDE.md` "Domaine Treatment".
 
 ## Points ouverts connus
 

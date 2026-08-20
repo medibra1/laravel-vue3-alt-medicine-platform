@@ -151,29 +151,40 @@ ailleurs.
 id · disease_id (fk `patients_diseases`) · label (translatable) ·
 description (translatable, json, nullable) · order · active · timestamps
 
-⚠️ Pas encore de lien vers `patients_treatments`/`patients_treatment_diseases`
-— quand le domaine Treatment sera implémenté, décider si un traitement
-référence un ou plusieurs sous-cas (probablement une colonne
-`subcase_id` nullable sur le pivot, ou une table de jonction dédiée),
-pas tranché à ce stade.
+✅ **Décidé (2026-08-20, session `feature/treatments`)** : pas de lien
+structurel vers `patients_treatment_diseases` pour l'instant — le
+pivot reste `treatment_id`/`disease_id` sans colonne `subcase_id`. Si
+le besoin réapparaît (stats/filtres par sous-cas précis), l'ajouter
+plus tard reste un changement localisé (colonne nullable + migration),
+pas une refonte.
 
-### `patients_treatments`
+### `patients_treatments` — **implémenté** (2026-08-20)
 Un traitement = un parcours de soin pour un patient, chez un soignant,
-sur une période.
+sur une période. Même pattern wizard résilient que `patients`
+(`client_uuid`, statuts `draft`/`confirmed` réellement câblés).
 
-id · patient_id (fk) · practitioner_id (fk) · center_id (fk) ·
-started_at · ended_at, nullable ·
+id · client_uuid, uuid nullable unique · patient_id (fk, **requis dès
+le draft** — contrairement à `patients`, un traitement sans patient
+n'a pas de sens même en brouillon) · practitioner_id (fk, nullable) ·
+center_id (fk, nullable) · started_at, nullable · ended_at, nullable ·
 outcome (enum: cured/not_cured/percentage), nullable ·
 outcome_percentage (1-99), nullable · notes · created_by · timestamps
 → statut (draft/confirmed/ongoing/closed) via `spatie/laravel-model-status`
+— seuls `draft`/`confirmed` sont déclenchés par un flux applicatif à ce
+stade ; `ongoing`/`closed` restent posés au schéma pour une session
+future (suivi du traitement post-confirmation, pas commencé).
 
-### `patients_treatment_diseases` (pivot)
-treatment_id (fk) · disease_id (fk)
+### `patients_treatment_diseases` (pivot) — **implémenté**
+treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre.
 
-### `patients_treatment_sessions` (séances individuelles)
-id · treatment_id (fk) · practitioner_id (fk, peut différer si
-réassignation) · session_date · duration_minutes, nullable · notes ·
-timestamps
+### `patients_treatment_sessions` (séances individuelles) — **schéma posé, pas d'UI**
+Migration + modèle + relation `Treatment::sessions()` existent ;
+contrôleur/policy/routes/pages Inertia pas encore construits — suite
+logique directe de la session `feature/treatments`.
+
+id · treatment_id (fk) · practitioner_id (fk, nullable, peut différer
+si réassignation) · session_date, nullable · duration_minutes,
+nullable · notes · created_by · timestamps
 → statut (draft/confirmed) via `spatie/laravel-model-status`
 
 ---

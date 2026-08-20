@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Domains\Patients\Http\Controllers\Admin;
+
+use App\Domains\Core\Models\Center;
+use App\Domains\Patients\Http\Requests\ConfirmTreatmentRequest;
+use App\Domains\Patients\Http\Requests\StoreTreatmentDraftRequest;
+use App\Domains\Patients\Http\Requests\UpdateTreatmentDraftRequest;
+use App\Domains\Patients\Models\Disease;
+use App\Domains\Patients\Models\Patient;
+use App\Domains\Patients\Models\Treatment;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
+use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
+
+class TreatmentController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        Gate::authorize('viewAny', Treatment::class);
+
+        $query = Treatment::query()->with(['patient', 'practitioner', 'center']);
+
+        if (! $request->user()->isSuperAdmin()) {
+            $query->where('center_id', getPermissionsTeamId());
+        }
+
+        $treatments = QueryBuilder::for($query)
+            ->allowedFilters(
+                AllowedFilter::exact('patient_id'),
+                AllowedFilter::exact('center_id'),
+            )
+            ->allowedSorts('started_at', 'created_at')
+            ->defaultSort('-created_at')
+            ->paginate($request->integer('per_page', 15))
+            ->withQueryString();
+
+        return Inertia::render('Admin/Treatments/Index', [
+            'treatments' => $treatments,
+            'filters' => $request->only(['filter', 'sort']),
+            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        Gate::authorize('create', Treatment::class);
+
+        return Inertia::render('Admin/Treatments/Form', [
+            'treatment' => null,
+            ...$this->formOptions($request),
+        ]);
+    }
+
+    public function edit(Request $request, Treatment $treatment): Response
+    {
+        Gate::authorize('update', $treatment);
+
+        $treatment->load('diseases');
+
+        return Inertia::render('Admin/Treatments/Form', [
+            'treatment' => [
+                ...$treatment->toArray(),
+                'disease_ids' => $treatment->diseases->pluck('id')->all(),
+            ],
+            ...$this->formOptions($request),
+        ]);
+    }
+
+    /**
+     * Idempotent on client_uuid, same reasoning as PatientController::storeDraft().
+     */
+    public function storeDraft(StoreTreatmentDraftRequest $request): JsonResponse
+    {
+        $existing = Treatment::query()->where('client_uuid', $request->string('client_uuid'))->first();
+
+        if ($existing) {
+            Gate::authorize('update', $existing);
+
+            return response()->json(['id' => $existing->id, 'client_uuid' => $existing->client_uuid]);
+        }
+
+        $validated = $request->validated();
+        $diseaseIds = $validated['disease_ids'] ?? [];
+        unset($validated['disease_ids']);
+
+        $treatment = Treatment::create([
+            ...$validated,
+            'center_id' => $request->centerId(),
+            'created_by' => $request->user()->id,
+        ]);
+        $treatment->diseases()->sync($diseaseIds);
+        $treatment->setStatus('draft');
+
+        return response()->json(['id' => $treatment->id, 'client_uuid' => $treatment->client_uuid], 201);
+    }
+
+    public function updateDraft(UpdateTreatmentDraftRequest $request, Treatment $treatment): JsonResponse
+    {
+        $validated = $request->validated();
+
+        if (array_key_exists('disease_ids', $validated)) {
+            $treatment->diseases()->sync($validated['disease_ids'] ?? []);
+            unset($validated['disease_ids']);
+        }
+
+        $treatment->update($validated);
+
+        return response()->json(['id' => $treatment->id]);
+    }
+
+    public function confirm(ConfirmTreatmentRequest $request, Treatment $treatment): RedirectResponse
+    {
+        $validated = $request->validated();
+        $treatment->diseases()->sync($validated['disease_ids']);
+        unset($validated['disease_ids']);
+
+        $treatment->update($validated);
+        $treatment->setStatus('confirmed');
+
+        return redirect()->route('admin.treatments.index');
+    }
+
+    public function destroy(Treatment $treatment): RedirectResponse
+    {
+        Gate::authorize('delete', $treatment);
+
+        $treatment->delete();
+
+        return redirect()->route('admin.treatments.index');
+    }
+
+    /** @return array<string, mixed> */
+    protected function formOptions(Request $request): array
+    {
+        $centerId = $request->user()->isSuperAdmin() ? null : $request->user()->managedCenterId();
+
+        return [
+            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+            'patients' => Patient::query()
+                ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
+                ->orderBy('last_name')
+                ->get(['id', 'first_name', 'last_name']),
+            'practitioners' => Practitioner::query()
+                ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+                ->orderBy('full_code')
+                ->get(['id', 'full_code']),
+            // ->get(['id', 'code', 'label'])->toArray() would serialize the
+            // raw translatable JSON column ({fr: ..., en: ...}) rather than
+            // the current-locale string HasTranslations resolves via its
+            // attribute accessor — map explicitly to get the resolved value.
+            'diseases' => Disease::query()->where('active', true)->orderBy('code')->get(['id', 'code', 'label'])
+                ->map(fn (Disease $disease) => ['id' => $disease->id, 'code' => $disease->code, 'label' => $disease->label])
+                ->values(),
+        ];
+    }
+}

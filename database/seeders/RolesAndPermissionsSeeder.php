@@ -31,6 +31,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'patients.create',
             'patients.update',
             'patients.delete',
+            'treatments.viewAny',
+            'treatments.view',
+            'treatments.create',
+            'treatments.update',
+            'treatments.delete',
         ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
 
         // Role::create()/findOrCreate() auto-stamp team_id from the
