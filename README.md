@@ -82,8 +82,7 @@ avait glissé vers `^5.0.1` (licence payante depuis PrimeVue 5) — fix
 temporaire à l'époque (refixé sur `^4.5`), remplacé depuis par la
 migration Vuetify ci-dessous.
 
-**Migration PrimeVue → Vuetify** (2026-08-19, branche
-`feature/vuetify-migration`, non mergée — en attente de revue) :
+**Migration PrimeVue → Vuetify** (2026-08-19, mergée dans `develop`) :
 PrimeVue entièrement retiré, remplacé par Vuetify 4.x (MIT) sur
 `Practitioners` et `Patients`, via une couche de composants wrapper
 (`resources/js/Components/App/App*.vue`) qui isole toute dépendance
@@ -104,7 +103,7 @@ répartition d'une cagnotte par présence/coefficient (implémenté,
 (schéma posé, moteur de calcul pas encore écrit — volontairement, voir
 `CLAUDE.md`).
 
-**Redesign du shell applicatif** (2026-08-19, branche `develop`) :
+**Redesign du shell applicatif** (2026-08-19, mergé dans `develop`) :
 `AuthenticatedLayout.vue` entièrement reconstruit sur `v-app`/
 `v-navigation-drawer`/`v-app-bar`/`v-footer` (fini le top-nav Breeze/
 Tailwind d'origine) — mode nuit (toggle manuel soleil/lune, persistant),
@@ -112,7 +111,9 @@ sélecteur de densité Vuetify (compact/comfortable/default, façon docs
 Vuetify, appliqué globalement via `v-defaults-provider`), aside
 collapsible en rail avec bouton dédié (persistant), footer. Détail
 complet et décisions techniques dans `CLAUDE.md` "Redesign du shell
-applicatif".
+applicatif". Vérifié : 51 tests Pest, 4 tests Vitest, `pint --test`
+clean, Larastan clean, build Vite client+SSR OK, `vue-tsc --noEmit`
+clean.
 
 ## Points ouverts connus
 
