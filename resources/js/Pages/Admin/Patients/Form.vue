@@ -41,7 +41,7 @@ const genderOptions = [
     { label: 'Femme', value: 'female' },
 ];
 
-const { form, serverId, saving, lastSavedAt, scheduleSave, flush } =
+const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
     useResilientForm(
         'patients',
         {
@@ -74,6 +74,13 @@ const birthDateBinding = computed<Date | null>({
     },
 });
 
+const fieldErrors = computed<Record<string, string>>(() => ({
+    ...Object.fromEntries(
+        Object.entries(saveErrors.value).map(([field, messages]) => [field, messages[0]]),
+    ),
+    ...confirmErrors.value,
+}));
+
 const savedLabel = computed(() => {
     if (saving.value) {
         return 'Enregistrement…';
@@ -92,7 +99,13 @@ const confirming = ref(false);
 const confirmErrors = ref<Record<string, string>>({});
 
 async function confirmPatient() {
-    await flush();
+    try {
+        await flush();
+    } catch {
+        // saveErrors (from useResilientForm) already carries the detail;
+        // stop here instead of navigating to confirm with a not-yet-saved draft.
+        return;
+    }
 
     if (serverId.value === null) {
         return;
@@ -125,6 +138,18 @@ async function confirmPatient() {
         <div class="mx-auto" style="max-width: 640px">
             <p class="text-body-2 text-medium-emphasis mb-4">{{ savedLabel }}</p>
 
+            <v-alert
+                v-if="Object.keys(saveErrors).length"
+                type="error"
+                variant="tonal"
+                class="mb-4"
+                title="Enregistrement impossible"
+            >
+                <ul class="ps-4">
+                    <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
+                </ul>
+            </v-alert>
+
             <v-card>
                 <v-card-text>
                     <form class="d-flex flex-column ga-4" @submit.prevent="confirmPatient">
@@ -136,12 +161,12 @@ async function confirmPatient() {
                             option-value="id"
                             label="Centre d'accueil"
                             placeholder="Choisir un centre"
-                            :error="confirmErrors.intake_center_id"
+                            :error="fieldErrors.intake_center_id"
                         />
 
-                        <AppInputText v-model="form.first_name" label="Prénom" :error="confirmErrors.first_name" />
+                        <AppInputText v-model="form.first_name" label="Prénom" :error="fieldErrors.first_name" />
 
-                        <AppInputText v-model="form.last_name" label="Nom" :error="confirmErrors.last_name" />
+                        <AppInputText v-model="form.last_name" label="Nom" :error="fieldErrors.last_name" />
 
                         <AppSelect
                             v-model="form.gender"
@@ -151,16 +176,16 @@ async function confirmPatient() {
                             label="Genre"
                             show-clear
                             placeholder="Non renseigné"
-                            :error="confirmErrors.gender"
+                            :error="fieldErrors.gender"
                         />
 
                         <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
 
-                        <AppInputText v-model="form.phone" label="Téléphone" :error="confirmErrors.phone" />
+                        <AppInputText v-model="form.phone" label="Téléphone" :error="fieldErrors.phone" />
 
                         <AppInputText v-model="form.email" type="email" label="Email" />
 
-                        <AppInputText v-model="form.city" label="Ville" :error="confirmErrors.city" />
+                        <AppInputText v-model="form.city" label="Ville" :error="fieldErrors.city" />
 
                         <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
 

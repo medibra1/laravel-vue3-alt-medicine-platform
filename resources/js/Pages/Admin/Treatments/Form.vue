@@ -70,7 +70,7 @@ const diseaseOptions = props.diseases.map((disease) => ({
     name: `${disease.code} — ${disease.label}`,
 }));
 
-const { form, serverId, saving, lastSavedAt, scheduleSave, flush } =
+const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
     useResilientForm(
         'treatments',
         {
@@ -123,8 +123,19 @@ const savedLabel = computed(() => {
 const confirming = ref(false);
 const confirmErrors = ref<Record<string, string>>({});
 
+const fieldErrors = computed<Record<string, string>>(() => ({
+    ...Object.fromEntries(
+        Object.entries(saveErrors.value).map(([field, messages]) => [field, messages[0]]),
+    ),
+    ...confirmErrors.value,
+}));
+
 async function confirmTreatment() {
-    await flush();
+    try {
+        await flush();
+    } catch {
+        return;
+    }
 
     if (serverId.value === null) {
         return;
@@ -157,6 +168,18 @@ async function confirmTreatment() {
         <div class="mx-auto" style="max-width: 640px">
             <p class="text-body-2 text-medium-emphasis mb-4">{{ savedLabel }}</p>
 
+            <v-alert
+                v-if="Object.keys(saveErrors).length"
+                type="error"
+                variant="tonal"
+                class="mb-4"
+                title="Enregistrement impossible"
+            >
+                <ul class="ps-4">
+                    <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
+                </ul>
+            </v-alert>
+
             <v-card>
                 <v-card-text>
                     <form class="d-flex flex-column ga-4" @submit.prevent="confirmTreatment">
@@ -168,7 +191,7 @@ async function confirmTreatment() {
                             option-value="id"
                             label="Centre"
                             placeholder="Choisir un centre"
-                            :error="confirmErrors.center_id"
+                            :error="fieldErrors.center_id"
                         />
 
                         <AppSelect
@@ -178,7 +201,7 @@ async function confirmTreatment() {
                             option-value="id"
                             label="Patient"
                             placeholder="Choisir un patient"
-                            :error="confirmErrors.patient_id"
+                            :error="fieldErrors.patient_id"
                         />
 
                         <AppSelect
@@ -188,7 +211,7 @@ async function confirmTreatment() {
                             option-value="id"
                             label="Praticien"
                             placeholder="Choisir un praticien"
-                            :error="confirmErrors.practitioner_id"
+                            :error="fieldErrors.practitioner_id"
                         />
 
                         <AppSelect
@@ -199,13 +222,13 @@ async function confirmTreatment() {
                             label="Maladies traitées"
                             placeholder="Choisir une ou plusieurs maladies"
                             multiple
-                            :error="confirmErrors.disease_ids"
+                            :error="fieldErrors.disease_ids"
                         />
 
                         <AppDatePicker
                             v-model="startedAtBinding"
                             label="Date de début"
-                            :error="confirmErrors.started_at"
+                            :error="fieldErrors.started_at"
                         />
 
                         <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
@@ -226,7 +249,7 @@ async function confirmTreatment() {
                             label="Pourcentage"
                             :min="1"
                             :max="99"
-                            :error="confirmErrors.outcome_percentage"
+                            :error="fieldErrors.outcome_percentage"
                         />
 
                         <AppTextarea v-model="form.notes" label="Notes" :rows="3" />

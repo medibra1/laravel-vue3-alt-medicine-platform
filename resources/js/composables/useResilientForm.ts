@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { http } from '@/lib/http';
+import { http, HttpError } from '@/lib/http';
 import { reactive, ref, toRaw } from 'vue';
 
 interface Endpoints {
@@ -32,6 +32,10 @@ export function useResilientForm<T extends Record<string, unknown>>(
     const serverId = ref<number | null>((initial.id as number | null) ?? null);
     const saving = ref(false);
     const lastSavedAt = ref<number | null>(null);
+    // Populated when the server rejects an autosave (e.g. a required field
+    // is still empty) — the raw throw from http.ts otherwise surfaces only
+    // as an unhandled console error, invisible to the person using the form.
+    const saveErrors = ref<Record<string, string[]>>({});
 
     let localTimer: ReturnType<typeof setTimeout> | undefined;
     let serverTimer: ReturnType<typeof setTimeout> | undefined;
@@ -64,8 +68,14 @@ export function useResilientForm<T extends Record<string, unknown>>(
             } else {
                 await http.patch(endpoints.update(serverId.value), { ...form });
             }
+            saveErrors.value = {};
             lastSavedAt.value = Date.now();
             await persistLocal();
+        } catch (error) {
+            if (error instanceof HttpError) {
+                saveErrors.value = error.errors;
+            }
+            throw error;
         } finally {
             saving.value = false;
         }
@@ -93,5 +103,5 @@ export function useResilientForm<T extends Record<string, unknown>>(
         await db.drafts.delete(localId);
     }
 
-    return { form, serverId, saving, lastSavedAt, scheduleSave, flush, discardLocal };
+    return { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush, discardLocal };
 }
