@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Patients\Http\Controllers\Admin\TreatmentController;
+use App\Domains\Patients\Http\Controllers\Admin\TreatmentSessionController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'center.access'])
@@ -11,4 +12,8 @@ Route::middleware(['auth', 'verified', 'center.access'])
         Route::patch('treatments/{treatment}/draft', [TreatmentController::class, 'updateDraft'])->name('treatments.draft.update');
         Route::post('treatments/{treatment}/confirm', [TreatmentController::class, 'confirm'])->name('treatments.confirm');
         Route::resource('treatments', TreatmentController::class)->only(['index', 'create', 'edit', 'destroy']);
+
+        Route::post('treatments/{treatment}/sessions', [TreatmentSessionController::class, 'store'])->name('treatments.sessions.store');
+        Route::patch('treatments/{treatment}/sessions/{session}', [TreatmentSessionController::class, 'update'])->name('treatments.sessions.update');
+        Route::delete('treatments/{treatment}/sessions/{session}', [TreatmentSessionController::class, 'destroy'])->name('treatments.sessions.destroy');
     });

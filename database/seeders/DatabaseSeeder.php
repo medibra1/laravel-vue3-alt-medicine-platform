@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             GradeSeeder::class,
             DiseaseCategorySeeder::class,
+            CareCategorySeeder::class,
             RolesAndPermissionsSeeder::class,
             SuperAdminSeeder::class,
         ]);

@@ -90,7 +90,14 @@ export function useResilientForm<T extends Record<string, unknown>>(
         // ASAP; subsequent edits use the full 1-2s debounce.
         const delay =
             serverId.value === null ? 50 : (options.serverDebounceMs ?? 1500);
-        serverTimer = setTimeout(persistServer, delay);
+        // Fire-and-forget from a timer, not awaited by a caller — a
+        // rejection (e.g. a required field still empty) has already been
+        // captured into saveErrors above; swallow it here too, otherwise
+        // it surfaces as an unhandled promise rejection with nothing new
+        // to tell the UI that saveErrors doesn't already show.
+        serverTimer = setTimeout(() => {
+            persistServer().catch(() => {});
+        }, delay);
     }
 
     async function flush() {

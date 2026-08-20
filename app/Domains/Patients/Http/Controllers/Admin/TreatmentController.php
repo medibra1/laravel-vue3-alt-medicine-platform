@@ -6,7 +6,10 @@ use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Http\Requests\ConfirmTreatmentRequest;
 use App\Domains\Patients\Http\Requests\StoreTreatmentDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdateTreatmentDraftRequest;
+use App\Domains\Patients\Models\CareCategory;
+use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
+use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Practitioners\Models\Practitioner;
@@ -63,7 +66,7 @@ class TreatmentController extends Controller
     {
         Gate::authorize('update', $treatment);
 
-        $treatment->load('diseases');
+        $treatment->load('diseases.category');
 
         return Inertia::render('Admin/Treatments/Form', [
             'treatment' => [
@@ -120,10 +123,33 @@ class TreatmentController extends Controller
     {
         $validated = $request->validated();
         $treatment->diseases()->sync($validated['disease_ids']);
-        unset($validated['disease_ids']);
+        $diseaseProgress = $validated['disease_progress'] ?? [];
+        unset($validated['disease_ids'], $validated['disease_progress']);
 
         $treatment->update($validated);
         $treatment->setStatus('confirmed');
+
+        // The wizard's "Issue par maladie" step is stored as the
+        // treatment's first (implicit) session rather than on the
+        // treatment/pivot directly — same storage path every later real
+        // session uses, see CLAUDE.md "Domaine Treatment" for the
+        // per-session-history reasoning.
+        if ($diseaseProgress !== []) {
+            $session = $treatment->sessions()->create([
+                'practitioner_id' => $treatment->practitioner_id,
+                'session_date' => $treatment->started_at,
+                'created_by' => $request->user()->id,
+            ]);
+
+            foreach ($diseaseProgress as $row) {
+                $session->diseaseProgress()->create([
+                    'disease_id' => $row['disease_id'],
+                    'outcome' => $row['outcome'] ?? null,
+                    'outcome_percentage' => $row['outcome_percentage'] ?? null,
+                    'notes' => $row['notes'] ?? null,
+                ]);
+            }
+        }
 
         return redirect()->route('admin.treatments.index');
     }
@@ -156,8 +182,29 @@ class TreatmentController extends Controller
             // raw translatable JSON column ({fr: ..., en: ...}) rather than
             // the current-locale string HasTranslations resolves via its
             // attribute accessor — map explicitly to get the resolved value.
-            'diseases' => Disease::query()->where('active', true)->orderBy('code')->get(['id', 'code', 'label'])
-                ->map(fn (Disease $disease) => ['id' => $disease->id, 'code' => $disease->code, 'label' => $disease->label])
+            'diseases' => Disease::query()->where('active', true)->with('category')->orderBy('code')->get()
+                ->map(fn (Disease $disease) => [
+                    'id' => $disease->id,
+                    'code' => $disease->code,
+                    'label' => $disease->label,
+                    'category_id' => $disease->disease_category_id,
+                    'category_label' => $disease->category->label,
+                ])
+                ->values(),
+            'diseaseCategories' => DiseaseCategory::query()->where('active', true)->orderBy('order')->get()
+                ->map(fn (DiseaseCategory $category) => ['id' => $category->id, 'code' => $category->code, 'label' => $category->label])
+                ->values(),
+            'careCategories' => CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get()
+                ->map(fn (CareCategory $category) => [
+                    'id' => $category->id,
+                    'code' => $category->code,
+                    'label' => $category->label,
+                    'items' => $category->items->where('active', true)->values()->map(fn (CareItem $item) => [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'label' => $item->label,
+                    ]),
+                ])
                 ->values(),
         ];
     }

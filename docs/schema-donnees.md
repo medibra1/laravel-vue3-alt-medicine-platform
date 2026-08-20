@@ -176,16 +176,69 @@ future (suivi du traitement post-confirmation, pas commencé).
 
 ### `patients_treatment_diseases` (pivot) — **implémenté**
 treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre.
+Reste volontairement simple (2026-08-20) : dit juste "cette maladie
+fait partie de ce traitement", ne porte aucun statut/outcome — le
+suivi réel vit dans `patients_treatment_session_disease_progress`
+(historisé par séance, voir plus bas), pas ici.
 
-### `patients_treatment_sessions` (séances individuelles) — **schéma posé, pas d'UI**
-Migration + modèle + relation `Treatment::sessions()` existent ;
-contrôleur/policy/routes/pages Inertia pas encore construits — suite
-logique directe de la session `feature/treatments`.
+### `patients_treatment_sessions` (séances individuelles) — **implémenté** (2026-08-20)
+CRUD simple (pas le pattern wizard résilient — une séance est une
+saisie courte en une fois, pas un formulaire long autosauvegardé, donc
+pas de `client_uuid`/draft/confirm/`HasStatuses`).
 
 id · treatment_id (fk) · practitioner_id (fk, nullable, peut différer
 si réassignation) · session_date, nullable · duration_minutes,
 nullable · notes · created_by · timestamps
-→ statut (draft/confirmed) via `spatie/laravel-model-status`
+
+### `patients_treatment_session_disease_progress` — **implémenté** (2026-08-20)
+Cœur du modèle de suivi de cette session : une ligne par maladie suivie
+à une séance donnée, pas un statut final unique par maladie. Permet de
+voir l'évolution dans le temps (lecture : toutes les lignes pour un
+`disease_id` donné à travers les séances d'un même traitement, triées
+par `session_date`). Couvre aussi les maladies de la catégorie
+Cauchemars (traitées comme n'importe quelle autre catégorie pour
+l'instant — voir note plus bas).
+
+id · treatment_session_id (fk `patients_treatment_sessions`, cascade) ·
+disease_id (fk `patients_diseases`, cascade) · outcome (enum:
+cured/not_cured/percentage/ongoing), nullable · outcome_percentage
+(1-99), nullable · notes · timestamps ·
+unique(treatment_session_id, disease_id)
+
+### `patients_treatment_session_care_items` (pivot) — **implémenté** (2026-08-20)
+treatment_session_id (fk) · care_item_id (fk `patients_care_items`) —
+clé composite. Quels soins concrets (voir catalogue ci-dessous) ont été
+utilisés à une séance donnée.
+
+### `patients_care_categories` / `patients_care_items` — **implémenté** (2026-08-20)
+Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
+de `patients_disease_categories`/`patients_diseases` (décision : la
+hiérarchie auto-référencée d'`EnumOption` — `parent_id` — n'a jamais
+d'usage réel dans ce projet, voir `CLAUDE.md` "Wizard Treatment..." —
+pas construit dessus). Exemples de catégories : Pommade, Bain, Encens,
+Tisane, Verset — chacune avec sa propre liste d'items concrets.
+Contenu actuellement **placeholder** (`CareCategorySeeder.php`),
+aucune donnée source réelle fournie à ce stade.
+
+`patients_care_categories` : id · code (unique) · label (translatable)
+· order · active · timestamps
+
+`patients_care_items` : id · care_category_id (fk, cascade) · code
+(unique par catégorie) · label (translatable) · description
+(translatable, nullable) · order · active · timestamps
+
+⚠️ **Note "cauchemars"** : la 9e `DiseaseCategory` (`type = NIGHTMARE`)
+est seedée avec 2 maladies placeholder (901/902) et traitée exactement
+comme les 8 autres catégories dans `patients_treatment_session_disease_progress`
+— une distinction spéciale ("pas de suivi de statut pour les
+cauchemars") a été envisagée puis explicitement reportée par
+l'utilisateur, pas implémentée cette session.
+
+⚠️ **Hors périmètre, explicitement reporté** : lien entre le catalogue
+de soins et le stock (`Catalog.Product` — un item comme "Verset" n'a ni
+stock ni prix, contrairement à une pommade, donc ce lien ne concernera
+qu'une partie des catégories le jour où il sera construit) ; lien vers
+la facturation/paiement patient (`Billing`).
 
 ---
 
@@ -378,10 +431,14 @@ file_path (PDF stocké) · timestamps
 - **Montants toujours en centimes** (integer), jamais en float — décision
   déjà actée sur Geneva Bengal, reconduite ici.
 - **`draft`/`confirmed`** présent sur `patients`, `patients_treatments`,
-  `patients_treatment_sessions`, `scheduling_appointments`, `billing_expenses` — ce sont les entités
+  `scheduling_appointments`, `billing_expenses` — ce sont les entités
   saisies via wizard/formulaire long, donc concernées par la sauvegarde
-  continue. Les entités de référence (`countries`, `centers`, `catalog_products`...)
-  n'ont pas ce statut, elles sont gérées en CRUD admin classique.
+  continue. **`patients_treatment_sessions` n'a volontairement pas ce
+  statut** (décision du 2026-08-20, révise l'intention initiale) — une
+  séance est une saisie courte en une fois (ce qui s'est passé pendant
+  un rendez-vous), pas un formulaire long autosauvegardé ; CRUD simple.
+  Les entités de référence (`countries`, `centers`, `catalog_products`...)
+  n'ont pas ce statut non plus, elles sont gérées en CRUD admin classique.
 - **`practitioners.full_code`** recalculé automatiquement (observer) à la
   création/modification de `center_id`/`diploma_number` — jamais saisi à
   la main, pour garantir l'unicité et la cohérence pays+centre.

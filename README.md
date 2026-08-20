@@ -61,7 +61,7 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 |---|---|
 | Core (zones, pays, centres, grades) | Schéma + seeders faits |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies fait ; `Patient` (mono-étape) fait ; `Treatment` fait ; `TreatmentSession`/`ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies fait (9 catégories dont Cauchemars) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -129,12 +129,33 @@ traduisible (`spatie/laravel-translatable`) envoyé à Inertia sans
 résolution explicite de l'accessor. Détail complet et raisonnement
 dans `CLAUDE.md` "Domaine Treatment".
 
+**Wizard Treatment, dossier patient unifié, historique par séance**
+(2026-08-20, branche `feature/treatments`, session distincte de la
+première implémentation Treatment) : vrai wizard 3 étapes en modal
+(Infos / Maladies avec sélection par catégorie + recherche globale /
+Issue par maladie), dossier patient unifié (`Patient/Edit` affiche
+désormais ses traitements et séances), suivi d'évolution par maladie
+**historisé par séance** (nouvelle table
+`patients_treatment_session_disease_progress`, plus un statut final
+unique), catalogue de soins dynamique à 2 niveaux
+(`patients_care_categories`/`patients_care_items`, contenu placeholder
+— Pommade/Bain/Encens/Tisane/Verset). Nouveaux wrappers `AppStepper`/
+`AppCard`, premier dossier `Components/Patients/*` pour les composants
+métier composés partagés entre plusieurs pages. Vérifié : 76 tests
+Pest (9 nouveaux, zéro régression), 5 tests Vitest, `pint --test`
+clean, Larastan clean, build Vite client+SSR OK, `vue-tsc --noEmit`
+clean, golden path navigateur réel sur le wizard et le dossier patient,
+deux thèmes. Quatre vrais bugs trouvés et corrigés en vérification
+(détail dans `CLAUDE.md` "Wizard Treatment..."). Stock et facturation
+explicitement hors périmètre cette session (évoqués puis reportés).
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
   voir `database/seeders/CountrySeeder.php`.
-- Catégorie de maladie "cauchemars" absente du document source — à
-  définir avant de pouvoir la seeder.
+- Contenu placeholder à remplacer par du vrai contenu source dès qu'il
+  est fourni : catégorie de maladie "Cauchemars" (2 maladies, codes
+  901/902) et catalogue de soins entier (`CareCategorySeeder.php`).
 - Traductions anglaises du contenu métier faites par Claude — relecture
   par un locuteur natif recommandée avant mise en prod (précision
   terminologique médicale).

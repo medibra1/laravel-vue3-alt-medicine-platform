@@ -7,11 +7,12 @@ use App\Domains\Practitioners\Models\Practitioner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\ModelStatus\HasStatuses;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TreatmentSession extends Model
 {
-    use HasFactory, HasStatuses;
+    use HasFactory;
 
     protected $table = 'patients_treatment_sessions';
 
@@ -21,11 +22,6 @@ class TreatmentSession extends Model
         'session_date' => 'date',
         'duration_minutes' => 'int',
     ];
-
-    public function currentStatusName(): ?string
-    {
-        return $this->latestStatus()?->name;
-    }
 
     /** @return BelongsTo<Treatment, $this> */
     public function treatment(): BelongsTo
@@ -43,5 +39,17 @@ class TreatmentSession extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return HasMany<TreatmentSessionDiseaseProgress, $this> */
+    public function diseaseProgress(): HasMany
+    {
+        return $this->hasMany(TreatmentSessionDiseaseProgress::class, 'treatment_session_id');
+    }
+
+    /** @return BelongsToMany<CareItem, $this> */
+    public function careItems(): BelongsToMany
+    {
+        return $this->belongsToMany(CareItem::class, 'patients_treatment_session_care_items', 'treatment_session_id', 'care_item_id');
     }
 }
