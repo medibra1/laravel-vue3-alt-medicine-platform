@@ -38,6 +38,7 @@ const navItems = computed(() => [
               { label: 'Maladies', icon: 'mdi-virus-outline', href: () => route('admin.diseases.index'), active: () => route().current('admin.diseases.*') },
               { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: () => route('admin.care-categories.index'), active: () => route().current('admin.care-categories.*') },
               { label: 'Soins', icon: 'mdi-leaf', href: () => route('admin.care-items.index'), active: () => route().current('admin.care-items.*') },
+              { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: () => route('admin.enum-options.index'), active: () => route().current('admin.enum-options.*') },
           ]
         : []),
 ]);

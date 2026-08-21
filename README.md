@@ -195,6 +195,26 @@ golden path navigateur réel (Playwright) sur les six nouvelles pages
 (liste, création, et la réassignation de zone d'un pays existant), zéro
 erreur console.
 
+**CRUD admin pour `EnumOption`** (2026-08-21, branche `feature/treatments`,
+suite immédiate) : les options dynamiques partagées entre domaines
+(`disease_category.type`, `payroll_organism.type`) ont désormais un
+CRUD admin, même principe que la session précédente. Cette vérification
+a révélé un **bug systémique préexistant** touchant tous les CRUD de
+liste du projet (Centers, Zones, Countries, DiseaseCategories, Diseases,
+CareCategories, CareItems, Patients, Practitioners, Treatments) : sur un
+premier chargement de page sans aucun filtre actif dans l'URL, le prop
+`filters` passé à Inertia se sérialisait en tableau JSON vide `[]`
+plutôt qu'en objet `{}`, ce qui faisait résoudre `props.filters.sort`
+en JS vers `Array.prototype.sort` (la méthode native) au lieu de
+`undefined` — un clic sur "Filtrer" envoyait alors le code source de
+cette fonction dans l'URL, provoquant une erreur 400. Corrigé partout
+d'un coup (`'filters' => (object) $request->only(['filter', 'sort'])`).
+Détail complet dans `CLAUDE.md` "CRUD admin pour `EnumOption`, bug
+systémique...". Vérifié : 176 tests Pest (11 nouveaux, zéro
+régression), `pint --test` clean, Larastan clean, build OK,
+`vue-tsc --noEmit` clean, golden path navigateur réel confirmant le fix
+sur `EnumOptions` et re-testé sur `Centers`.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —

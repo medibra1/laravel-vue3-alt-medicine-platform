@@ -24,6 +24,19 @@ Listes de choix dynamiques, gérables en admin sans déploiement.
 | active | bool | |
 | properties | json, nullable | métadonnées libres |
 
+✅ **CRUD admin implémenté (2026-08-21)** — `EnumOptionController`
+(super_admin uniquement, `app/Domains/Common/Http/Controllers/Admin/`,
+premier controller sous `Common`), page Inertia `Admin/EnumOptions/Index.vue`.
+`enum_type` est un champ texte libre (pas une liste fixe) — cohérent
+avec le principe même d'`EnumOption` : un nouveau type apparaît dès
+qu'un domaine crée sa première option sous ce type, jamais par
+migration. `code` unique **par `enum_type`**. `label` (JSON,
+`array` cast plutôt que `HasTranslations` — voir docblock du modèle)
+édité en `{fr, en}` via `AppTranslatableInput.vue`, comme les six CRUD
+de la session précédente. `parent_id` non exposé dans le formulaire —
+sans usage réel dans ce projet à ce jour (voir CLAUDE.md "Wizard
+Treatment...").
+
 ### `model_options` (pivot polymorphe)
 `model_type`, `model_id`, `option_id` (fk `enum_options`)
 
