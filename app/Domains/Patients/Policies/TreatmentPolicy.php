@@ -45,6 +45,24 @@ class TreatmentPolicy
         return $user->can('treatments.update') && $this->managesCenter($treatment->center_id);
     }
 
+    public function close(User $user, Treatment $treatment): bool
+    {
+        return $user->can('treatments.update') && $this->managesCenter($treatment->center_id);
+    }
+
+    /**
+     * Same gate as close() today — there's no separate lower-privileged
+     * raqi login yet to actually exclude (see CLAUDE.md "Statut global
+     * Treatment"), so every account that can reach this at all is
+     * already a manager or super_admin. Kept as its own ability rather
+     * than folded into close() so this stays the one place to tighten
+     * once per-raqi accounts exist.
+     */
+    public function reopen(User $user, Treatment $treatment): bool
+    {
+        return $user->can('treatments.update') && $this->managesCenter($treatment->center_id);
+    }
+
     public function delete(User $user, Treatment $treatment): bool
     {
         return $user->can('treatments.delete') && $this->managesCenter($treatment->center_id);

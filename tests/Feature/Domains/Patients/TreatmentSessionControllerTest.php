@@ -78,6 +78,53 @@ test('updating a session upserts disease progress instead of duplicating it', fu
     expect($session->diseaseProgress()->first()->outcome)->toBe('cured');
 });
 
+test('a session that resolves the last unresolved disease auto-closes the treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->setStatus('ongoing');
+    $diseaseA = Disease::factory()->create();
+    $diseaseB = Disease::factory()->create();
+    $treatment->diseases()->sync([$diseaseA->id, $diseaseB->id]);
+
+    // First session resolves only one of the two diseases — still ongoing.
+    $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'disease_progress' => [
+            ['disease_id' => $diseaseA->id, 'outcome' => 'cured'],
+        ],
+    ]);
+    expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
+
+    // Second session resolves the last one — the treatment auto-closes.
+    $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-21',
+        'disease_progress' => [
+            ['disease_id' => $diseaseB->id, 'outcome' => 'not_cured'],
+        ],
+    ]);
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('resolved');
+});
+
+test('a session marking a disease as still ongoing does not close the treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'disease_progress' => [
+            ['disease_id' => $disease->id, 'outcome' => 'ongoing'],
+        ],
+    ]);
+
+    expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
+});
+
 test('manager cannot create a session on a treatment from another center', function () {
     $ownCenter = Center::factory()->create();
     $otherCenter = Center::factory()->create();

@@ -14,6 +14,8 @@ class PractitionerFactory extends Factory
     public function definition(): array
     {
         return [
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
             'user_id' => null,
             'center_id' => Center::factory(),
             'grade_id' => null,

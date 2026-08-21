@@ -36,6 +36,8 @@ interface Grade {
 
 interface Practitioner {
     id: number;
+    first_name: string;
+    last_name: string;
     full_code: string;
     matricule: string;
     center_id: number;
@@ -90,6 +92,7 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
+    { field: 'name', header: 'Nom' },
     { field: 'full_code', header: 'Code', sortable: true },
     { field: 'matricule', header: 'Matricule', sortable: true },
     { field: 'center', header: 'Centre' },
@@ -103,6 +106,8 @@ const isCreating = ref(false);
 const editingPractitioner = ref<Practitioner | null>(null);
 
 const createForm = useForm({
+    first_name: '',
+    last_name: '',
     center_id: null as number | null,
     matricule: '',
     grade_id: null as number | null,
@@ -150,6 +155,8 @@ function submitCreate() {
 }
 
 const editForm = useForm({
+    first_name: '',
+    last_name: '',
     matricule: '',
     grade_id: null as number | null,
     level: null as number | null,
@@ -163,6 +170,8 @@ const editHiredAt = dateBinding(editForm);
 function openEdit(practitioner: Practitioner) {
     editingPractitioner.value = practitioner;
     editForm.reset();
+    editForm.first_name = practitioner.first_name;
+    editForm.last_name = practitioner.last_name;
     editForm.matricule = practitioner.matricule;
     editForm.grade_id = practitioner.grade_id;
     editForm.level = practitioner.level;
@@ -184,7 +193,7 @@ function submitEdit() {
 }
 
 function destroy(practitioner: Practitioner) {
-    if (!confirm(`Supprimer le praticien ${practitioner.full_code} ?`)) {
+    if (!confirm(`Supprimer le praticien ${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code}) ?`)) {
         return;
     }
 
@@ -203,7 +212,7 @@ function destroy(practitioner: Practitioner) {
                 <AppInputText
                     id="filter-search"
                     v-model="search.search"
-                    label="Rechercher (code, matricule)"
+                    label="Rechercher (nom, code, matricule)"
                     @keyup.enter="reload()"
                 />
                 <AppButton label="Filtrer" @click="reload()" />
@@ -220,6 +229,7 @@ function destroy(practitioner: Practitioner) {
                     @page="onPage"
                     @sort="onSort"
                 >
+                    <template #column-name="{ item }">{{ item.first_name }} {{ item.last_name }}</template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #column-grade="{ item }">{{ item.grade?.label ?? '—' }}</template>
                     <template #actions="{ item }">
@@ -244,6 +254,9 @@ function destroy(practitioner: Practitioner) {
 
         <AppDialog v-model:visible="isCreating" header="Nouveau praticien">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
+                <AppInputText v-model="createForm.first_name" label="Prénom" :error="createForm.errors.first_name" />
+                <AppInputText v-model="createForm.last_name" label="Nom" :error="createForm.errors.last_name" />
+
                 <AppSelect
                     v-if="centers.length"
                     v-model="createForm.center_id"
@@ -298,6 +311,9 @@ function destroy(practitioner: Practitioner) {
             @update:visible="editingPractitioner = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
+                <AppInputText v-model="editForm.first_name" label="Prénom" :error="editForm.errors.first_name" />
+                <AppInputText v-model="editForm.last_name" label="Nom" :error="editForm.errors.last_name" />
+
                 <AppInputText
                     v-model="editForm.matricule"
                     label="Matricule (3 chiffres)"

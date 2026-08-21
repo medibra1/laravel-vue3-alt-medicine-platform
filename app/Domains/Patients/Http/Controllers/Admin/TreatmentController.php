@@ -3,7 +3,9 @@
 namespace App\Domains\Patients\Http\Controllers\Admin;
 
 use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
+use App\Domains\Patients\Http\Requests\CloseTreatmentRequest;
 use App\Domains\Patients\Http\Requests\ConfirmTreatmentRequest;
+use App\Domains\Patients\Http\Requests\ReopenTreatmentRequest;
 use App\Domains\Patients\Http\Requests\StoreTreatmentDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdateTreatmentDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
@@ -134,6 +136,10 @@ class TreatmentController extends Controller
 
         $treatment->update($validated);
         $treatment->setStatus('confirmed');
+        // Confirming immediately starts real-world follow-up — there's no
+        // separate manual step to reach `ongoing`, see CLAUDE.md "Statut
+        // global Treatment" for why this transition is automatic.
+        $treatment->setStatus('ongoing');
 
         // The wizard's "Issue par maladie" step is stored as the
         // treatment's first (implicit) session rather than on the
@@ -155,6 +161,11 @@ class TreatmentController extends Controller
                     'notes' => $row['notes'] ?? null,
                 ]);
             }
+
+            // Edge case, but a real one: every disease could already be
+            // resolved right at confirmation (e.g. a same-day cure logged
+            // retroactively) — same auto-close path a later session uses.
+            $treatment->refreshClosureStatus();
         }
 
         // Not the flat treatments list: whether this wizard was opened
@@ -162,6 +173,25 @@ class TreatmentController extends Controller
         // step (adding a session, tracking progress) only happens on the
         // patient's own page — landing there continues the workflow
         // instead of dropping the user back at an unrelated index.
+        return redirect()->route('admin.patients.edit', $treatment->patient_id);
+    }
+
+    /**
+     * Manual/early closure — see CloseTreatmentRequest for the reasons
+     * accepted and CLAUDE.md "Statut global Treatment" for why this exists
+     * alongside the automatic closure in Treatment::refreshClosureStatus().
+     */
+    public function close(CloseTreatmentRequest $request, Treatment $treatment): RedirectResponse
+    {
+        $treatment->manualClose($request->string('closure_reason')->toString(), $request->input('notes'));
+
+        return redirect()->route('admin.patients.edit', $treatment->patient_id);
+    }
+
+    public function reopen(ReopenTreatmentRequest $request, Treatment $treatment): RedirectResponse
+    {
+        $treatment->reopen();
+
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }
 

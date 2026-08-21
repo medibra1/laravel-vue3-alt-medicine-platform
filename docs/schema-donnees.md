@@ -79,6 +79,8 @@ is_active · timestamps
 | Colonne | Type | Notes |
 |---|---|---|
 | id | bigint PK | |
+| first_name | string | **ajouté 2026-08-21** — absent depuis la création du domaine, seul `matricule`/`full_code` identifiaient un praticien jusque-là (repéré par l'utilisateur en voyant "Praticien : 0116694" dans le dossier patient) |
+| last_name | string | **ajouté 2026-08-21**, voir `first_name` |
 | user_id | fk `users`, nullable | un soignant peut ne pas avoir de compte de connexion (juste référencé) |
 | center_id | fk `centers` | |
 | grade_id | fk `grades`, nullable | porte le coefficient utilisé dans le calcul de paie |
@@ -215,11 +217,51 @@ le draft** — contrairement à `patients`, un traitement sans patient
 n'a pas de sens même en brouillon) · practitioner_id (fk, nullable) ·
 center_id (fk, nullable) · started_at, nullable · ended_at, nullable ·
 outcome (enum: cured/not_cured/percentage), nullable ·
-outcome_percentage (1-99), nullable · notes · created_by · timestamps
+outcome_percentage (1-99), nullable · notes · **closure_reason**
+(string(20) nullable — voir ci-dessous) · created_by · timestamps
 → statut (draft/confirmed/ongoing/closed) via `spatie/laravel-model-status`
-— seuls `draft`/`confirmed` sont déclenchés par un flux applicatif à ce
-stade ; `ongoing`/`closed` restent posés au schéma pour une session
-future (suivi du traitement post-confirmation, pas commencé).
+— **les 4 sont désormais câblés (2026-08-20, session "Statut global
+Treatment")** : `confirm()` fait passer `confirmed` puis `ongoing` dans
+la même requête (pas d'étape manuelle intermédiaire), `closed` est
+atteint soit automatiquement (`Treatment::refreshClosureStatus()`,
+appelé après chaque écriture de `treatment_session_disease_progress` —
+`TreatmentController::confirm()`, `TreatmentSessionController::store()`/
+`update()` — dès que chaque maladie rattachée a un résultat final, non
+`ongoing`), soit manuellement (`Treatment::manualClose()`, route `POST
+admin/treatments/{treatment}/close`, `CloseTreatmentRequest`, réservée
+à un traitement `ongoing`).
+
+**Réouverture (2026-08-21)** : `Treatment::reopen()` (route `POST
+admin/treatments/{treatment}/reopen`, `ReopenTreatmentRequest`, réservée
+à un traitement `closed`) repasse le traitement à `ongoing` et efface
+`closure_reason`. Réservée aux managers/super_admin — aujourd'hui c'est
+implicite (aucun compte de connexion à privilège inférieur n'existe
+encore, voir `TreatmentPolicy::reopen()`), mais à garder ainsi
+explicitement le jour où des comptes raqi individuels existeront
+(demande explicite de l'utilisateur, pas juste un oubli).
+
+`closure_reason` (posé uniquement quand statut = `closed`) : `resolved`
+(auto, toutes les maladies rattachées résolues) / `lost_to_follow_up`
+/ `closed_manually` (les deux derniers via clôture manuelle
+uniquement — `resolved` est explicitement rejeté sur l'endpoint manuel,
+c'est une valeur calculée, jamais choisie). Les deux raisons manuelles
+viennent du brief client (`Untitled-3`, "perdu de vue... deux semaines
+après la date butoir" + "n'ont pas poursuivi le traitement", groupés
+dans la même catégorie de stats côté client) ; `closed_manually` couvre
+tout le reste (transfert, décès, arrêt médical...) — non demandé
+explicitement par le client, ajouté pour ne pas bloquer un patient sur
+un cas hors périmètre du document source.
+
+**Garde-fou anti-confusion séance/traitement** : `StoreTreatmentDraftRequest`
+refuse de créer un nouveau traitement (`patient_id`) tant que le
+patient a déjà un traitement `ongoing` — évite qu'un raqi pensant
+loguer une séance/RDV crée par erreur un nouveau traitement. Contourné
+uniquement pour le replay idempotent d'un `client_uuid` déjà existant
+(retry réseau sur le même brouillon), jamais pour un vrai nouveau
+traitement. Front-end : bouton "Ajouter un traitement" désactivé côté
+`Patients/Form.vue` tant qu'un traitement `ongoing` existe, bouton
+"Clôturer" dédié sur la carte du traitement en cours
+(`TreatmentCloseDialog.vue`).
 
 ### `treatment_diseases` (pivot) — **implémenté**
 treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre.

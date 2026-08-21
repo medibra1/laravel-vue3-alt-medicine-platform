@@ -18,6 +18,8 @@ interface PatientOption {
 
 interface PractitionerOption {
     id: number;
+    first_name: string;
+    last_name: string;
     full_code: string;
 }
 

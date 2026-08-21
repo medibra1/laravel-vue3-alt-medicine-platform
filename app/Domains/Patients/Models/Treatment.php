@@ -37,6 +37,90 @@ class Treatment extends Model
         return $this->latestStatus()?->name;
     }
 
+    /**
+     * True while at least one disease attached to this treatment has no
+     * final outcome yet — no progress row at all, or its latest row (across
+     * every session) is still 'ongoing'. Deliberately per-disease rather
+     * than a single treatment-level flag: the source brief has each disease
+     * resolving on its own délai, independently of the others in the same
+     * treatment (see CLAUDE.md "Statut global Treatment").
+     */
+    public function hasUnresolvedDiseases(): bool
+    {
+        $diseaseIds = $this->diseases()->pluck('diseases.id');
+
+        if ($diseaseIds->isEmpty()) {
+            return true;
+        }
+
+        $latestOutcomeByDisease = TreatmentSessionDiseaseProgress::query()
+            ->whereIn('disease_id', $diseaseIds)
+            ->whereIn('treatment_session_id', $this->sessions()->pluck('id'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->unique('disease_id')
+            ->pluck('outcome', 'disease_id');
+
+        foreach ($diseaseIds as $diseaseId) {
+            $outcome = $latestOutcomeByDisease->get($diseaseId);
+
+            if ($outcome === null || $outcome === 'ongoing') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Call after any disease-progress write (ConfirmTreatmentRequest's
+     * implicit first session, TreatmentSessionController::store()/update())
+     * — auto-closes the treatment the instant every disease it targets has
+     * a final outcome, so a new treatment for the same patient never has to
+     * wait on someone remembering to close this one by hand. No-op outside
+     * `ongoing` (a draft/confirmed/already-closed treatment is untouched).
+     */
+    public function refreshClosureStatus(): void
+    {
+        if ($this->currentStatusName() !== 'ongoing' || $this->hasUnresolvedDiseases()) {
+            return;
+        }
+
+        $this->update(['closure_reason' => 'resolved']);
+        $this->setStatus('closed');
+    }
+
+    /**
+     * Early/forced closure — abandon, patient lost to follow-up before
+     * every disease resolved, or any other reason a manager needs to free
+     * the patient up for a new treatment. Only reachable from `ongoing`,
+     * enforced in CloseTreatmentRequest rather than here (same split as
+     * every other authorize()-vs-model-method boundary in this domain).
+     */
+    public function manualClose(string $reason, ?string $notes = null): void
+    {
+        $this->update([
+            'closure_reason' => $reason,
+            'notes' => $notes ?? $this->notes,
+        ]);
+        $this->setStatus('closed');
+    }
+
+    /**
+     * Undo a closure — a mistaken manual close, or a late session that
+     * should have kept the treatment open. Only reachable from `closed`,
+     * enforced in ReopenTreatmentRequest. Reserved to managers: today
+     * that's implicit (every account able to reach this app at all is
+     * already a manager or super_admin, see TreatmentPolicy::reopen()) —
+     * flagged here so it stays that way once lower-privileged per-raqi
+     * accounts exist (see CLAUDE.md "Statut global Treatment").
+     */
+    public function reopen(): void
+    {
+        $this->update(['closure_reason' => null]);
+        $this->setStatus('ongoing');
+    }
+
     /** @return BelongsTo<Patient, $this> */
     public function patient(): BelongsTo
     {

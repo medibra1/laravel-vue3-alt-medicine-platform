@@ -43,6 +43,8 @@ test('super admin can create a practitioner and full_code is generated correctly
     $center = Center::factory()->for($country)->create(['code' => '02']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
         'matricule' => '007',
     ]);
@@ -62,6 +64,8 @@ test('manager creating a practitioner is scoped to their own center regardless o
     // center_id is 'prohibited' for managers — sending one at all is a
     // validation error, not a silent override.
     $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $otherCenter->id,
         'matricule' => '010',
     ]);
@@ -75,6 +79,8 @@ test('manager can create a practitioner without sending a center_id', function (
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'matricule' => '011',
     ]);
 
@@ -88,6 +94,8 @@ test('matricule must be exactly three digits', function () {
     $center = Center::factory()->create();
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
         'matricule' => '12',
     ]);
@@ -101,6 +109,8 @@ test('creating a duplicate matricule within the same center fails validation', f
     Practitioner::factory()->for($center)->create(['matricule' => '123']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
         'matricule' => '123',
     ]);
@@ -116,12 +126,28 @@ test('the same matricule is allowed in a different center', function () {
     Practitioner::factory()->for($centerA)->create(['matricule' => '123']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $centerB->id,
         'matricule' => '123',
     ]);
 
     $response->assertRedirect(route('admin.practitioners.index'));
     expect(Practitioner::query()->count())->toBe(2);
+});
+
+test('search filters practitioners by name as well as code/matricule', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    Practitioner::factory()->for($center)->create(['first_name' => 'Ahmed', 'last_name' => 'Ben Ali']);
+    Practitioner::factory()->for($center)->create(['first_name' => 'Fatima', 'last_name' => 'Zahra']);
+
+    $response = $this->actingAs($superAdmin)->get(route('admin.practitioners.index', ['filter' => ['search' => 'Ahmed']]));
+
+    $response->assertOk();
+    $data = $response->inertiaPage()['props']['practitioners']['data'];
+    expect($data)->toHaveCount(1);
+    expect($data[0]['first_name'])->toBe('Ahmed');
 });
 
 test('next-matricule endpoint suggests the next free matricule for a center', function () {
@@ -145,6 +171,8 @@ test('manager cannot update a practitioner from another center', function () {
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->put(route('admin.practitioners.update', $practitioner), [
+        'first_name' => $practitioner->first_name,
+        'last_name' => $practitioner->last_name,
         'matricule' => $practitioner->matricule,
     ]);
 
@@ -157,6 +185,8 @@ test('manager can update a practitioner in their own center', function () {
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->put(route('admin.practitioners.update', $practitioner), [
+        'first_name' => $practitioner->first_name,
+        'last_name' => $practitioner->last_name,
         'matricule' => $practitioner->matricule,
         'level' => 3,
     ]);

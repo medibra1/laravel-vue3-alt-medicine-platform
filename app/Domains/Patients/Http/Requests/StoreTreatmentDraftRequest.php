@@ -5,6 +5,7 @@ namespace App\Domains\Patients\Http\Requests;
 use App\Domains\Patients\Models\Treatment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreTreatmentDraftRequest extends FormRequest
 {
@@ -44,5 +45,42 @@ class StoreTreatmentDraftRequest extends FormRequest
         return $this->user()->isSuperAdmin()
             ? $this->integer('center_id')
             : $this->user()->managedCenterId();
+    }
+
+    /**
+     * The confusion this guards against: a raqi meaning to log a
+     * session/appointment instead creates a whole new Treatment for a
+     * patient who already has one in progress. Skipped when this
+     * client_uuid already belongs to an existing treatment — that's just
+     * the idempotent-retry path (storeDraft() returning the existing row
+     * unchanged), not a genuinely new treatment, so it must never be
+     * blocked by a status that changed on some *other* treatment for the
+     * same patient in between retries.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $isRetryOfExisting = Treatment::query()
+                ->where('client_uuid', $this->input('client_uuid'))
+                ->exists();
+
+            $patientId = $this->input('patient_id');
+
+            if ($isRetryOfExisting || ! $patientId) {
+                return;
+            }
+
+            $hasOngoingTreatment = Treatment::query()
+                ->where('patient_id', $patientId)
+                ->get()
+                ->contains(fn (Treatment $treatment) => $treatment->currentStatusName() === 'ongoing');
+
+            if ($hasOngoingTreatment) {
+                $validator->errors()->add(
+                    'patient_id',
+                    'Ce patient a déjà un traitement en cours — fermez-le avant d\'en ajouter un nouveau.'
+                );
+            }
+        });
     }
 }

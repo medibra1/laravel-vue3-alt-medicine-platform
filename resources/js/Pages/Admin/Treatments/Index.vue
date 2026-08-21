@@ -20,7 +20,7 @@ interface Treatment {
     ended_at: string | null;
     outcome: string | null;
     patient?: { id: number; first_name: string | null; last_name: string | null };
-    practitioner?: { id: number; full_code: string };
+    practitioner?: { id: number; first_name: string; last_name: string; full_code: string };
     center?: { id: number; name: string };
 }
 
@@ -102,7 +102,9 @@ function destroy(treatment: Treatment) {
                     <template #column-patient="{ item }">
                         {{ item.patient?.first_name }} {{ item.patient?.last_name }}
                     </template>
-                    <template #column-practitioner="{ item }">{{ item.practitioner?.full_code }}</template>
+                    <template #column-practitioner="{ item }">
+                        {{ item.practitioner ? `${item.practitioner.first_name} ${item.practitioner.last_name}` : '' }}
+                    </template>
                     <template #column-started_at="{ item }">
                         {{ item.started_at ? new Date(item.started_at).toLocaleDateString() : '' }}
                     </template>

@@ -20,6 +20,8 @@ class StorePractitionerRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
             // A manager may not choose the center at all — it's forced to
             // the one EnsureCenterAccess resolved for them, see centerId().
             'center_id' => [$this->user()->isSuperAdmin() ? 'required' : 'prohibited', 'integer', 'exists:centers,id'],

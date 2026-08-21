@@ -4,6 +4,7 @@ import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import TreatmentCloseDialog from '@/Components/Patients/TreatmentCloseDialog.vue';
 import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog.vue';
 import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -59,13 +60,17 @@ interface TreatmentSummary {
     outcome: string | null;
     outcome_percentage: number | null;
     notes: string | null;
-    practitioner: { id: number; full_code: string } | null;
+    status: string | null;
+    closure_reason: string | null;
+    practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
     diseases: TreatmentDisease[];
     sessions: TreatmentSessionSummary[];
 }
 
 interface PractitionerOption {
     id: number;
+    first_name: string;
+    last_name: string;
     full_code: string;
 }
 
@@ -211,6 +216,43 @@ const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: numb
 // remount, not just switches between "new" and "edit" mode.
 const wizardKey = ref(0);
 
+// A raqi adding a treatment while an old one is still open is exactly the
+// confusion this guards against (they meant to log a session/appointment,
+// not start a whole new treatment) — the backend enforces this too
+// (StoreTreatmentDraftRequest), this just avoids making them fill the
+// whole wizard before finding out.
+const hasOngoingTreatment = computed(() => (props.treatments ?? []).some((t) => t.status === 'ongoing'));
+
+const treatmentStatusLabels: Record<string, string> = {
+    draft: 'Brouillon',
+    confirmed: 'Confirmé',
+    ongoing: 'En cours',
+    closed: 'Fermé',
+};
+
+const closureReasonLabels: Record<string, string> = {
+    resolved: 'toutes les maladies résolues',
+    lost_to_follow_up: 'perdu de vue',
+    closed_manually: 'clôture manuelle',
+};
+
+function treatmentStatusLabel(treatment: TreatmentSummary): string {
+    const base = treatment.status ? (treatmentStatusLabels[treatment.status] ?? treatment.status) : '—';
+
+    if (treatment.status === 'closed' && treatment.closure_reason) {
+        return `${base} (${closureReasonLabels[treatment.closure_reason] ?? treatment.closure_reason})`;
+    }
+
+    return base;
+}
+
+function treatmentStatusColor(treatment: TreatmentSummary): string {
+    if (treatment.status === 'ongoing') return 'primary';
+    if (treatment.status === 'closed') return treatment.closure_reason === 'resolved' ? 'success' : 'warning';
+
+    return 'secondary';
+}
+
 function openNewTreatment() {
     editingTreatment.value = null;
     wizardKey.value++;
@@ -253,6 +295,26 @@ function openEditSession(treatment: TreatmentSummary, session: TreatmentSessionS
     sessionTreatmentId.value = treatment.id;
     editingSession.value = session;
     sessionDialogVisible.value = true;
+}
+
+const closeDialogVisible = ref(false);
+const closingTreatmentId = ref<number | null>(null);
+
+function openCloseTreatment(treatment: TreatmentSummary) {
+    closingTreatmentId.value = treatment.id;
+    closeDialogVisible.value = true;
+}
+
+// Reopening reverses an automatic or manual closure (mistaken close, or a
+// late session that should have kept the treatment open) — no reason to
+// capture, so a plain confirm() is enough (same pattern as destroy()
+// elsewhere in this app), no dedicated dialog like TreatmentCloseDialog.
+function reopenTreatment(treatment: TreatmentSummary) {
+    if (!confirm('Rouvrir ce traitement ? Il redeviendra "en cours" et bloquera à nouveau la création d\'un nouveau traitement pour ce patient.')) {
+        return;
+    }
+
+    router.post(route('admin.treatments.reopen', treatment.id), {}, { onSuccess: reloadPatient });
 }
 
 function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
@@ -340,10 +402,14 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             </div>
 
             <div v-if="patient">
-                <div class="d-flex align-center justify-space-between mb-3">
+                <div class="d-flex align-center justify-space-between mb-1">
                     <h2 class="text-h6">Traitements</h2>
-                    <AppButton label="Ajouter un traitement" @click="openNewTreatment" />
+                    <AppButton label="Ajouter un traitement" :disabled="hasOngoingTreatment" @click="openNewTreatment" />
                 </div>
+
+                <p v-if="hasOngoingTreatment" class="text-body-2 text-medium-emphasis mb-3">
+                    Un traitement est en cours — clôturez-le avant d'en ajouter un nouveau.
+                </p>
 
                 <p v-if="!treatments?.length" class="text-body-2 text-medium-emphasis">
                     Aucun traitement pour ce patient.
@@ -353,11 +419,21 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
                     <v-card-text>
                         <div class="d-flex justify-space-between align-start mb-2">
                             <div>
-                                <p class="text-subtitle-1">
-                                    Début : {{ treatment.started_at ? new Date(treatment.started_at).toLocaleDateString() : '—' }}
-                                </p>
+                                <div class="d-flex align-center ga-2 mb-1">
+                                    <p class="text-subtitle-1 mb-0">
+                                        Début : {{ treatment.started_at ? new Date(treatment.started_at).toLocaleDateString() : '—' }}
+                                    </p>
+                                    <v-chip size="small" :color="treatmentStatusColor(treatment)" variant="tonal">
+                                        {{ treatmentStatusLabel(treatment) }}
+                                    </v-chip>
+                                </div>
                                 <p class="text-body-2 text-medium-emphasis">
-                                    Praticien : {{ treatment.practitioner?.full_code ?? '—' }}
+                                    Praticien :
+                                    {{
+                                        treatment.practitioner
+                                            ? `${treatment.practitioner.first_name} ${treatment.practitioner.last_name} (${treatment.practitioner.full_code})`
+                                            : '—'
+                                    }}
                                 </p>
                             </div>
                             <div class="d-flex ga-2">
@@ -368,9 +444,24 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
                                     @click="editTreatment(treatment)"
                                 />
                                 <AppButton
+                                    v-if="treatment.status === 'ongoing'"
                                     label="Ajouter une séance"
                                     size="small"
                                     @click="openNewSession(treatment)"
+                                />
+                                <AppButton
+                                    v-if="treatment.status === 'ongoing'"
+                                    label="Clôturer"
+                                    severity="secondary"
+                                    size="small"
+                                    @click="openCloseTreatment(treatment)"
+                                />
+                                <AppButton
+                                    v-if="treatment.status === 'closed'"
+                                    label="Rouvrir"
+                                    severity="secondary"
+                                    size="small"
+                                    @click="reopenTreatment(treatment)"
                                 />
                             </div>
                         </div>
@@ -426,6 +517,13 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
+            @saved="reloadPatient"
+        />
+
+        <TreatmentCloseDialog
+            v-if="closingTreatmentId"
+            v-model:visible="closeDialogVisible"
+            :treatment-id="closingTreatmentId"
             @saved="reloadPatient"
         />
     </AuthenticatedLayout>

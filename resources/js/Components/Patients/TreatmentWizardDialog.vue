@@ -27,6 +27,8 @@ interface PatientOption {
 
 interface PractitionerOption {
     id: number;
+    first_name: string;
+    last_name: string;
     full_code: string;
 }
 
@@ -82,6 +84,13 @@ const patientOptions = computed(() =>
     props.patients.map((patient) => ({
         id: patient.id,
         name: `${patient.first_name ?? ''} ${patient.last_name ?? ''}`.trim(),
+    })),
+);
+
+const practitionerOptions = computed(() =>
+    props.practitioners.map((practitioner) => ({
+        id: practitioner.id,
+        name: `${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code})`,
     })),
 );
 
@@ -324,8 +333,8 @@ function close() {
 
                         <AppSelect
                             v-model="form.practitioner_id"
-                            :options="practitioners"
-                            option-label="full_code"
+                            :options="practitionerOptions"
+                            option-label="name"
                             option-value="id"
                             label="Praticien"
                             placeholder="Choisir un praticien"

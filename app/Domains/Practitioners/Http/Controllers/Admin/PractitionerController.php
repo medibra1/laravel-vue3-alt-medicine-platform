@@ -35,7 +35,9 @@ class PractitionerController extends Controller
                 AllowedFilter::callback('search', function ($query, $value) {
                     $query->where(function ($query) use ($value) {
                         $query->where('full_code', 'like', "%{$value}%")
-                            ->orWhere('matricule', 'like', "%{$value}%");
+                            ->orWhere('matricule', 'like', "%{$value}%")
+                            ->orWhere('first_name', 'like', "%{$value}%")
+                            ->orWhere('last_name', 'like', "%{$value}%");
                     });
                 }),
                 AllowedFilter::exact('grade_id'),
