@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { http } from '@/lib/http';
-import { reactive, ref } from 'vue';
+import { http, HttpError } from '@/lib/http';
+import { reactive, ref, toRaw } from 'vue';
 
 interface Endpoints {
     create: string; // POST, first save
@@ -26,12 +26,20 @@ export function useResilientForm<T extends Record<string, unknown>>(
     endpoints: Endpoints,
     options: Options = {},
 ) {
+    // `||`, not `??`: an empty string (a caller prefilling an existing
+    // record that has no client_uuid of its own to reuse — see
+    // Patients/Form.vue's editTreatment()) must fall through to a fresh
+    // id too, otherwise every such record collides on the same Dexie key.
     const localId =
-        (initial.client_uuid as string | undefined) ?? crypto.randomUUID();
+        (initial.client_uuid as string | undefined) || crypto.randomUUID();
     const form = reactive<T>({ ...initial, client_uuid: localId } as T);
     const serverId = ref<number | null>((initial.id as number | null) ?? null);
     const saving = ref(false);
     const lastSavedAt = ref<number | null>(null);
+    // Populated when the server rejects an autosave (e.g. a required field
+    // is still empty) — the raw throw from http.ts otherwise surfaces only
+    // as an unhandled console error, invisible to the person using the form.
+    const saveErrors = ref<Record<string, string[]>>({});
 
     let localTimer: ReturnType<typeof setTimeout> | undefined;
     let serverTimer: ReturnType<typeof setTimeout> | undefined;
@@ -41,7 +49,12 @@ export function useResilientForm<T extends Record<string, unknown>>(
             localId,
             resource,
             serverId: serverId.value,
-            payload: { ...form },
+            // A shallow { ...form } spread keeps nested reactive values (e.g.
+            // an array field like disease_ids) as Vue reactive proxies, which
+            // IndexedDB's structured clone algorithm can't serialize
+            // (DataCloneError). toRaw + JSON round-trip strips every proxy,
+            // reactive or not, at any depth.
+            payload: JSON.parse(JSON.stringify(toRaw(form))),
             updatedAt: Date.now(),
             syncedAt: lastSavedAt.value,
             status: 'draft',
@@ -59,8 +72,14 @@ export function useResilientForm<T extends Record<string, unknown>>(
             } else {
                 await http.patch(endpoints.update(serverId.value), { ...form });
             }
+            saveErrors.value = {};
             lastSavedAt.value = Date.now();
             await persistLocal();
+        } catch (error) {
+            if (error instanceof HttpError) {
+                saveErrors.value = error.errors;
+            }
+            throw error;
         } finally {
             saving.value = false;
         }
@@ -75,7 +94,14 @@ export function useResilientForm<T extends Record<string, unknown>>(
         // ASAP; subsequent edits use the full 1-2s debounce.
         const delay =
             serverId.value === null ? 50 : (options.serverDebounceMs ?? 1500);
-        serverTimer = setTimeout(persistServer, delay);
+        // Fire-and-forget from a timer, not awaited by a caller — a
+        // rejection (e.g. a required field still empty) has already been
+        // captured into saveErrors above; swallow it here too, otherwise
+        // it surfaces as an unhandled promise rejection with nothing new
+        // to tell the UI that saveErrors doesn't already show.
+        serverTimer = setTimeout(() => {
+            persistServer().catch(() => {});
+        }, delay);
     }
 
     async function flush() {
@@ -88,5 +114,5 @@ export function useResilientForm<T extends Record<string, unknown>>(
         await db.drafts.delete(localId);
     }
 
-    return { form, serverId, saving, lastSavedAt, scheduleSave, flush, discardLocal };
+    return { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush, discardLocal };
 }

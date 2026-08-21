@@ -20,11 +20,14 @@ return new class extends Migration
             $table->string('city')->nullable();
             $table->foreignId('country_id')->nullable()->constrained('countries')->nullOnDelete();
             $table->foreignId('intake_center_id')->constrained('centers')->cascadeOnDelete();
+            $table->string('patient_number', 4)->nullable(); // auto-generated, next number per intake_center_id — see PatientNumberGenerator
             $table->string('emergency_contact_name')->nullable();
             $table->string('emergency_contact_phone')->nullable();
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
+
+            $table->unique(['intake_center_id', 'patient_number']);
         });
     }
 

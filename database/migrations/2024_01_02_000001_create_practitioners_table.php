@@ -13,8 +13,11 @@ return new class extends Migration
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('center_id')->constrained('centers')->cascadeOnDelete();
             $table->foreignId('grade_id')->nullable()->constrained('grades')->nullOnDelete();
-            $table->string('diploma_number', 3);
+            $table->string('matricule', 3); // auto-suggested next number per center, but editable — see PractitionerCodeGenerator::suggestNextMatricule()
             $table->string('full_code', 7)->unique(); // generated, never entered manually — see PractitionerCodeGenerator
+            $table->string('phone')->nullable();
+            $table->string('address')->nullable();
+            $table->string('email')->nullable();
             $table->unsignedInteger('level')->nullable();
             $table->date('hired_at')->nullable();
             $table->timestamps();

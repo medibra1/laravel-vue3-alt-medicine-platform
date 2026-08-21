@@ -19,8 +19,9 @@ interface Patient {
     id: number;
     first_name: string | null;
     last_name: string | null;
+    patient_number: string | null;
     intake_center_id: number;
-    center?: { id: number; name: string };
+    center?: { id: number; name: string; code: string; country?: { code: string } };
 }
 
 const props = defineProps<{
@@ -35,8 +36,7 @@ const props = defineProps<{
 }>();
 
 const search = reactive({
-    first_name: props.filters.filter?.first_name ?? '',
-    last_name: props.filters.filter?.last_name ?? '',
+    search: props.filters.filter?.search ?? '',
 });
 
 const currentSort = ref(props.filters.sort ?? '-created_at');
@@ -64,11 +64,22 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
+    { field: 'patient_number', header: 'N° patient', sortable: true },
     { field: 'first_name', header: 'Prénom', sortable: true },
     { field: 'last_name', header: 'Nom', sortable: true },
     { field: 'center', header: 'Centre' },
     { field: 'actions', header: 'Actions' },
 ];
+
+function fullPatientNumber(patient: Patient): string {
+    if (!patient.patient_number || !patient.center) {
+        return '—';
+    }
+
+    const countryCode = patient.center.country?.code ?? '';
+
+    return `${countryCode}${patient.center.code}${patient.patient_number}`;
+}
 
 function destroy(patient: Patient) {
     if (!confirm(`Supprimer le patient ${patient.first_name ?? ''} ${patient.last_name ?? ''} ?`)) {
@@ -88,15 +99,9 @@ function destroy(patient: Patient) {
         <div class="d-flex flex-column ga-4">
             <div class="d-flex flex-wrap align-end ga-3">
                 <AppInputText
-                    id="filter-first-name"
-                    v-model="search.first_name"
-                    label="Prénom"
-                    @keyup.enter="reload()"
-                />
-                <AppInputText
-                    id="filter-last-name"
-                    v-model="search.last_name"
-                    label="Nom"
+                    id="filter-search"
+                    v-model="search.search"
+                    label="Rechercher (prénom, nom)"
                     @keyup.enter="reload()"
                 />
                 <AppButton label="Filtrer" @click="reload()" />
@@ -115,6 +120,7 @@ function destroy(patient: Patient) {
                     @page="onPage"
                     @sort="onSort"
                 >
+                    <template #column-patient_number="{ item }">{{ fullPatientNumber(item) }}</template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">

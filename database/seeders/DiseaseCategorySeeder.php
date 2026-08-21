@@ -24,6 +24,12 @@ class DiseaseCategorySeeder extends Seeder
      * medical terminology accuracy, but this is a genuine
      * translation, not a placeholder.
      *
+     * Category 9 "Nightmares" (2026-08-20): unlike categories 1-8, this
+     * one has NO source document content — its two diseases (901/902)
+     * are explicitly marked placeholders, seeded only to exercise the
+     * treatment wizard / session flow end-to-end. Replace with real
+     * content once the user provides it.
+     *
      * Idempotent: firstOrCreate by category code / by disease code (the
      * 3-digit code from the source document, stable and unique per
      * category).
@@ -52,6 +58,8 @@ class DiseaseCategorySeeder extends Seeder
             ->where('enum_type', 'disease_category.type')->where('code', 'ILLNESS')->firstOrFail();
         $blockage = EnumOption::query()
             ->where('enum_type', 'disease_category.type')->where('code', 'BLOCKAGE')->firstOrFail();
+        $nightmare = EnumOption::query()
+            ->where('enum_type', 'disease_category.type')->where('code', 'NIGHTMARE')->firstOrFail();
 
         $categories = [
             1 => [
@@ -219,6 +227,21 @@ class DiseaseCategorySeeder extends Seeder
                     ['code' => '802', 'label' => ['fr' => 'Argent', 'en' => 'Money'], 'default_duration_months' => 3, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
                     ['code' => '803', 'label' => ['fr' => 'Administratif', 'en' => 'Administrative'], 'default_duration_months' => 6, 'description' => ['fr' => 'Tous les cas', 'en' => 'All cases']],
                     ['code' => '804', 'label' => ['fr' => 'Mariage', 'en' => 'Marriage'], 'default_duration_months' => 12, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
+                ],
+            ],
+            9 => [
+                'code' => '9',
+                'label' => ['fr' => 'Cauchemars', 'en' => 'Nightmares'],
+                'type' => $nightmare,
+                'order' => 9,
+                // ⚠️ PLACEHOLDER — the source document doesn't cover this
+                // category (see class docblock). These two entries exist
+                // only to exercise the wizard/session flow end-to-end;
+                // replace with real content once provided, do not treat
+                // as clinically meaningful.
+                'diseases' => [
+                    ['code' => '901', 'label' => ['fr' => 'Cauchemar récurrent (placeholder)', 'en' => 'Recurring nightmare (placeholder)'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '902', 'label' => ['fr' => 'Cauchemar occasionnel (placeholder)', 'en' => 'Occasional nightmare (placeholder)'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
                 ],
             ],
         ];

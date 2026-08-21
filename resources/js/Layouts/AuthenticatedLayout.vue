@@ -2,8 +2,8 @@
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { useAppDensity, type AppDensity } from '@/lib/useAppDensity';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { Link, router } from '@inertiajs/vue3';
-import { onBeforeMount, ref } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed, onBeforeMount, ref } from 'vue';
 import { useDisplay } from 'vuetify';
 
 const RAIL_STORAGE_KEY = 'ruqya-nav-rail';
@@ -22,11 +22,17 @@ const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
     { value: 'compact', label: 'Compact', icon: 'mdi-view-headline' },
 ];
 
-const navItems = [
+const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
+
+const navItems = computed(() => [
     { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: () => route('dashboard'), active: () => route().current('dashboard') },
     { label: 'Patients', icon: 'mdi-account-heart-outline', href: () => route('admin.patients.index'), active: () => route().current('admin.patients.*') },
+    { label: 'Traitements', icon: 'mdi-medical-bag', href: () => route('admin.treatments.index'), active: () => route().current('admin.treatments.*') },
     { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: () => route('admin.practitioners.index'), active: () => route().current('admin.practitioners.*') },
-];
+    ...(isSuperAdmin.value
+        ? [{ label: 'Centres', icon: 'mdi-domain', href: () => route('admin.centers.index'), active: () => route().current('admin.centers.*') }]
+        : []),
+]);
 
 function toggleRail() {
     rail.value = !rail.value;

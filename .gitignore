@@ -24,3 +24,7 @@ CLAUDE.md
 # premier install résout vers les dernières stables. Une fois posé par
 # Claude Code, ces lock files DOIVENT être committés (comportement normal).
 
+# Projet de référence (Model) déposé à la racine par l'utilisateur pour
+# inspiration (patterns Resource/wizard/DDD) — jamais suivi ni poussé.
+/Model
+

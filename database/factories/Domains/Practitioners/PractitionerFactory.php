@@ -17,9 +17,12 @@ class PractitionerFactory extends Factory
             'user_id' => null,
             'center_id' => Center::factory(),
             'grade_id' => null,
-            'diploma_number' => fake()->unique()->numerify('###'),
+            'matricule' => fake()->unique()->numerify('###'),
             'level' => null,
             'hired_at' => null,
+            'phone' => fake()->phoneNumber(),
+            'address' => fake()->streetAddress(),
+            'email' => fake()->safeEmail(),
         ];
     }
 }

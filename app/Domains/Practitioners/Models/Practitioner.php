@@ -9,6 +9,7 @@ use App\Domains\Billing\Models\PayPeriodShare;
 use App\Domains\Billing\Models\SalaryAdvance;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Grade;
+use App\Domains\Patients\Models\Treatment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -71,5 +72,9 @@ class Practitioner extends Model
         return $this->hasMany(Bonus::class);
     }
 
-    // treatments(): HasMany<Treatment> — added once App\Domains\Patients\Models\Treatment exists.
+    /** @return HasMany<Treatment, $this> */
+    public function treatments(): HasMany
+    {
+        return $this->hasMany(Treatment::class);
+    }
 }

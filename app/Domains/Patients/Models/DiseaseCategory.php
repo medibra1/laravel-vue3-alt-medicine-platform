@@ -3,14 +3,15 @@
 namespace App\Domains\Patients\Models;
 
 use App\Domains\Common\Models\EnumOption;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Translatable\HasTranslations;
 
 class DiseaseCategory extends Model
 {
-    use HasTranslations;
+    use HasFactory, HasTranslations;
 
-    protected $table = 'patients_disease_categories';
+    protected $table = 'disease_categories';
 
     protected $guarded = ['id'];
 

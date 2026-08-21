@@ -9,7 +9,7 @@ class DiseaseSubcase extends Model
 {
     use HasTranslations;
 
-    protected $table = 'patients_disease_subcases';
+    protected $table = 'disease_subcases';
 
     protected $guarded = ['id'];
 

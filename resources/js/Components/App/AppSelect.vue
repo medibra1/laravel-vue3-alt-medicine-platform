@@ -10,12 +10,14 @@ const props = withDefaults(
         placeholder?: string;
         label?: string;
         showClear?: boolean;
+        multiple?: boolean;
         error?: string | null;
     }>(),
     {
         placeholder: undefined,
         label: undefined,
         showClear: false,
+        multiple: false,
         error: null,
     },
 );
@@ -39,6 +41,8 @@ const items = computed(() =>
         :placeholder="placeholder"
         :label="label"
         :clearable="showClear"
+        :multiple="multiple"
+        chips
         :error-messages="error ?? undefined"
         variant="outlined"
         hide-details="auto"
