@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDataTable, {
     type AppDataTableColumn,
@@ -8,6 +9,7 @@ import AppDataTable, {
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
@@ -137,21 +139,27 @@ function destroy(zone: Zone) {
     <Head title="Zones" />
 
     <AuthenticatedLayout>
-        <template #header>Zones</template>
+        <AppPageHeader title="Zones" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Zones' }]">
+            <template #actions>
+                <AppButton label="Nouvelle zone" icon="mdi-plus" @click="openCreate" />
+            </template>
+        </AppPageHeader>
 
         <div class="d-flex flex-column ga-4">
-            <div class="d-flex flex-wrap align-end ga-3">
-                <AppInputText
-                    id="filter-search"
-                    v-model="search.search"
-                    label="Rechercher (nom, code)"
-                    @keyup.enter="reload()"
-                />
-                <AppButton label="Filtrer" @click="reload()" />
-                <AppButton label="Nouvelle zone" class="ms-auto" @click="openCreate" />
-            </div>
+            <AppCard variant="elevated" elevation="1">
+                <v-card-text class="d-flex flex-wrap align-end ga-3">
+                    <AppInputText
+                        id="filter-search"
+                        v-model="search.search"
+                        label="Rechercher (nom, code)"
+                        prepend-inner-icon="mdi-magnify"
+                        @keyup.enter="reload()"
+                    />
+                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                </v-card-text>
+            </AppCard>
 
-            <v-card>
+            <AppCard variant="elevated" elevation="1">
                 <AppDataTable
                     :value="zones.data"
                     :columns="columns"
@@ -180,7 +188,7 @@ function destroy(zone: Zone) {
                         </div>
                     </template>
                 </AppDataTable>
-            </v-card>
+            </AppCard>
         </div>
 
         <AppDialog v-model:visible="isCreating" header="Nouvelle zone">

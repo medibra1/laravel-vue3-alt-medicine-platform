@@ -24,12 +24,18 @@ const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
 
-const navItems = computed(() => [
+const generalNavItems = computed(() => [
     { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: () => route('dashboard'), active: () => route().current('dashboard') },
     { label: 'Patients', icon: 'mdi-account-heart-outline', href: () => route('admin.patients.index'), active: () => route().current('admin.patients.*') },
     { label: 'Traitements', icon: 'mdi-medical-bag', href: () => route('admin.treatments.index'), active: () => route().current('admin.treatments.*') },
     { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: () => route('admin.practitioners.index'), active: () => route().current('admin.practitioners.*') },
-    ...(isSuperAdmin.value
+]);
+
+// Visually grouped (v-list-subheader) apart from the business menus
+// above — not collapsible for now; a real collapsible group is a
+// possible future improvement if the shell's nav list keeps growing.
+const adminNavItems = computed(() =>
+    isSuperAdmin.value
         ? [
               { label: 'Centres', icon: 'mdi-domain', href: () => route('admin.centers.index'), active: () => route().current('admin.centers.*') },
               { label: 'Zones', icon: 'mdi-earth', href: () => route('admin.zones.index'), active: () => route().current('admin.zones.*') },
@@ -40,8 +46,8 @@ const navItems = computed(() => [
               { label: 'Soins', icon: 'mdi-leaf', href: () => route('admin.care-items.index'), active: () => route().current('admin.care-items.*') },
               { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: () => route('admin.enum-options.index'), active: () => route().current('admin.enum-options.*') },
           ]
-        : []),
-]);
+        : [],
+);
 
 function toggleRail() {
     rail.value = !rail.value;
@@ -59,7 +65,7 @@ onBeforeMount(() => {
 
 <template>
     <v-defaults-provider :defaults="{ global: { density } }">
-    <v-app>
+    <v-app class="ruqya-shell">
         <v-navigation-drawer
             v-model="drawer"
             :rail="mdAndUp ? rail : false"
@@ -101,7 +107,7 @@ onBeforeMount(() => {
 
             <v-list nav density="comfortable">
                 <v-list-item
-                    v-for="item in navItems"
+                    v-for="item in generalNavItems"
                     :key="item.label"
                     :prepend-icon="item.icon"
                     :title="item.label"
@@ -110,9 +116,25 @@ onBeforeMount(() => {
                     rounded="lg"
                 />
             </v-list>
+
+            <template v-if="adminNavItems.length">
+                <v-divider />
+                <v-list nav density="comfortable">
+                    <v-list-subheader v-if="!rail">Administration</v-list-subheader>
+                    <v-list-item
+                        v-for="item in adminNavItems"
+                        :key="item.label"
+                        :prepend-icon="item.icon"
+                        :title="item.label"
+                        :active="item.active()"
+                        :href="item.href()"
+                        rounded="lg"
+                    />
+                </v-list>
+            </template>
         </v-navigation-drawer>
 
-        <v-app-bar border="0" flat>
+        <v-app-bar color="brand" border="0" flat>
             <v-app-bar-nav-icon
                 class="d-md-none"
                 @click="drawer = !drawer"

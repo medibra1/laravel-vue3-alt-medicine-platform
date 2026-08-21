@@ -215,6 +215,35 @@ régression), `pint --test` clean, Larastan clean, build OK,
 `vue-tsc --noEmit` clean, golden path navigateur réel confirmant le fix
 sur `EnumOptions` et re-testé sur `Centers`.
 
+**Adaptation visuelle inspirée d'InPACT** (2026-08-21, branche
+`feature/treatments`) : identité visuelle et patterns UX du projet de
+référence `Model/` (InPACT) transposés à notre stack Vuetify — palette
+bleu/navy, police Poppins (shell authentifié seulement), nouveau
+composant `AppPageHeader` (titre + fil d'Ariane), toolbar de liste en
+carte, `AppCard` étendu (`variant`/`elevation`), regroupement visuel
+"Administration" dans la nav. Portée volontairement limitée au shell
+applicatif + la page `Patients` (liste + dossier patient) comme pilote
+— les autres pages (Praticiens, Traitements, Centres, référentiels
+admin) suivront le même pattern dans une session dédiée future. Détail
+complet dans `CLAUDE.md` "Adaptation visuelle inspirée d'InPACT".
+Vérifié : 176 tests Pest inchangés (aucun fichier PHP touché), 5 tests
+Vitest inchangés, build Vite client+SSR OK, `vue-tsc --noEmit` clean,
+golden path navigateur réel (Playwright) sur le dossier patient complet
+(formulaire, carte de traitement en cours, séance), mode clair et
+sombre, zéro erreur console.
+
+**Généralisation du pattern visuel à toutes les pages** (2026-08-21,
+même branche, suite immédiate) : `AppPageHeader` + toolbar-en-carte +
+`AppCard` (au lieu de `<v-card>` nu) étendus aux 9 pages restantes
+(Praticiens, Centres, Zones, Pays, Catégories de maladies, Maladies,
+Catégories de soins, Soins, Options dynamiques, Traitements) — plus
+aucune page de liste admin n'utilise l'ancien header en slot d'app-bar
+ni un `<v-card>` nu. Transformation mécanique, aucun fichier PHP
+touché. Vérifié : `vue-tsc --noEmit` clean, build OK, 176 tests Pest +
+5 tests Vitest inchangés, golden path navigateur réel sur les 10 pages
+(zéro erreur console), dialog de création re-testé pour confirmer la
+compatibilité avec le nouveau header.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —

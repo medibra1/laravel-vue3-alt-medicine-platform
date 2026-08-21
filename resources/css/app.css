@@ -4,3 +4,10 @@
     --font-sans:
         'Figtree', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
+
+/* Authenticated shell (AuthenticatedLayout, .ruqya-shell class set on
+   <v-app>): Poppins. Scoped to this class so Guest/Welcome pages keep
+   Figtree — see CLAUDE.md. */
+.ruqya-shell {
+    font-family: 'Poppins', 'Figtree', ui-sans-serif, system-ui, sans-serif;
+}
