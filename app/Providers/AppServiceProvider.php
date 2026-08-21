@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +25,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // This is an Inertia SPA backend, not a JSON:API — no consumer
+        // expects the `{"data": [...]}` envelope Resource::collection()
+        // adds by default. Left on, every top-level Inertia prop built
+        // from a Resource::collection() (not nested inside another
+        // Resource's own toArray(), where Laravel already auto-unwraps)
+        // would silently wrap, breaking frontend code that expects a
+        // plain array — caught in browser verification of the Patients/
+        // Treatments Resource refactor (2026-08-20).
+        JsonResource::withoutWrapping();
 
         // Models live in App\Domains\{Domain}\Models, factories in
         // Database\Factories\Domains\{Domain}\{Model}Factory — Laravel's

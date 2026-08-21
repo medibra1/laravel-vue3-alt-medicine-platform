@@ -43,15 +43,17 @@ test('super admin can create a practitioner and full_code is generated correctly
     $center = Center::factory()->for($country)->create(['code' => '02']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
-        'diploma_number' => '007',
+        'matricule' => '007',
     ]);
 
     $response->assertRedirect(route('admin.practitioners.index'));
 
     $practitioner = Practitioner::query()->where('center_id', $center->id)->firstOrFail();
     expect($practitioner->full_code)->toBe('0102007');
-    expect($practitioner->diploma_number)->toBe('007');
+    expect($practitioner->matricule)->toBe('007');
 });
 
 test('manager creating a practitioner is scoped to their own center regardless of payload', function () {
@@ -62,8 +64,10 @@ test('manager creating a practitioner is scoped to their own center regardless o
     // center_id is 'prohibited' for managers — sending one at all is a
     // validation error, not a silent override.
     $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $otherCenter->id,
-        'diploma_number' => '010',
+        'matricule' => '010',
     ]);
 
     $response->assertSessionHasErrors('center_id');
@@ -75,7 +79,9 @@ test('manager can create a practitioner without sending a center_id', function (
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
-        'diploma_number' => '011',
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
+        'matricule' => '011',
     ]);
 
     $response->assertRedirect(route('admin.practitioners.index'));
@@ -83,45 +89,79 @@ test('manager can create a practitioner without sending a center_id', function (
     expect($practitioner->center_id)->toBe($ownCenter->id);
 });
 
-test('diploma_number must be exactly three digits', function () {
+test('matricule must be exactly three digits', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
-        'diploma_number' => '12',
+        'matricule' => '12',
     ]);
 
-    $response->assertSessionHasErrors('diploma_number');
+    $response->assertSessionHasErrors('matricule');
 });
 
-test('creating a duplicate diploma_number within the same center fails validation', function () {
+test('creating a duplicate matricule within the same center fails validation', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
-    Practitioner::factory()->for($center)->create(['diploma_number' => '123']);
+    Practitioner::factory()->for($center)->create(['matricule' => '123']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $center->id,
-        'diploma_number' => '123',
+        'matricule' => '123',
     ]);
 
-    $response->assertSessionHasErrors('diploma_number');
+    $response->assertSessionHasErrors('matricule');
     expect(Practitioner::query()->count())->toBe(1);
 });
 
-test('the same diploma_number is allowed in a different center', function () {
+test('the same matricule is allowed in a different center', function () {
     $superAdmin = actingAsSuperAdmin();
     $centerA = Center::factory()->create();
     $centerB = Center::factory()->create();
-    Practitioner::factory()->for($centerA)->create(['diploma_number' => '123']);
+    Practitioner::factory()->for($centerA)->create(['matricule' => '123']);
 
     $response = $this->actingAs($superAdmin)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
         'center_id' => $centerB->id,
-        'diploma_number' => '123',
+        'matricule' => '123',
     ]);
 
     $response->assertRedirect(route('admin.practitioners.index'));
     expect(Practitioner::query()->count())->toBe(2);
+});
+
+test('search filters practitioners by name as well as code/matricule', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    Practitioner::factory()->for($center)->create(['first_name' => 'Ahmed', 'last_name' => 'Ben Ali']);
+    Practitioner::factory()->for($center)->create(['first_name' => 'Fatima', 'last_name' => 'Zahra']);
+
+    $response = $this->actingAs($superAdmin)->get(route('admin.practitioners.index', ['filter' => ['search' => 'Ahmed']]));
+
+    $response->assertOk();
+    $data = $response->inertiaPage()['props']['practitioners']['data'];
+    expect($data)->toHaveCount(1);
+    expect($data[0]['first_name'])->toBe('Ahmed');
+});
+
+test('next-matricule endpoint suggests the next free matricule for a center', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    Practitioner::factory()->for($center)->create(['matricule' => '001']);
+    Practitioner::factory()->for($center)->create(['matricule' => '002']);
+
+    $response = $this->actingAs($superAdmin)->getJson(
+        route('admin.practitioners.next-matricule', ['center_id' => $center->id]),
+    );
+
+    $response->assertOk();
+    expect($response->json('matricule'))->toBe('003');
 });
 
 test('manager cannot update a practitioner from another center', function () {
@@ -131,7 +171,9 @@ test('manager cannot update a practitioner from another center', function () {
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->put(route('admin.practitioners.update', $practitioner), [
-        'diploma_number' => $practitioner->diploma_number,
+        'first_name' => $practitioner->first_name,
+        'last_name' => $practitioner->last_name,
+        'matricule' => $practitioner->matricule,
     ]);
 
     $response->assertForbidden();
@@ -143,7 +185,9 @@ test('manager can update a practitioner in their own center', function () {
     $manager = actingAsManagerOf($ownCenter);
 
     $response = $this->actingAs($manager)->put(route('admin.practitioners.update', $practitioner), [
-        'diploma_number' => $practitioner->diploma_number,
+        'first_name' => $practitioner->first_name,
+        'last_name' => $practitioner->last_name,
+        'matricule' => $practitioner->matricule,
         'level' => 3,
     ]);
 

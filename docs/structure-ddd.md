@@ -1,6 +1,6 @@
 # Structure Domain-Driven — backend Laravel
 
-Inspirée de l'organisation InPACT (`app/Domains/*`), adaptée à nos 7 domaines
+Inspirée de l'organisation d'un projet de référence (`app/Domains/*`), adaptée à nos 7 domaines
 métier + un domaine transverse. Aucune config composer.json spéciale
 nécessaire : `App\` → `app/` (PSR-4 standard) couvre déjà
 `App\Domains\Patients\Models\Patient` → `app/Domains/Patients/Models/Patient.php`.
@@ -42,15 +42,25 @@ app/
 │   │   ├── Enums/
 │   │   │   └── PayrollMode.php          # pool_sharing | conventional — fourche par centre
 │   │   ├── Http/
-│   │   │   └── Controllers/Admin/
-│   │   │       ├── ZoneController.php
-│   │   │       ├── CountryController.php
-│   │   │       ├── CenterController.php
-│   │   │       └── GradeController.php
+│   │   │   ├── Controllers/Admin/
+│   │   │   │   ├── ZoneController.php
+│   │   │   │   ├── CountryController.php
+│   │   │   │   ├── CenterController.php   # implémenté (2026-08-20) — super_admin uniquement
+│   │   │   │   └── GradeController.php
+│   │   │   ├── Requests/
+│   │   │   │   ├── StoreCenterRequest.php
+│   │   │   │   └── UpdateCenterRequest.php
+│   │   │   ├── Resources/
+│   │   │   │   ├── CenterOptionResource.php
+│   │   │   │   └── CenterResource.php
+│   │   │   └── Concerns/
+│   │   │       └── ResolvesCenterOptions.php
+│   │   ├── Services/
+│   │   │   └── CenterCodeGenerator.php  # suggère le prochain code centre libre par pays — reste éditable
 │   │   ├── Policies/
-│   │   │   └── CenterPolicy.php         # scope manager ↔ son centre
+│   │   │   └── CenterPolicy.php         # super_admin uniquement, avant() bloque tout le reste
 │   │   └── Observers/
-│   │       └── CenterObserver.php       # génère le code centre si absent
+│   │       └── CenterObserver.php       # défense en profondeur : unicité code/pays
 │   │
 │   ├── Practitioners/                   # soignants
 │   │   ├── Models/
@@ -62,13 +72,13 @@ app/
 │   │   │       ├── StorePractitionerRequest.php   # center_id forcé/prohibé selon super_admin ou manager
 │   │   │       └── UpdatePractitionerRequest.php
 │   │   ├── Services/
-│   │   │   └── PractitionerCodeGenerator.php   # calcule full_code (pays+centre+diplôme)
+│   │   │   └── PractitionerCodeGenerator.php   # calcule full_code (pays+centre+matricule) + suggestNextMatricule()
 │   │   ├── Observers/
 │   │   │   └── PractitionerObserver.php
 │   │   └── Policies/
 │   │       └── PractitionerPolicy.php
 │   │
-│   ├── Patients/
+│   ├── Patients/                        # tables sans préfixe patients_ depuis 2026-08-20 (voir schema-donnees.md)
 │   │   ├── Models/
 │   │   │   ├── Patient.php                       # HasStatuses draft/confirmed — voir CLAUDE.md
 │   │   │   ├── ExternalMedicalRecord.php
@@ -86,6 +96,8 @@ app/
 │   │   │       ├── UpdatePatientDraftRequest.php # idem
 │   │   │       ├── ConfirmPatientRequest.php     # vraie validation required, draft -> confirmed
 │   │   │       └── StoreTreatmentRequest.php
+│   │   ├── Services/
+│   │   │   └── PatientNumberGenerator.php   # patient_number auto-généré par centre, jamais éditable
 │   │   ├── Policies/
 │   │   │   ├── PatientPolicy.php
 │   │   │   └── TreatmentPolicy.php
@@ -167,7 +179,7 @@ app/
 │   └── Controllers/Controller.php            # base abstraite, rien de métier ici
 │
 ├── Policies/                                  # uniquement les policies vraiment transverses
-│   └── MediaPolicy.php                        # délègue aux policies de domaine (pattern InPACT)
+│   └── MediaPolicy.php                        # délègue aux policies de domaine
 │
 └── Support/
     └── helpers.php
@@ -221,7 +233,7 @@ resources/js/
   volontaire : les splitter casserait `php artisan migrate:fresh`/l'ordre
   chronologique sans bénéfice réel, l'organisation par domaine se voit déjà
   au niveau des modèles/services, pas besoin de la dupliquer côté migrations.
-- **`Policies/MediaPolicy.php` reste transverse** (repris du zip InPACT) —
+- **`Policies/MediaPolicy.php` reste transverse** (repris d'un projet de référence) —
   délègue à la policy du modèle réel porteur des médias (photo patient,
   diplôme, reçu de dépense...), pattern déjà validé.
 - **Chaque domaine est autonome en tests** — `tests/Feature/Domains/X`

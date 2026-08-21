@@ -11,7 +11,7 @@ class PractitionerObserver
 
     public function saving(Practitioner $practitioner): void
     {
-        if ($practitioner->isDirty(['center_id', 'diploma_number']) || ! $practitioner->full_code) {
+        if ($practitioner->isDirty(['center_id', 'matricule']) || ! $practitioner->full_code) {
             $practitioner->full_code = $this->codeGenerator->generate($practitioner);
         }
     }

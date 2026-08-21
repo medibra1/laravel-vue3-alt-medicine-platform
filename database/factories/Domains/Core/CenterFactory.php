@@ -18,6 +18,7 @@ class CenterFactory extends Factory
             'country_id' => Country::factory(),
             'code' => fake()->unique()->numerify('##'),
             'name' => fake()->city().' Center',
+            'city' => fake()->city(),
             'address' => fake()->streetAddress(),
             'phone' => fake()->phoneNumber(),
             'email' => fake()->companyEmail(),

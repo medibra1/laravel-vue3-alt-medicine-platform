@@ -3,11 +3,27 @@ import { db } from '@/lib/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useResilientForm } from './useResilientForm';
 
+const { HttpError } = vi.hoisted(() => {
+    class HttpError extends Error {
+        status: number;
+        errors: Record<string, string[]>;
+
+        constructor(message: string, status: number, errors: Record<string, string[]>) {
+            super(message);
+            this.status = status;
+            this.errors = errors;
+        }
+    }
+
+    return { HttpError };
+});
+
 vi.mock('@/lib/http', () => ({
     http: {
         post: vi.fn(async () => ({ id: 42 })),
         patch: vi.fn(async () => ({})),
     },
+    HttpError,
 }));
 
 import { http } from '@/lib/http';
@@ -103,5 +119,30 @@ describe('useResilientForm', () => {
         await flush();
 
         expect(http.patch).toHaveBeenCalledTimes(1);
+    });
+
+    it('exposes the validation errors and rethrows when the server rejects the save', async () => {
+        vi.mocked(http.post).mockRejectedValueOnce(
+            new HttpError('The intake center id field is required.', 422, {
+                intake_center_id: ['The intake center id field is required.'],
+            }),
+        );
+
+        const { form, saveErrors, flush } = useResilientForm(
+            'patients',
+            {
+                client_uuid: undefined as string | undefined,
+                id: null as number | null,
+                first_name: null as string | null,
+            },
+            { create: '/admin/patients/draft', update: (id) => `/admin/patients/${id}/draft` },
+        );
+
+        form.first_name = 'Amina';
+
+        await expect(flush()).rejects.toThrow();
+        expect(saveErrors.value.intake_center_id?.[0]).toBe(
+            'The intake center id field is required.',
+        );
     });
 });

@@ -26,6 +26,7 @@ class PatientFactory extends Factory
             'city' => fake()->city(),
             'country_id' => null,
             'intake_center_id' => Center::factory(),
+            'patient_number' => fake()->unique()->numerify('####'),
             'emergency_contact_name' => null,
             'emergency_contact_phone' => null,
             'notes' => null,

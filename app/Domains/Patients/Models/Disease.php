@@ -2,14 +2,17 @@
 
 namespace App\Domains\Patients\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
 
 class Disease extends Model
 {
-    use HasTranslations;
+    use HasFactory, HasTranslations;
 
-    protected $table = 'patients_diseases';
+    protected $table = 'diseases';
 
     protected $guarded = ['id'];
 
@@ -17,12 +20,14 @@ class Disease extends Model
 
     public array $translatable = ['label', 'description'];
 
-    public function category()
+    /** @return BelongsTo<DiseaseCategory, $this> */
+    public function category(): BelongsTo
     {
         return $this->belongsTo(DiseaseCategory::class, 'disease_category_id');
     }
 
-    public function subcases()
+    /** @return HasMany<DiseaseSubcase, $this> */
+    public function subcases(): HasMany
     {
         return $this->hasMany(DiseaseSubcase::class);
     }

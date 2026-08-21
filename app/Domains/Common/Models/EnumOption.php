@@ -2,11 +2,14 @@
 
 namespace App\Domains\Common\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 class EnumOption extends Model
 {
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $casts = [

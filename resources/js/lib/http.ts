@@ -6,6 +6,21 @@ function csrfToken(): string {
     );
 }
 
+/**
+ * Carries the Laravel validation error bag (field -> first message) so
+ * callers can show something more useful than a bare status code.
+ */
+export class HttpError extends Error {
+    status: number;
+    errors: Record<string, string[]>;
+
+    constructor(message: string, status: number, errors: Record<string, string[]>) {
+        super(message);
+        this.status = status;
+        this.errors = errors;
+    }
+}
+
 async function request<TResponse>(
     method: 'POST' | 'PATCH',
     url: string,
@@ -23,7 +38,12 @@ async function request<TResponse>(
     });
 
     if (!response.ok) {
-        throw new Error(`${method} ${url} failed with status ${response.status}`);
+        const data = await response.json().catch(() => null);
+        throw new HttpError(
+            data?.message ?? `${method} ${url} failed with status ${response.status}`,
+            response.status,
+            data?.errors ?? {},
+        );
     }
 
     return response.json() as Promise<TResponse>;

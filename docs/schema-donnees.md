@@ -43,9 +43,22 @@ name (translatable) · active · timestamps
 
 ### `centers`
 id · country_id (fk) · code (2 chiffres, unique **par pays**) · name ·
-address · phone · email · active · payroll_mode (enum PHP `PayrollMode` :
-`pool_sharing`/`conventional`, défaut `pool_sharing` — voir section 6ter)
-· timestamps
+city, nullable · address · phone · email · active · payroll_mode (enum
+PHP `PayrollMode` : `pool_sharing`/`conventional`, défaut
+`pool_sharing` — voir section 6ter) · timestamps
+
+✅ **CRUD admin implémenté (2026-08-20)** — `CenterController` (super_admin
+uniquement, `CenterPolicy` bloque tout le reste), page Inertia
+`Admin/Centers/Index.vue`, nav "Centres" visible seulement pour
+`is_super_admin` (nouveau prop partagé par `HandleInertiaRequests`).
+`code` est **auto-suggéré** (prochain code libre dans le pays,
+`CenterCodeGenerator::suggestNext()`, endpoint `GET
+admin/centers/next-code`) **mais reste éditable** dans le formulaire —
+certains pays attribuent déjà leurs propres numéros de centre (voir
+CLAUDE.md "identifiant du compte du centre"). Validé unique par pays
+côté formulaire (`StoreCenterRequest`/`UpdateCenterRequest`) en plus du
+`CenterObserver` (défense en profondeur, même précédent que
+`diploma_number`/`matricule` sur `practitioners`).
 
 ### `grades`
 Grade du soignant (Junior/Confirmé/Senior...) — porte le `coefficient`
@@ -66,11 +79,16 @@ is_active · timestamps
 | Colonne | Type | Notes |
 |---|---|---|
 | id | bigint PK | |
+| first_name | string | **ajouté 2026-08-21** — absent depuis la création du domaine, seul `matricule`/`full_code` identifiaient un praticien jusque-là (repéré par l'utilisateur en voyant "Praticien : 0116694" dans le dossier patient) |
+| last_name | string | **ajouté 2026-08-21**, voir `first_name` |
 | user_id | fk `users`, nullable | un soignant peut ne pas avoir de compte de connexion (juste référencé) |
 | center_id | fk `centers` | |
 | grade_id | fk `grades`, nullable | porte le coefficient utilisé dans le calcul de paie |
-| diploma_number | string(3) | dernier segment du code |
-| full_code | string(7), généré | `country.code + center.code + diploma_number`, unique |
+| matricule | string(3) | dernier segment du code — **renommé depuis `diploma_number` le 2026-08-20** (le mot "diplôme" prêtait à confusion : un matricule n'est pas toujours un vrai numéro de diplôme) |
+| full_code | string(7), généré | `country.code + center.code + matricule`, unique |
+| phone | string, nullable | ajouté 2026-08-21 |
+| address | string, nullable | ajouté 2026-08-21 |
+| email | string, nullable | ajouté 2026-08-21 |
 | level | int, nullable | préparation système de niveaux/examens (vague 3) |
 | hired_at | date, nullable | |
 | timestamps | | |
@@ -80,12 +98,19 @@ plus l'historique associé (utile pour tracer une suspension temporaire).
 
 Unicité en deux temps : `full_code` est unique en base (contrainte SQL,
 dernier filet de sécurité), mais la validation formulaire porte sur
-`diploma_number` scopé par `center_id`
+`matricule` scopé par `center_id`
 (`Rule::unique('practitioners')->where('center_id', ...)` dans
 `StorePractitionerRequest`) — c'est ce champ que l'utilisateur saisit
 réellement, `full_code` étant généré. Valider le champ saisi plutôt que
 le champ généré évite qu'un doublon remonte comme une exception SQL au
 lieu d'une erreur de formulaire.
+
+✅ **Auto-suggestion + édition libre (2026-08-20)** — comme
+`centers.code`, `matricule` est auto-suggéré (prochain numéro libre
+dans le centre, `PractitionerCodeGenerator::suggestNextMatricule()`,
+endpoint `GET admin/practitioners/next-matricule`) mais reste
+éditable : un manager qui a déjà un vrai numéro de diplôme/registre
+peut le saisir directement à la place de la suggestion.
 
 ---
 
@@ -98,10 +123,23 @@ gender, nullable · birth_date, nullable · phone, nullable · email,
 nullable · city, nullable · country_id, nullable (résidence) ·
 intake_center_id (fk `centers`, centre d'accueil initial, seul champ
 métier requis dès la création du brouillon avec `created_by`) ·
-emergency_contact_name, nullable · emergency_contact_phone, nullable ·
-notes, nullable · created_by (fk `users`) · timestamps
+patient_number, string(4) nullable, généré automatiquement (voir
+plus bas) · emergency_contact_name, nullable · emergency_contact_phone,
+nullable · notes, nullable · created_by (fk `users`) · timestamps ·
+unique(intake_center_id, patient_number)
 → statut (draft/confirmed) via `spatie/laravel-model-status` — premier
 usage réel du trait dans la codebase (voir CLAUDE.md).
+
+✅ **`patient_number` (2026-08-20)** — 4 chiffres, auto-généré à la
+création du brouillon (`PatientNumberGenerator::next()`, prochain
+numéro libre dans `intake_center_id`), **jamais modifiable** ensuite
+(contrairement à `matricule`/`centers.code` qui restent éditables :
+l'utilisateur n'a demandé l'auto+manuel que pour ces deux-là).
+L'identifiant complet affiché à l'utilisateur (ex. "01010001") est
+`country.code + center.code + patient_number`, composé côté frontend
+(`Index.vue`), pas stocké tel quel en base — même logique que
+`practitioners.full_code`, mais sans colonne générée dédiée puisque
+rien d'autre n'a besoin de filtrer/trier dessus pour l'instant.
 
 ⚠️ Presque toutes les colonnes métier sont nullable en base — volontaire,
 conséquence directe du wizard résilient (CLAUDE.md "UX — wizards
@@ -117,7 +155,7 @@ si la réponse HTTP est perdue et que le frontend retente avec le même
 `client_uuid`, le serveur retrouve le brouillon existant au lieu d'en
 créer un doublon.
 
-### `patients_external_medical_records`
+### `external_medical_records`
 **Historique médical conventionnel** (médecin/hôpital), pour comparaison
 uniquement — jamais traité comme donnée clinique du domaine.
 
@@ -126,7 +164,7 @@ id · patient_id (fk) · condition_label · doctor_or_institution (texte libre)
 perceived_result (texte libre ou énuméré) · attachment_media_id, nullable
 (`spatie/laravel-medialibrary`) · notes · timestamps
 
-### `patients_disease_categories`
+### `disease_categories`
 Les catégories n'ont pas toutes la même nature (ex. catégories 1-7 =
 type "maladie", généralement traitées par les médecins ; type "blocages" ;
 type "cauchemars", nouvelle) — le `type` est lui-même un `enum_option`
@@ -136,45 +174,160 @@ admin, sans migration.
 id · type_option_id (fk `enum_options`) · code · label (translatable) ·
 order · active · timestamps
 
-### `patients_diseases`
+### `diseases`
 id · disease_category_id (fk) · code (3 chiffres, unique par catégorie) ·
 label (translatable) · description (translatable, json, nullable) ·
 default_duration_months · active · timestamps
 
-### `patients_disease_subcases`
+### `disease_subcases`
 Sous-cas d'un blocage (ex. sous "Travail" (801) : "Pas de travail",
 "Travail médiocre"...) — présents uniquement pour la catégorie 8
 (Blocages) dans les données actuelles, mais table générique, pas
 spécifique aux blocages, réutilisable si un besoin similaire apparaît
 ailleurs.
 
-id · disease_id (fk `patients_diseases`) · label (translatable) ·
+id · disease_id (fk `diseases`) · label (translatable) ·
 description (translatable, json, nullable) · order · active · timestamps
 
-⚠️ Pas encore de lien vers `patients_treatments`/`patients_treatment_diseases`
-— quand le domaine Treatment sera implémenté, décider si un traitement
-référence un ou plusieurs sous-cas (probablement une colonne
-`subcase_id` nullable sur le pivot, ou une table de jonction dédiée),
-pas tranché à ce stade.
+✅ **Décidé (2026-08-20, session `feature/treatments`)** : pas de lien
+structurel vers `treatment_diseases` pour l'instant — le
+pivot reste `treatment_id`/`disease_id` sans colonne `subcase_id`. Si
+le besoin réapparaît (stats/filtres par sous-cas précis), l'ajouter
+plus tard reste un changement localisé (colonne nullable + migration),
+pas une refonte.
 
-### `patients_treatments`
+⚠️ **Audit d'optimisation (2026-08-20)** : `disease_subcases` est la
+seule table du domaine Patients référencée **uniquement** par le
+modèle et le seeder — aucun controller, aucune UI, aucune requête
+métier ne la lit à ce jour (confirmé par grep sur toute la codebase).
+Ce n'est **pas** une table à supprimer : elle porte les 19 vrais
+sous-cas extraits du document source (voir CLAUDE.md "Sous-cas des
+blocages"), donc une vraie donnée métier en attente de son premier
+usage (le lien vers `treatment_diseases`, volontairement pas encore
+construit, voir ci-dessus) — pas une table morte issue d'une erreur de
+conception. Gardée telle quelle.
+
+### `treatments` — **implémenté** (2026-08-20)
 Un traitement = un parcours de soin pour un patient, chez un soignant,
-sur une période.
+sur une période. Même pattern wizard résilient que `patients`
+(`client_uuid`, statuts `draft`/`confirmed` réellement câblés).
 
-id · patient_id (fk) · practitioner_id (fk) · center_id (fk) ·
-started_at · ended_at, nullable ·
+id · client_uuid, uuid nullable unique · patient_id (fk, **requis dès
+le draft** — contrairement à `patients`, un traitement sans patient
+n'a pas de sens même en brouillon) · practitioner_id (fk, nullable) ·
+center_id (fk, nullable) · started_at, nullable · ended_at, nullable ·
 outcome (enum: cured/not_cured/percentage), nullable ·
-outcome_percentage (1-99), nullable · notes · created_by · timestamps
+outcome_percentage (1-99), nullable · notes · **closure_reason**
+(string(20) nullable — voir ci-dessous) · created_by · timestamps
 → statut (draft/confirmed/ongoing/closed) via `spatie/laravel-model-status`
+— **les 4 sont désormais câblés (2026-08-20, session "Statut global
+Treatment")** : `confirm()` fait passer `confirmed` puis `ongoing` dans
+la même requête (pas d'étape manuelle intermédiaire), `closed` est
+atteint soit automatiquement (`Treatment::refreshClosureStatus()`,
+appelé après chaque écriture de `treatment_session_disease_progress` —
+`TreatmentController::confirm()`, `TreatmentSessionController::store()`/
+`update()` — dès que chaque maladie rattachée a un résultat final, non
+`ongoing`), soit manuellement (`Treatment::manualClose()`, route `POST
+admin/treatments/{treatment}/close`, `CloseTreatmentRequest`, réservée
+à un traitement `ongoing`).
 
-### `patients_treatment_diseases` (pivot)
-treatment_id (fk) · disease_id (fk)
+**Réouverture (2026-08-21)** : `Treatment::reopen()` (route `POST
+admin/treatments/{treatment}/reopen`, `ReopenTreatmentRequest`, réservée
+à un traitement `closed`) repasse le traitement à `ongoing` et efface
+`closure_reason`. Réservée aux managers/super_admin — aujourd'hui c'est
+implicite (aucun compte de connexion à privilège inférieur n'existe
+encore, voir `TreatmentPolicy::reopen()`), mais à garder ainsi
+explicitement le jour où des comptes raqi individuels existeront
+(demande explicite de l'utilisateur, pas juste un oubli).
 
-### `patients_treatment_sessions` (séances individuelles)
-id · treatment_id (fk) · practitioner_id (fk, peut différer si
-réassignation) · session_date · duration_minutes, nullable · notes ·
-timestamps
-→ statut (draft/confirmed) via `spatie/laravel-model-status`
+`closure_reason` (posé uniquement quand statut = `closed`) : `resolved`
+(auto, toutes les maladies rattachées résolues) / `lost_to_follow_up`
+/ `closed_manually` (les deux derniers via clôture manuelle
+uniquement — `resolved` est explicitement rejeté sur l'endpoint manuel,
+c'est une valeur calculée, jamais choisie). Les deux raisons manuelles
+viennent du brief client (`Untitled-3`, "perdu de vue... deux semaines
+après la date butoir" + "n'ont pas poursuivi le traitement", groupés
+dans la même catégorie de stats côté client) ; `closed_manually` couvre
+tout le reste (transfert, décès, arrêt médical...) — non demandé
+explicitement par le client, ajouté pour ne pas bloquer un patient sur
+un cas hors périmètre du document source.
+
+**Garde-fou anti-confusion séance/traitement** : `StoreTreatmentDraftRequest`
+refuse de créer un nouveau traitement (`patient_id`) tant que le
+patient a déjà un traitement `ongoing` — évite qu'un raqi pensant
+loguer une séance/RDV crée par erreur un nouveau traitement. Contourné
+uniquement pour le replay idempotent d'un `client_uuid` déjà existant
+(retry réseau sur le même brouillon), jamais pour un vrai nouveau
+traitement. Front-end : bouton "Ajouter un traitement" désactivé côté
+`Patients/Form.vue` tant qu'un traitement `ongoing` existe, bouton
+"Clôturer" dédié sur la carte du traitement en cours
+(`TreatmentCloseDialog.vue`).
+
+### `treatment_diseases` (pivot) — **implémenté**
+treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre.
+Reste volontairement simple (2026-08-20) : dit juste "cette maladie
+fait partie de ce traitement", ne porte aucun statut/outcome — le
+suivi réel vit dans `treatment_session_disease_progress`
+(historisé par séance, voir plus bas), pas ici.
+
+### `treatment_sessions` (séances individuelles) — **implémenté** (2026-08-20)
+CRUD simple (pas le pattern wizard résilient — une séance est une
+saisie courte en une fois, pas un formulaire long autosauvegardé, donc
+pas de `client_uuid`/draft/confirm/`HasStatuses`).
+
+id · treatment_id (fk) · practitioner_id (fk, nullable, peut différer
+si réassignation) · session_date, nullable · duration_minutes,
+nullable · notes · created_by · timestamps
+
+### `treatment_session_disease_progress` — **implémenté** (2026-08-20)
+Cœur du modèle de suivi de cette session : une ligne par maladie suivie
+à une séance donnée, pas un statut final unique par maladie. Permet de
+voir l'évolution dans le temps (lecture : toutes les lignes pour un
+`disease_id` donné à travers les séances d'un même traitement, triées
+par `session_date`). Couvre aussi les maladies de la catégorie
+Cauchemars (traitées comme n'importe quelle autre catégorie pour
+l'instant — voir note plus bas).
+
+id · treatment_session_id (fk `treatment_sessions`, cascade) ·
+disease_id (fk `diseases`, cascade) · outcome (enum:
+cured/not_cured/percentage/ongoing), nullable · outcome_percentage
+(1-99), nullable · notes · timestamps ·
+unique(treatment_session_id, disease_id)
+
+### `treatment_session_care_items` (pivot) — **implémenté** (2026-08-20)
+treatment_session_id (fk) · care_item_id (fk `care_items`) —
+clé composite. Quels soins concrets (voir catalogue ci-dessous) ont été
+utilisés à une séance donnée.
+
+### `care_categories` / `care_items` — **implémenté** (2026-08-20)
+Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
+de `disease_categories`/`diseases` (décision : la
+hiérarchie auto-référencée d'`EnumOption` — `parent_id` — n'a jamais
+d'usage réel dans ce projet, voir `CLAUDE.md` "Wizard Treatment..." —
+pas construit dessus). Exemples de catégories : Pommade, Bain, Encens,
+Tisane, Verset — chacune avec sa propre liste d'items concrets.
+Contenu actuellement **placeholder** (`CareCategorySeeder.php`),
+aucune donnée source réelle fournie à ce stade.
+
+`care_categories` : id · code (unique) · label (translatable)
+· order · active · timestamps
+
+`care_items` : id · care_category_id (fk, cascade) · code
+(unique par catégorie) · label (translatable) · description
+(translatable, nullable) · order · active · timestamps
+
+⚠️ **Note "cauchemars"** : la 9e `DiseaseCategory` (`type = NIGHTMARE`)
+est seedée avec 2 maladies placeholder (901/902) et traitée exactement
+comme les 8 autres catégories dans `treatment_session_disease_progress`
+— une distinction spéciale ("pas de suivi de statut pour les
+cauchemars") a été envisagée puis explicitement reportée par
+l'utilisateur, pas implémentée cette session.
+
+⚠️ **Hors périmètre, explicitement reporté** : lien entre le catalogue
+de soins et le stock (`Catalog.Product` — un item comme "Verset" n'a ni
+stock ni prix, contrairement à une pommade, donc ce lien ne concernera
+qu'une partie des catégories le jour où il sera construit) ; lien vers
+la facturation/paiement patient (`Billing`).
 
 ---
 
@@ -305,10 +458,10 @@ par centre, pas globalement.
 
 **Volontairement schéma seulement à ce stade** — pas de moteur de calcul
 de bulletin de paie ("on fera à la fin", une fois les gros modules
-posés). S'inspire de la structure `Payroll` d'InPACT (`Employment`,
-`Organism`, `Bonus` observés dans son `ObserverServiceProvider`) sans
-copier son implémentation (non disponible dans l'export fourni — dossiers
-vides).
+posés). S'inspire de la structure `Payroll` d'un projet de référence
+(`Employment`, `Organism`, `Bonus` observés dans son
+`ObserverServiceProvider`) sans copier son implémentation (non
+disponible dans l'export fourni — dossiers vides).
 
 ### `billing_employments`
 id · practitioner_id (fk) · center_id (fk) · contract_type, nullable
@@ -366,11 +519,40 @@ file_path (PDF stocké) · timestamps
   pays, ça évite une migration douloureuse plus tard.
 - **Montants toujours en centimes** (integer), jamais en float — décision
   déjà actée sur Geneva Bengal, reconduite ici.
-- **`draft`/`confirmed`** présent sur `patients`, `patients_treatments`,
-  `patients_treatment_sessions`, `scheduling_appointments`, `billing_expenses` — ce sont les entités
+- **`draft`/`confirmed`** présent sur `patients`, `treatments`,
+  `scheduling_appointments`, `billing_expenses` — ce sont les entités
   saisies via wizard/formulaire long, donc concernées par la sauvegarde
-  continue. Les entités de référence (`countries`, `centers`, `catalog_products`...)
-  n'ont pas ce statut, elles sont gérées en CRUD admin classique.
+  continue. **`treatment_sessions` n'a volontairement pas ce
+  statut** (décision du 2026-08-20, révise l'intention initiale) — une
+  séance est une saisie courte en une fois (ce qui s'est passé pendant
+  un rendez-vous), pas un formulaire long autosauvegardé ; CRUD simple.
+  Les entités de référence (`countries`, `centers`, `catalog_products`...)
+  n'ont pas ce statut non plus, elles sont gérées en CRUD admin classique.
 - **`practitioners.full_code`** recalculé automatiquement (observer) à la
-  création/modification de `center_id`/`diploma_number` — jamais saisi à
+  création/modification de `center_id`/`matricule` — jamais saisi à
   la main, pour garantir l'unicité et la cohérence pays+centre.
+- **Tables du domaine Patients sans préfixe `patients_` depuis
+  2026-08-20** — `diseases`, `disease_categories`, `disease_subcases`,
+  `care_categories`, `care_items`, `treatments`, `treatment_diseases`,
+  `treatment_sessions`, `treatment_session_disease_progress`,
+  `treatment_session_care_items`, `external_medical_records` (celle-ci
+  toujours pas construite). Retiré car le préfixe créait de la
+  confusion sans bénéfice — contrairement aux autres domaines
+  (`scheduling_*`, `catalog_*`...), Patients n'a pas de risque de
+  collision de nom avec un autre domaine sur ces tables précises. Seule
+  la table ancre `patients` restait déjà sans double-préfixe
+  (`patients_patients` n'a jamais existé).
+- **Auto-suggestion + édition libre, un pattern commun à trois champs
+  (2026-08-20)** — `centers.code`, `practitioners.matricule` sont tous
+  les deux auto-suggérés (prochain numéro libre dans le scope parent)
+  mais restent éditables dans le formulaire ; `patients.patient_number`
+  suit la même logique de génération mais n'est **jamais** éditable
+  (l'utilisateur ne l'a pas demandé pour ce champ). Les trois services
+  (`CenterCodeGenerator`, `PractitionerCodeGenerator::
+  suggestNextMatricule()`, `PatientNumberGenerator`) partagent le même
+  algorithme (`MAX(colonne) + 1` scopé au parent, zero-paddé), sans
+  factorisation en un service commun — trois usages distincts sur des
+  colonnes de tailles différentes (2/3/4 chiffres) et des modèles
+  différents, pas encore assez de règles partagées pour justifier une
+  abstraction (voir CLAUDE.md "Services — Action classes, pas de CRUD
+  wrapper générique").
