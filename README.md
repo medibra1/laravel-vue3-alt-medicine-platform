@@ -59,9 +59,9 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 
 | Domaine | État |
 |---|---|
-| Core (zones, pays, centres, grades) | Zones/pays/grades : schéma + seeders. Centres : **CRUD admin fait** (super_admin uniquement) |
+| Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies fait (9 catégories dont Cauchemars) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -175,10 +175,32 @@ les trois flux (création centre avec code auto-suggéré, création
 praticien avec matricule auto-suggéré, création patient avec
 patient_number auto-généré affiché dans la liste), zéro erreur console.
 
+**CRUD admin pour les données de référence seedées** (2026-08-21,
+branche `feature/treatments`) : `Zone`, `Country`, `DiseaseCategory`,
+`Disease`, `CareCategory`, `CareItem` ont désormais un CRUD admin
+complet (super_admin uniquement), sur le même modèle que `CenterController`
+— jusqu'ici ces données n'existaient que via seeders, sans aucune UI
+pour les corriger/étendre. Premier CRUD du projet à éditer des champs
+traduisibles (`name`/`label`/`description`, JSON `{fr, en}` via
+`spatie/laravel-translatable`) directement dans un formulaire — nouveau
+wrapper `AppTranslatableInput.vue` (deux champs FR/EN côte à côte).
+Permet enfin d'assigner une zone aux 9 pays orphelins depuis l'interface
+plutôt que par migration. Nouveaux liens de nav (Zones, Pays, Catégories
+de maladies, Maladies, Catégories de soins, Soins), tous conditionnés à
+`is_super_admin` comme "Centres". Détail complet et raisonnement dans
+`CLAUDE.md` "CRUD admin pour les données de référence seedées". Vérifié
+: 165 tests Pest (61 nouveaux, zéro régression), `pint --test` clean,
+Larastan clean, build Vite client+SSR OK, `vue-tsc --noEmit` clean,
+golden path navigateur réel (Playwright) sur les six nouvelles pages
+(liste, création, et la réassignation de zone d'un pays existant), zéro
+erreur console.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
-  voir `database/seeders/CountrySeeder.php`.
+  voir `database/seeders/CountrySeeder.php`. **Assignable depuis
+  l'admin maintenant** (`/admin/countries`), reste à trancher côté
+  contenu (quelle zone pour chacun), pas côté outillage.
 - Contenu placeholder à remplacer par du vrai contenu source dès qu'il
   est fourni : catégorie de maladie "Cauchemars" (2 maladies, codes
   901/902) et catalogue de soins entier (`CareCategorySeeder.php`).

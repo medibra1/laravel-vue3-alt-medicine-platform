@@ -30,7 +30,15 @@ const navItems = computed(() => [
     { label: 'Traitements', icon: 'mdi-medical-bag', href: () => route('admin.treatments.index'), active: () => route().current('admin.treatments.*') },
     { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: () => route('admin.practitioners.index'), active: () => route().current('admin.practitioners.*') },
     ...(isSuperAdmin.value
-        ? [{ label: 'Centres', icon: 'mdi-domain', href: () => route('admin.centers.index'), active: () => route().current('admin.centers.*') }]
+        ? [
+              { label: 'Centres', icon: 'mdi-domain', href: () => route('admin.centers.index'), active: () => route().current('admin.centers.*') },
+              { label: 'Zones', icon: 'mdi-earth', href: () => route('admin.zones.index'), active: () => route().current('admin.zones.*') },
+              { label: 'Pays', icon: 'mdi-flag-outline', href: () => route('admin.countries.index'), active: () => route().current('admin.countries.*') },
+              { label: 'Catégories de maladies', icon: 'mdi-shape-outline', href: () => route('admin.disease-categories.index'), active: () => route().current('admin.disease-categories.*') },
+              { label: 'Maladies', icon: 'mdi-virus-outline', href: () => route('admin.diseases.index'), active: () => route().current('admin.diseases.*') },
+              { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: () => route('admin.care-categories.index'), active: () => route().current('admin.care-categories.*') },
+              { label: 'Soins', icon: 'mdi-leaf', href: () => route('admin.care-items.index'), active: () => route().current('admin.care-items.*') },
+          ]
         : []),
 ]);
 

@@ -37,9 +37,25 @@ utilisé pour les statistiques par zone, au-dessus du pays.
 
 id · code · name (translatable) · order · active · timestamps
 
+✅ **CRUD admin implémenté (2026-08-21)** — `ZoneController` (super_admin
+uniquement, `ZonePolicy` même pattern que `CenterPolicy`), page Inertia
+`Admin/Zones/Index.vue`. Premier CRUD éditant `name` (traduisible) via
+le nouveau wrapper `AppTranslatableInput.vue` (voir CLAUDE.md "CRUD
+admin pour les données de référence seedées"). Pas de générateur de
+code — `code` est un slug court libre, saisi directement.
+
 ### `countries`
 id · zone_id (fk `zones`, nullable) · code (2 chiffres, unique) ·
 name (translatable) · active · timestamps
+
+✅ **CRUD admin implémenté (2026-08-21)** — `CountryController`
+(super_admin uniquement), page Inertia `Admin/Countries/Index.vue`.
+Permet d'assigner/réassigner `zone_id` (select nullable) — c'est le
+besoin concret qui motivait ce lot, les 9 pays sans zone restent
+assignables depuis l'admin (voir "Points ouverts" du README pour la
+décision de contenu, toujours ouverte). Pas de générateur de code (le
+`code` 2 chiffres est attribué par le document source, pas
+auto-incrémenté).
 
 ### `centers`
 id · country_id (fk) · code (2 chiffres, unique **par pays**) · name ·
@@ -174,10 +190,30 @@ admin, sans migration.
 id · type_option_id (fk `enum_options`) · code · label (translatable) ·
 order · active · timestamps
 
+✅ **CRUD admin implémenté (2026-08-21)** — `DiseaseCategoryController`
+(super_admin uniquement), page Inertia `Admin/DiseaseCategories/Index.vue`.
+`type_option_id` choisi via select alimenté par les `enum_options`
+existantes (`enum_type = 'disease_category.type'`) — pas de CRUD dédié
+pour `EnumOption` lui-même, ce set (ILLNESS/BLOCKAGE/NIGHTMARE) est
+fermé dans la pratique actuelle. Resource d'admin séparée
+(`DiseaseCategoryAdminResource`, expose `label` en `{fr,en}` via
+`getTranslations()`) de la Resource en lecture seule existante
+(`DiseaseCategoryResource`, string résolue, consommée par le wizard
+Treatment) — voir CLAUDE.md pour le raisonnement complet.
+
 ### `diseases`
 id · disease_category_id (fk) · code (3 chiffres, unique par catégorie) ·
 label (translatable) · description (translatable, json, nullable) ·
 default_duration_months · active · timestamps
+
+✅ **CRUD admin implémenté (2026-08-21)** — `DiseaseController`
+(super_admin uniquement), page Inertia `Admin/Diseases/Index.vue`.
+`code` **auto-suggéré mais éditable** (`DiseaseCodeGenerator::
+suggestNext()`, `GET admin/diseases/next-code?category_id=X`), même
+mécanisme que `centers.code`/`practitioners.matricule`. Resource
+d'admin séparée (`DiseaseAdminResource`) de la Resource en lecture
+seule existante (`DiseaseResource`) — même raisonnement que
+`DiseaseCategoryAdminResource` ci-dessus.
 
 ### `disease_subcases`
 Sous-cas d'un blocage (ex. sous "Travail" (801) : "Pas de travail",
@@ -308,6 +344,18 @@ pas construit dessus). Exemples de catégories : Pommade, Bain, Encens,
 Tisane, Verset — chacune avec sa propre liste d'items concrets.
 Contenu actuellement **placeholder** (`CareCategorySeeder.php`),
 aucune donnée source réelle fournie à ce stade.
+
+✅ **CRUD admin implémenté (2026-08-21)** — `CareCategoryController`/
+`CareItemController` (super_admin uniquement), pages Inertia
+`Admin/CareCategories/Index.vue`/`Admin/CareItems/Index.vue`. Permet de
+corriger le contenu placeholder directement en admin dès qu'une vraie
+source est fournie, sans repasser par le seeder. `care_items.code`
+auto-suggéré mais éditable (`CareItemCodeGenerator::suggestNext()`, `GET
+admin/care-items/next-code?category_id=X`) ; `care_categories.code`
+reste un slug libre saisi à la main (pas de générateur, même
+raisonnement que `zones.code`). Resources d'admin séparées
+(`CareCategoryAdminResource`/`CareItemAdminResource`) des Resources en
+lecture seule existantes.
 
 `care_categories` : id · code (unique) · label (translatable)
 · order · active · timestamps
