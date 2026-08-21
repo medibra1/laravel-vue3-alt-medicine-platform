@@ -59,7 +59,7 @@ class PatientController extends Controller
 
         return Inertia::render('Admin/Patients/Index', [
             'patients' => $patients,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $this->centerOptions($request),
         ]);
     }
