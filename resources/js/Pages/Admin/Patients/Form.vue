@@ -51,8 +51,14 @@ interface TreatmentSessionSummary {
 
 interface TreatmentSummary {
     id: number;
+    client_uuid: string;
+    practitioner_id: number | null;
+    center_id: number | null;
     started_at: string | null;
     ended_at: string | null;
+    outcome: string | null;
+    outcome_percentage: number | null;
+    notes: string | null;
     practitioner: { id: number; full_code: string } | null;
     diseases: TreatmentDisease[];
     sessions: TreatmentSessionSummary[];
@@ -196,25 +202,36 @@ async function confirmPatient() {
 const wizardVisible = ref(false);
 const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: number; practitioner_id: number | null; center_id: number | null; started_at: string | null; ended_at: string | null; outcome: string | null; outcome_percentage: number | null; notes: string | null; disease_ids: number[] } | null>(null);
 
+// TreatmentWizardDialog stays mounted for the page's whole lifetime (its
+// `v-if="patient"` never toggles once a patient exists), so its internal
+// useResilientForm() only runs its one-time initialization once — without
+// this key, re-opening it for a *different* treatment (or a new one after
+// an existing one) would keep reusing the very first form state instead of
+// the target's actual data. Bumped on every open so each one is a clean
+// remount, not just switches between "new" and "edit" mode.
+const wizardKey = ref(0);
+
 function openNewTreatment() {
     editingTreatment.value = null;
+    wizardKey.value++;
     wizardVisible.value = true;
 }
 
 function editTreatment(treatment: TreatmentSummary) {
     editingTreatment.value = {
         id: treatment.id,
-        client_uuid: '',
+        client_uuid: treatment.client_uuid,
         patient_id: props.patient!.id,
-        practitioner_id: treatment.practitioner?.id ?? null,
-        center_id: null,
+        practitioner_id: treatment.practitioner_id,
+        center_id: treatment.center_id,
         started_at: treatment.started_at,
         ended_at: treatment.ended_at,
-        outcome: null,
-        outcome_percentage: null,
-        notes: null,
+        outcome: treatment.outcome,
+        outcome_percentage: treatment.outcome_percentage,
+        notes: treatment.notes,
         disease_ids: treatment.diseases.map((d) => d.id),
     };
+    wizardKey.value++;
     wizardVisible.value = true;
 }
 
@@ -390,6 +407,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
 
         <TreatmentWizardDialog
             v-if="patient"
+            :key="wizardKey"
             v-model:visible="wizardVisible"
             :treatment="editingTreatment"
             :patient-id="patient.id"

@@ -11,7 +11,7 @@ class CareCategory extends Model
 {
     use HasFactory, HasTranslations;
 
-    protected $table = 'patients_care_categories';
+    protected $table = 'care_categories';
 
     protected $guarded = ['id'];
 

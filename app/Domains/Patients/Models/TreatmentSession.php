@@ -14,7 +14,7 @@ class TreatmentSession extends Model
 {
     use HasFactory;
 
-    protected $table = 'patients_treatment_sessions';
+    protected $table = 'treatment_sessions';
 
     protected $guarded = ['id'];
 
@@ -50,6 +50,6 @@ class TreatmentSession extends Model
     /** @return BelongsToMany<CareItem, $this> */
     public function careItems(): BelongsToMany
     {
-        return $this->belongsToMany(CareItem::class, 'patients_treatment_session_care_items', 'treatment_session_id', 'care_item_id');
+        return $this->belongsToMany(CareItem::class, 'treatment_session_care_items', 'treatment_session_id', 'care_item_id');
     }
 }

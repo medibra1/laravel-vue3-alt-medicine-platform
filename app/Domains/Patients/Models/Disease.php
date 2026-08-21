@@ -12,7 +12,7 @@ class Disease extends Model
 {
     use HasFactory, HasTranslations;
 
-    protected $table = 'patients_diseases';
+    protected $table = 'diseases';
 
     protected $guarded = ['id'];
 

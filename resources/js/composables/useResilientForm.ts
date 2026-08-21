@@ -26,8 +26,12 @@ export function useResilientForm<T extends Record<string, unknown>>(
     endpoints: Endpoints,
     options: Options = {},
 ) {
+    // `||`, not `??`: an empty string (a caller prefilling an existing
+    // record that has no client_uuid of its own to reuse — see
+    // Patients/Form.vue's editTreatment()) must fall through to a fresh
+    // id too, otherwise every such record collides on the same Dexie key.
     const localId =
-        (initial.client_uuid as string | undefined) ?? crypto.randomUUID();
+        (initial.client_uuid as string | undefined) || crypto.randomUUID();
     const form = reactive<T>({ ...initial, client_uuid: localId } as T);
     const serverId = ref<number | null>((initial.id as number | null) ?? null);
     const saving = ref(false);

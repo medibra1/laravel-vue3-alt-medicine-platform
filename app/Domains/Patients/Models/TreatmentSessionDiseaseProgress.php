@@ -10,7 +10,7 @@ class TreatmentSessionDiseaseProgress extends Model
 {
     use HasFactory;
 
-    protected $table = 'patients_treatment_session_disease_progress';
+    protected $table = 'treatment_session_disease_progress';
 
     protected $guarded = ['id'];
 

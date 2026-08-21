@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('patients_treatments', function (Blueprint $table) {
+        Schema::create('treatments', function (Blueprint $table) {
             $table->id();
             $table->uuid('client_uuid')->nullable()->unique(); // resilient-wizard idempotency key, same pattern as patients.client_uuid
             $table->foreignId('patient_id')->constrained('patients')->cascadeOnDelete();
@@ -26,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('patients_treatments');
+        Schema::dropIfExists('treatments');
     }
 };

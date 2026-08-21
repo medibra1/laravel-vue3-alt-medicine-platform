@@ -34,7 +34,7 @@ class UpdateTreatmentDraftRequest extends FormRequest
             'outcome_percentage' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:99'],
             'notes' => ['sometimes', 'nullable', 'string'],
             'disease_ids' => ['sometimes', 'nullable', 'array'],
-            'disease_ids.*' => ['integer', 'exists:patients_diseases,id'],
+            'disease_ids.*' => ['integer', 'exists:diseases,id'],
         ];
     }
 }

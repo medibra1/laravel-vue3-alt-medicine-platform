@@ -16,7 +16,7 @@ class Treatment extends Model
 {
     use HasFactory, HasStatuses;
 
-    protected $table = 'patients_treatments';
+    protected $table = 'treatments';
 
     protected $guarded = ['id'];
 
@@ -64,7 +64,7 @@ class Treatment extends Model
     /** @return BelongsToMany<Disease, $this> */
     public function diseases(): BelongsToMany
     {
-        return $this->belongsToMany(Disease::class, 'patients_treatment_diseases');
+        return $this->belongsToMany(Disease::class, 'treatment_diseases');
     }
 
     /** @return HasMany<TreatmentSession, $this> */

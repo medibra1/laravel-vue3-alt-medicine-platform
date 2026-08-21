@@ -11,7 +11,7 @@ class CareItem extends Model
 {
     use HasFactory, HasTranslations;
 
-    protected $table = 'patients_care_items';
+    protected $table = 'care_items';
 
     protected $guarded = ['id'];
 

@@ -2,18 +2,21 @@
 
 namespace App\Domains\Patients\Http\Controllers\Admin;
 
+use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Http\Requests\ConfirmPatientRequest;
 use App\Domains\Patients\Http\Requests\StorePatientDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
+use App\Domains\Patients\Http\Resources\CareCategoryResource;
+use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
+use App\Domains\Patients\Http\Resources\DiseaseResource;
+use App\Domains\Patients\Http\Resources\TreatmentResource;
 use App\Domains\Patients\Models\CareCategory;
-use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
-use App\Domains\Patients\Models\Treatment;
-use App\Domains\Patients\Models\TreatmentSession;
-use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Patients\Services\PatientNumberGenerator;
+use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,11 +29,14 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class PatientController extends Controller
 {
+    use ResolvesCenterOptions;
+    use ResolvesPractitionerOptions;
+
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Patient::class);
 
-        $query = Patient::query()->with('center');
+        $query = Patient::query()->with('center.country');
 
         if (! $request->user()->isSuperAdmin()) {
             $query->where('intake_center_id', getPermissionsTeamId());
@@ -38,8 +44,12 @@ class PatientController extends Controller
 
         $patients = QueryBuilder::for($query)
             ->allowedFilters(
-                AllowedFilter::partial('first_name'),
-                AllowedFilter::partial('last_name'),
+                AllowedFilter::callback('search', function ($query, $value) {
+                    $query->where(function ($query) use ($value) {
+                        $query->where('first_name', 'like', "%{$value}%")
+                            ->orWhere('last_name', 'like', "%{$value}%");
+                    });
+                }),
                 AllowedFilter::exact('intake_center_id'),
             )
             ->allowedSorts('first_name', 'last_name', 'created_at')
@@ -50,7 +60,7 @@ class PatientController extends Controller
         return Inertia::render('Admin/Patients/Index', [
             'patients' => $patients,
             'filters' => $request->only(['filter', 'sort']),
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+            'centers' => $this->centerOptions($request),
         ]);
     }
 
@@ -60,7 +70,7 @@ class PatientController extends Controller
 
         return Inertia::render('Admin/Patients/Form', [
             'patient' => null,
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+            'centers' => $this->centerOptions($request),
         ]);
     }
 
@@ -79,69 +89,18 @@ class PatientController extends Controller
 
         return Inertia::render('Admin/Patients/Form', [
             'patient' => $patient,
-            'treatments' => $patient->treatments->map(fn (Treatment $treatment) => [
-                'id' => $treatment->id,
-                'started_at' => $treatment->started_at,
-                'ended_at' => $treatment->ended_at,
-                'practitioner' => $treatment->practitioner ? ['id' => $treatment->practitioner->id, 'full_code' => $treatment->practitioner->full_code] : null,
-                'diseases' => $treatment->diseases->map(fn (Disease $disease) => [
-                    'id' => $disease->id,
-                    'code' => $disease->code,
-                    'label' => $disease->label,
-                    'category_label' => $disease->category->label,
-                ])->values()->all(),
-                'sessions' => $treatment->sessions->map(fn (TreatmentSession $session) => [
-                    'id' => $session->id,
-                    'session_date' => $session->session_date,
-                    'duration_minutes' => $session->duration_minutes,
-                    'notes' => $session->notes,
-                    'care_items' => $session->careItems->map(fn (CareItem $item) => [
-                        'id' => $item->id,
-                        'label' => $item->label,
-                        'category_label' => $item->category->label,
-                    ])->values()->all(),
-                    'disease_progress' => $session->diseaseProgress->map(fn ($progress) => [
-                        'disease_id' => $progress->disease_id,
-                        'disease_label' => $progress->disease->label,
-                        'outcome' => $progress->outcome,
-                        'outcome_percentage' => $progress->outcome_percentage,
-                        'notes' => $progress->notes,
-                    ])->values()->all(),
-                ])->values()->all(),
-            ])->values(),
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
-            'practitioners' => Practitioner::query()
-                ->when(! $request->user()->isSuperAdmin(), fn ($query) => $query->where('center_id', $request->user()->managedCenterId()))
-                ->orderBy('full_code')
-                ->get(['id', 'full_code']),
-            // ->map() resolves HasTranslations' current-locale label
-            // explicitly — see TreatmentController::formOptions() for the
-            // same gotcha (raw ->get()->toArray() serializes the
-            // {fr:..., en:...} JSON column, not the resolved string).
-            'diseases' => Disease::query()->where('active', true)->with('category')->orderBy('code')->get()
-                ->map(fn (Disease $disease) => [
-                    'id' => $disease->id,
-                    'code' => $disease->code,
-                    'label' => $disease->label,
-                    'category_id' => $disease->disease_category_id,
-                    'category_label' => $disease->category->label,
-                ])
-                ->values(),
-            'diseaseCategories' => DiseaseCategory::query()->where('active', true)->orderBy('order')->get()
-                ->map(fn (DiseaseCategory $category) => ['id' => $category->id, 'code' => $category->code, 'label' => $category->label])
-                ->values(),
-            'careCategories' => CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get()
-                ->map(fn (CareCategory $category) => [
-                    'id' => $category->id,
-                    'code' => $category->code,
-                    'label' => $category->label,
-                    'items' => $category->items->where('active', true)->values()->map(fn (CareItem $item) => [
-                        'id' => $item->id,
-                        'code' => $item->code,
-                        'label' => $item->label,
-                    ]),
-                ])
-                ->values(),
+            'treatments' => TreatmentResource::collection($patient->treatments),
+            'centers' => $this->centerOptions($request),
+            'practitioners' => $this->practitionerOptions($request),
+            'diseases' => DiseaseResource::collection(
+                Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
+            ),
+            'diseaseCategories' => DiseaseCategoryResource::collection(
+                DiseaseCategory::query()->where('active', true)->orderBy('order')->get(),
+            ),
+            'careCategories' => CareCategoryResource::collection(
+                CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get(),
+            ),
         ]);
     }
 
@@ -150,7 +109,7 @@ class PatientController extends Controller
      * successful first save must not create a duplicate Patient row
      * when the frontend's debounce retries.
      */
-    public function storeDraft(StorePatientDraftRequest $request): JsonResponse
+    public function storeDraft(StorePatientDraftRequest $request, PatientNumberGenerator $numberGenerator): JsonResponse
     {
         $existing = Patient::query()->where('client_uuid', $request->string('client_uuid'))->first();
 
@@ -160,9 +119,12 @@ class PatientController extends Controller
             return response()->json(['id' => $existing->id, 'client_uuid' => $existing->client_uuid]);
         }
 
+        $center = Center::query()->findOrFail($request->centerId());
+
         $patient = Patient::create([
             ...$request->validated(),
-            'intake_center_id' => $request->centerId(),
+            'intake_center_id' => $center->id,
+            'patient_number' => $numberGenerator->next($center),
             'created_by' => $request->user()->id,
         ]);
         $patient->setStatus('draft');
@@ -182,7 +144,10 @@ class PatientController extends Controller
         $patient->update($request->validated());
         $patient->setStatus('confirmed');
 
-        return redirect()->route('admin.patients.index');
+        // Back to the patient's own file, not the flat list: confirming is
+        // rarely the end of the task, it's usually followed by adding the
+        // first treatment — staying in place saves re-finding the patient.
+        return redirect()->route('admin.patients.edit', $patient);
     }
 
     public function destroy(Patient $patient): RedirectResponse

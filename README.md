@@ -59,7 +59,7 @@ Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 
 | Domaine | État |
 |---|---|
-| Core (zones, pays, centres, grades) | Schéma + seeders faits |
+| Core (zones, pays, centres, grades) | Zones/pays/grades : schéma + seeders. Centres : **CRUD admin fait** (super_admin uniquement) |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
 | Patients (dossier, maladies, traitements) | Référentiel maladies fait (9 catégories dont Cauchemars) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
@@ -148,6 +148,32 @@ clean, golden path navigateur réel sur le wizard et le dossier patient,
 deux thèmes. Quatre vrais bugs trouvés et corrigés en vérification
 (détail dans `CLAUDE.md` "Wizard Treatment..."). Stock et facturation
 explicitement hors périmètre cette session (évoqués puis reportés).
+
+**Renommage des tables Patients, CRUD Centers, matricule/patient_number
+auto-générés** (2026-08-20, branche `feature/treatments`, session
+distincte des précédentes) : toutes les tables du domaine Patients ont
+perdu leur préfixe `patients_` (`diseases`, `disease_categories`,
+`disease_subcases`, `care_categories`, `care_items`, `treatments`,
+`treatment_diseases`, `treatment_sessions`,
+`treatment_session_disease_progress`, `treatment_session_care_items`,
+`external_medical_records`) — préfixe jugé source de confusion sans
+bénéfice de collision de nom (contrairement aux autres domaines).
+`practitioners.diploma_number` renommé `matricule`. Trois numéros
+d'identification suivent maintenant un même schéma
+pays(2)+centre(2)+séquence : `centers.code` et `practitioners.matricule`
+sont **auto-suggérés mais éditables** (nouveaux endpoints `GET
+admin/centers/next-code` et `GET admin/practitioners/next-matricule`),
+`patients.patient_number` (nouvelle colonne, 4 chiffres) est
+**auto-généré et non modifiable**. Premier CRUD admin pour `Center`
+(`CenterController`/`CenterPolicy`, super_admin uniquement, nav
+"Centres" conditionnelle). Détail complet, raisonnement et audit des
+tables Treatment dans `CLAUDE.md` et `docs/schema-donnees.md`. Vérifié
+: 89 tests Pest (13 nouveaux, zéro régression), 5 tests Vitest,
+`pint --test` clean, Larastan clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean, golden path navigateur réel (Playwright) sur
+les trois flux (création centre avec code auto-suggéré, création
+praticien avec matricule auto-suggéré, création patient avec
+patient_number auto-généré affiché dans la liste), zéro erreur console.
 
 ## Points ouverts connus
 

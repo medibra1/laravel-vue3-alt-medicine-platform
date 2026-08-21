@@ -53,6 +53,29 @@ test('super admin can create a draft patient with a minimal payload', function (
     expect($patient->latestStatus()->name)->toBe('draft');
 });
 
+test('patient_number auto-increments per intake center', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $centerA = Center::factory()->create();
+    $centerB = Center::factory()->create();
+
+    $firstInA = $this->actingAs($superAdmin)->postJson(route('admin.patients.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'intake_center_id' => $centerA->id,
+    ]);
+    $secondInA = $this->actingAs($superAdmin)->postJson(route('admin.patients.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'intake_center_id' => $centerA->id,
+    ]);
+    $firstInB = $this->actingAs($superAdmin)->postJson(route('admin.patients.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'intake_center_id' => $centerB->id,
+    ]);
+
+    expect(Patient::query()->findOrFail($firstInA->json('id'))->patient_number)->toBe('0001');
+    expect(Patient::query()->findOrFail($secondInA->json('id'))->patient_number)->toBe('0002');
+    expect(Patient::query()->findOrFail($firstInB->json('id'))->patient_number)->toBe('0001');
+});
+
 test('manager creating a draft is scoped to their own center regardless of payload', function () {
     $ownCenter = Center::factory()->create();
     $otherCenter = Center::factory()->create();
@@ -159,7 +182,9 @@ test('confirming with complete data transitions the patient to confirmed', funct
 
     $response = $this->actingAs($superAdmin)->post(route('admin.patients.confirm', $patient), []);
 
-    $response->assertRedirect(route('admin.patients.index'));
+    // Back to the patient's own file, not the index — confirming is
+    // usually followed by adding the first treatment.
+    $response->assertRedirect(route('admin.patients.edit', $patient));
     expect($patient->fresh()->latestStatus()->name)->toBe('confirmed');
 });
 

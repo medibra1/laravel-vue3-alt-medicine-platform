@@ -20,7 +20,7 @@ class ConfirmTreatmentRequest extends FormRequest
     /**
      * Real, full validation — this is where draft-stage leniency ends.
      * Required fields mirror docs/schema-donnees.md's non-nullable
-     * columns for `patients_treatments` plus at least one disease (a
+     * columns for `treatments` plus at least one disease (a
      * confirmed treatment without any targeted disease is meaningless).
      *
      * disease_progress carries the wizard's "Issue par maladie" step —
@@ -37,10 +37,10 @@ class ConfirmTreatmentRequest extends FormRequest
             'practitioner_id' => ['required', 'integer', 'exists:practitioners,id'],
             'started_at' => ['required', 'date'],
             'disease_ids' => ['required', 'array', 'min:1'],
-            'disease_ids.*' => ['integer', 'exists:patients_diseases,id'],
+            'disease_ids.*' => ['integer', 'exists:diseases,id'],
             'outcome_percentage' => [Rule::requiredIf($this->input('outcome') === 'percentage'), 'nullable', 'integer', 'min:1', 'max:99'],
             'disease_progress' => ['nullable', 'array'],
-            'disease_progress.*.disease_id' => ['required', 'integer', 'exists:patients_diseases,id'],
+            'disease_progress.*.disease_id' => ['required', 'integer', 'exists:diseases,id'],
             'disease_progress.*.outcome' => ['nullable', Rule::in(['cured', 'not_cured', 'percentage', 'ongoing'])],
             'disease_progress.*.outcome_percentage' => ['nullable', 'integer', 'min:1', 'max:99'],
             'disease_progress.*.notes' => ['nullable', 'string'],
@@ -79,7 +79,7 @@ class ConfirmTreatmentRequest extends FormRequest
         ], fn ($value) => $value !== null));
 
         if (! $this->has('disease_ids')) {
-            $this->merge(['disease_ids' => $treatment->diseases()->pluck('patients_diseases.id')->all()]);
+            $this->merge(['disease_ids' => $treatment->diseases()->pluck('diseases.id')->all()]);
         }
     }
 }

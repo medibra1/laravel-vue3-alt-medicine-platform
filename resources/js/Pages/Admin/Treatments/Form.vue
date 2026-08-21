@@ -60,10 +60,22 @@ defineProps<{
 
 const visible = ref(true);
 
+// TreatmentController::confirm() redirects to the patient's own file, not
+// back here — Inertia already follows that redirect and swaps the page
+// before this dialog's "saved" event even fires. Only force a trip back to
+// the flat list when the dialog is closed *without* having saved (the
+// "Fermer" button, or an ESC/backdrop dismiss) — closing it after a
+// successful confirm must not fight the navigation that already happened.
+let wasSaved = false;
+
+function onSaved() {
+    wasSaved = true;
+}
+
 function onClose(value: boolean) {
     visible.value = value;
 
-    if (!value) {
+    if (!value && !wasSaved) {
         router.get(route('admin.treatments.index'));
     }
 }
@@ -84,7 +96,7 @@ function onClose(value: boolean) {
             :diseases="diseases"
             :disease-categories="diseaseCategories"
             @update:visible="onClose"
-            @saved="() => router.get(route('admin.treatments.index'))"
+            @saved="onSaved"
         />
     </AuthenticatedLayout>
 </template>

@@ -11,7 +11,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 function dateBinding(form: { hired_at: string | null }) {
     return computed<Date | null>({
@@ -37,11 +37,14 @@ interface Grade {
 interface Practitioner {
     id: number;
     full_code: string;
-    diploma_number: string;
+    matricule: string;
     center_id: number;
     grade_id: number | null;
     level: number | null;
     hired_at: string | null;
+    phone: string | null;
+    address: string | null;
+    email: string | null;
     center?: { id: number; name: string };
     grade?: { id: number; label: string } | null;
 }
@@ -59,8 +62,7 @@ const props = defineProps<{
 }>();
 
 const search = reactive({
-    full_code: props.filters.filter?.full_code ?? '',
-    diploma_number: props.filters.filter?.diploma_number ?? '',
+    search: props.filters.filter?.search ?? '',
 });
 
 const currentSort = ref(props.filters.sort ?? '-created_at');
@@ -89,9 +91,10 @@ function onSort(event: AppDataTableSortEvent) {
 
 const columns: AppDataTableColumn[] = [
     { field: 'full_code', header: 'Code', sortable: true },
-    { field: 'diploma_number', header: 'N° diplôme', sortable: true },
+    { field: 'matricule', header: 'Matricule', sortable: true },
     { field: 'center', header: 'Centre' },
     { field: 'grade', header: 'Grade' },
+    { field: 'phone', header: 'Téléphone' },
     { field: 'hired_at', header: 'Embauché le', sortable: true },
     { field: 'actions', header: 'Actions' },
 ];
@@ -101,10 +104,13 @@ const editingPractitioner = ref<Practitioner | null>(null);
 
 const createForm = useForm({
     center_id: null as number | null,
-    diploma_number: '',
+    matricule: '',
     grade_id: null as number | null,
     level: null as number | null,
     hired_at: null as string | null,
+    phone: '',
+    address: '',
+    email: '',
 });
 const createHiredAt = dateBinding(createForm);
 
@@ -112,6 +118,28 @@ function openCreate() {
     createForm.reset();
     isCreating.value = true;
 }
+
+// Auto-suggested next matricule for the selected center — the field
+// stays editable, this only pre-fills it (see PractitionerCodeGenerator
+// ::suggestNextMatricule()).
+watch(
+    () => createForm.center_id,
+    async (centerId) => {
+        if (!centerId || createForm.matricule) {
+            return;
+        }
+
+        const response = await fetch(
+            route('admin.practitioners.next-matricule', { center_id: centerId }),
+            { headers: { Accept: 'application/json' } },
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            createForm.matricule = data.matricule;
+        }
+    },
+);
 
 function submitCreate() {
     createForm.post(route('admin.practitioners.store'), {
@@ -122,20 +150,26 @@ function submitCreate() {
 }
 
 const editForm = useForm({
-    diploma_number: '',
+    matricule: '',
     grade_id: null as number | null,
     level: null as number | null,
     hired_at: null as string | null,
+    phone: '',
+    address: '',
+    email: '',
 });
 const editHiredAt = dateBinding(editForm);
 
 function openEdit(practitioner: Practitioner) {
     editingPractitioner.value = practitioner;
     editForm.reset();
-    editForm.diploma_number = practitioner.diploma_number;
+    editForm.matricule = practitioner.matricule;
     editForm.grade_id = practitioner.grade_id;
     editForm.level = practitioner.level;
     editForm.hired_at = practitioner.hired_at;
+    editForm.phone = practitioner.phone ?? '';
+    editForm.address = practitioner.address ?? '';
+    editForm.email = practitioner.email ?? '';
 }
 
 function submitEdit() {
@@ -167,15 +201,9 @@ function destroy(practitioner: Practitioner) {
         <div class="d-flex flex-column ga-4">
             <div class="d-flex flex-wrap align-end ga-3">
                 <AppInputText
-                    id="filter-full-code"
-                    v-model="search.full_code"
-                    label="Code"
-                    @keyup.enter="reload()"
-                />
-                <AppInputText
-                    id="filter-diploma"
-                    v-model="search.diploma_number"
-                    label="N° diplôme"
+                    id="filter-search"
+                    v-model="search.search"
+                    label="Rechercher (code, matricule)"
                     @keyup.enter="reload()"
                 />
                 <AppButton label="Filtrer" @click="reload()" />
@@ -228,10 +256,10 @@ function destroy(practitioner: Practitioner) {
                 />
 
                 <AppInputText
-                    v-model="createForm.diploma_number"
-                    label="N° diplôme (3 chiffres)"
+                    v-model="createForm.matricule"
+                    label="Matricule (3 chiffres, suggéré automatiquement)"
                     :maxlength="3"
-                    :error="createForm.errors.diploma_number"
+                    :error="createForm.errors.matricule"
                 />
 
                 <AppSelect
@@ -247,6 +275,10 @@ function destroy(practitioner: Practitioner) {
                 <AppInputNumber v-model="createForm.level" label="Niveau" :min="0" />
 
                 <AppDatePicker v-model="createHiredAt" label="Date d'embauche" />
+
+                <AppInputText v-model="createForm.phone" label="Téléphone" :error="createForm.errors.phone" />
+                <AppInputText v-model="createForm.address" label="Adresse" :error="createForm.errors.address" />
+                <AppInputText v-model="createForm.email" label="Email" :error="createForm.errors.email" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
@@ -267,10 +299,10 @@ function destroy(practitioner: Practitioner) {
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <AppInputText
-                    v-model="editForm.diploma_number"
-                    label="N° diplôme (3 chiffres)"
+                    v-model="editForm.matricule"
+                    label="Matricule (3 chiffres)"
                     :maxlength="3"
-                    :error="editForm.errors.diploma_number"
+                    :error="editForm.errors.matricule"
                 />
 
                 <AppSelect
@@ -286,6 +318,10 @@ function destroy(practitioner: Practitioner) {
                 <AppInputNumber v-model="editForm.level" label="Niveau" :min="0" />
 
                 <AppDatePicker v-model="editHiredAt" label="Date d'embauche" />
+
+                <AppInputText v-model="editForm.phone" label="Téléphone" :error="editForm.errors.phone" />
+                <AppInputText v-model="editForm.address" label="Adresse" :error="editForm.errors.address" />
+                <AppInputText v-model="editForm.email" label="Email" :error="editForm.errors.email" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton

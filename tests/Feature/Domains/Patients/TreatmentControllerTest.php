@@ -142,7 +142,7 @@ test('storeDraft syncs the submitted disease_ids', function () {
 
     $response->assertCreated();
     $treatment = Treatment::query()->findOrFail($response->json('id'));
-    expect($treatment->diseases()->pluck('patients_diseases.id')->sort()->values()->all())
+    expect($treatment->diseases()->pluck('diseases.id')->sort()->values()->all())
         ->toBe($diseases->pluck('id')->sort()->values()->all());
 });
 
@@ -194,7 +194,9 @@ test('confirming with complete data transitions the treatment to confirmed', fun
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), []);
 
-    $response->assertRedirect(route('admin.treatments.index'));
+    // Back to the patient's file, not the flat treatments list — that's
+    // where the natural next step (adding a session) happens.
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
     expect($treatment->fresh()->latestStatus()->name)->toBe('confirmed');
 });
 

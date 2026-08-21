@@ -2,17 +2,20 @@
 
 namespace App\Domains\Patients\Http\Controllers\Admin;
 
-use App\Domains\Core\Models\Center;
+use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
 use App\Domains\Patients\Http\Requests\ConfirmTreatmentRequest;
 use App\Domains\Patients\Http\Requests\StoreTreatmentDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdateTreatmentDraftRequest;
+use App\Domains\Patients\Http\Resources\CareCategoryResource;
+use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
+use App\Domains\Patients\Http\Resources\DiseaseResource;
+use App\Domains\Patients\Http\Resources\PatientOptionResource;
 use App\Domains\Patients\Models\CareCategory;
-use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
-use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +28,9 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class TreatmentController extends Controller
 {
+    use ResolvesCenterOptions;
+    use ResolvesPractitionerOptions;
+
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Treatment::class);
@@ -48,7 +54,7 @@ class TreatmentController extends Controller
         return Inertia::render('Admin/Treatments/Index', [
             'treatments' => $treatments,
             'filters' => $request->only(['filter', 'sort']),
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+            'centers' => $this->centerOptions($request),
         ]);
     }
 
@@ -151,7 +157,12 @@ class TreatmentController extends Controller
             }
         }
 
-        return redirect()->route('admin.treatments.index');
+        // Not the flat treatments list: whether this wizard was opened
+        // standalone or from within a patient's file, the natural next
+        // step (adding a session, tracking progress) only happens on the
+        // patient's own page — landing there continues the workflow
+        // instead of dropping the user back at an unrelated index.
+        return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }
 
     public function destroy(Treatment $treatment): RedirectResponse
@@ -169,43 +180,23 @@ class TreatmentController extends Controller
         $centerId = $request->user()->isSuperAdmin() ? null : $request->user()->managedCenterId();
 
         return [
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
-            'patients' => Patient::query()
-                ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
-                ->orderBy('last_name')
-                ->get(['id', 'first_name', 'last_name']),
-            'practitioners' => Practitioner::query()
-                ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
-                ->orderBy('full_code')
-                ->get(['id', 'full_code']),
-            // ->get(['id', 'code', 'label'])->toArray() would serialize the
-            // raw translatable JSON column ({fr: ..., en: ...}) rather than
-            // the current-locale string HasTranslations resolves via its
-            // attribute accessor — map explicitly to get the resolved value.
-            'diseases' => Disease::query()->where('active', true)->with('category')->orderBy('code')->get()
-                ->map(fn (Disease $disease) => [
-                    'id' => $disease->id,
-                    'code' => $disease->code,
-                    'label' => $disease->label,
-                    'category_id' => $disease->disease_category_id,
-                    'category_label' => $disease->category->label,
-                ])
-                ->values(),
-            'diseaseCategories' => DiseaseCategory::query()->where('active', true)->orderBy('order')->get()
-                ->map(fn (DiseaseCategory $category) => ['id' => $category->id, 'code' => $category->code, 'label' => $category->label])
-                ->values(),
-            'careCategories' => CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get()
-                ->map(fn (CareCategory $category) => [
-                    'id' => $category->id,
-                    'code' => $category->code,
-                    'label' => $category->label,
-                    'items' => $category->items->where('active', true)->values()->map(fn (CareItem $item) => [
-                        'id' => $item->id,
-                        'code' => $item->code,
-                        'label' => $item->label,
-                    ]),
-                ])
-                ->values(),
+            'centers' => $this->centerOptions($request),
+            'patients' => PatientOptionResource::collection(
+                Patient::query()
+                    ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
+                    ->orderBy('last_name')
+                    ->get(),
+            ),
+            'practitioners' => $this->practitionerOptions($request),
+            'diseases' => DiseaseResource::collection(
+                Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
+            ),
+            'diseaseCategories' => DiseaseCategoryResource::collection(
+                DiseaseCategory::query()->where('active', true)->orderBy('order')->get(),
+            ),
+            'careCategories' => CareCategoryResource::collection(
+                CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get(),
+            ),
         ];
     }
 }

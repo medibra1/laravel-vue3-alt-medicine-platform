@@ -30,7 +30,7 @@ class UpdatePractitionerRequest extends FormRequest
         return [
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
-            'diploma_number' => [
+            'matricule' => [
                 'required',
                 'digits:3',
                 Rule::unique('practitioners')
@@ -39,6 +39,9 @@ class UpdatePractitionerRequest extends FormRequest
             ],
             'level' => ['nullable', 'integer', 'min:0'],
             'hired_at' => ['nullable', 'date'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
         ];
     }
 }

@@ -8,9 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('patients_treatment_sessions', function (Blueprint $table) {
+        Schema::create('treatment_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('treatment_id')->constrained('patients_treatments')->cascadeOnDelete();
+            $table->foreignId('treatment_id')->constrained('treatments')->cascadeOnDelete();
             $table->foreignId('practitioner_id')->nullable()->constrained('practitioners')->nullOnDelete(); // may differ from the treatment's practitioner on reassignment
             $table->date('session_date')->nullable();
             $table->unsignedSmallInteger('duration_minutes')->nullable();
@@ -22,6 +22,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('patients_treatment_sessions');
+        Schema::dropIfExists('treatment_sessions');
     }
 };

@@ -8,19 +8,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('patients_disease_subcases', function (Blueprint $table) {
+        Schema::create('diseases', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('disease_id')->constrained('patients_diseases')->cascadeOnDelete();
+            $table->foreignId('disease_category_id')->constrained('disease_categories')->cascadeOnDelete();
+            $table->string('code', 3); // unique PER category, not globally (e.g. 101, 201, 301...)
             $table->json('label'); // translatable
             $table->json('description')->nullable(); // translatable
-            $table->unsignedInteger('order')->default(0);
+            $table->unsignedInteger('default_duration_months');
             $table->boolean('active')->default(true);
             $table->timestamps();
+
+            $table->unique(['disease_category_id', 'code']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('patients_disease_subcases');
+        Schema::dropIfExists('diseases');
     }
 };

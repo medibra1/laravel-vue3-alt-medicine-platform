@@ -32,7 +32,7 @@ test('super admin can create a session with care items and disease progress', fu
 
     $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
     $session = $treatment->sessions()->firstOrFail();
-    expect($session->careItems()->pluck('patients_care_items.id')->all())->toBe([$careItem->id]);
+    expect($session->careItems()->pluck('care_items.id')->all())->toBe([$careItem->id]);
     expect($session->diseaseProgress()->where('disease_id', $disease->id)->first()->outcome)->toBe('ongoing');
 });
 

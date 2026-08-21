@@ -8,10 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('patients_care_categories', function (Blueprint $table) {
+        Schema::create('disease_subcases', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
+            $table->foreignId('disease_id')->constrained('diseases')->cascadeOnDelete();
             $table->json('label'); // translatable
+            $table->json('description')->nullable(); // translatable
             $table->unsignedInteger('order')->default(0);
             $table->boolean('active')->default(true);
             $table->timestamps();
@@ -20,6 +21,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('patients_care_categories');
+        Schema::dropIfExists('disease_subcases');
     }
 };
