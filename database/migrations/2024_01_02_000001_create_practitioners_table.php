@@ -10,6 +10,8 @@ return new class extends Migration
     {
         Schema::create('practitioners', function (Blueprint $table) {
             $table->id();
+            $table->string('first_name');
+            $table->string('last_name');
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('center_id')->constrained('centers')->cascadeOnDelete();
             $table->foreignId('grade_id')->nullable()->constrained('grades')->nullOnDelete();

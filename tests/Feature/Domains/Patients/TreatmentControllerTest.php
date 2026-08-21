@@ -183,7 +183,7 @@ test('confirming with missing required fields fails and status stays draft', fun
     expect($treatment->fresh()->latestStatus()->name)->toBe('draft');
 });
 
-test('confirming with complete data transitions the treatment to confirmed', function () {
+test('confirming with complete data transitions the treatment to ongoing', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
     $practitioner = Practitioner::factory()->for($center)->create();
@@ -197,7 +197,93 @@ test('confirming with complete data transitions the treatment to confirmed', fun
     // Back to the patient's file, not the flat treatments list — that's
     // where the natural next step (adding a session) happens.
     $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
-    expect($treatment->fresh()->latestStatus()->name)->toBe('confirmed');
+    // Confirming starts real-world follow-up immediately — no separate
+    // manual step to reach `ongoing` (see Treatment::refreshClosureStatus()).
+    expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
+});
+
+test('confirming with disease progress that already resolves every disease auto-closes the treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'disease_progress' => [
+            ['disease_id' => $disease->id, 'outcome' => 'cured'],
+        ],
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('resolved');
+});
+
+test('a patient with an ongoing treatment cannot start a new one', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create();
+    $ongoing = Treatment::factory()->for($center, 'center')->for($patient)->create();
+    $ongoing->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'patient_id' => $patient->id,
+        'center_id' => $center->id,
+    ]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors('patient_id');
+});
+
+test('a patient with only closed treatments can start a new one', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create();
+    $closed = Treatment::factory()->for($center, 'center')->for($patient)->create();
+    $closed->setStatus('ongoing');
+    $closed->manualClose('closed_manually');
+
+    $response = $this->actingAs($superAdmin)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'patient_id' => $patient->id,
+        'center_id' => $center->id,
+    ]);
+
+    $response->assertCreated();
+});
+
+test('replaying storeDraft for an already-existing draft is not blocked by another ongoing treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create();
+    $uuid = (string) Str::uuid();
+
+    $first = $this->actingAs($superAdmin)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => $uuid,
+        'patient_id' => $patient->id,
+        'center_id' => $center->id,
+    ]);
+    $first->assertCreated();
+
+    // A second, unrelated treatment for the same patient turns ongoing in
+    // between — the retry for the original draft's client_uuid must still
+    // go through, it's the same treatment being re-saved, not a new one.
+    $other = Treatment::factory()->for($center, 'center')->for($patient)->create();
+    $other->setStatus('ongoing');
+
+    $retry = $this->actingAs($superAdmin)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => $uuid,
+        'patient_id' => $patient->id,
+        'center_id' => $center->id,
+    ]);
+
+    $retry->assertOk();
+    expect($retry->json('id'))->toBe($first->json('id'));
 });
 
 test('manager cannot confirm a treatment from another center', function () {
@@ -209,6 +295,118 @@ test('manager cannot confirm a treatment from another center', function () {
     $response = $this->actingAs($manager)->post(route('admin.treatments.confirm', $treatment), []);
 
     $response->assertForbidden();
+});
+
+test('super admin can manually close an ongoing treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'lost_to_follow_up',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('lost_to_follow_up');
+});
+
+test('closing a treatment that is not ongoing fails validation', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('draft');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'closed_manually',
+    ]);
+
+    $response->assertSessionHasErrors('closure_reason');
+    expect($treatment->fresh()->latestStatus()->name)->toBe('draft');
+});
+
+test('closure_reason "resolved" is rejected on the manual close endpoint', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'resolved',
+    ]);
+
+    $response->assertSessionHasErrors('closure_reason');
+});
+
+test('manager cannot close a treatment from another center', function () {
+    $ownCenter = Center::factory()->create();
+    $otherCenter = Center::factory()->create();
+    $treatment = Treatment::factory()->for($otherCenter, 'center')->create();
+    $treatment->setStatus('ongoing');
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'closed_manually',
+    ]);
+
+    $response->assertForbidden();
+});
+
+test('super admin can reopen a closed treatment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+    $treatment->manualClose('lost_to_follow_up');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.reopen', $treatment));
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('ongoing');
+    expect($fresh->closure_reason)->toBeNull();
+});
+
+test('reopening a treatment that is not closed fails validation', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.reopen', $treatment));
+
+    $response->assertSessionHasErrors('status');
+    expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
+});
+
+test('manager cannot reopen a treatment from another center', function () {
+    $ownCenter = Center::factory()->create();
+    $otherCenter = Center::factory()->create();
+    $treatment = Treatment::factory()->for($otherCenter, 'center')->create();
+    $treatment->setStatus('ongoing');
+    $treatment->manualClose('closed_manually');
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->post(route('admin.treatments.reopen', $treatment));
+
+    $response->assertForbidden();
+});
+
+test('reopening a treatment re-blocks starting a new one for the same patient', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($patient)->create();
+    $treatment->setStatus('ongoing');
+    $treatment->manualClose('lost_to_follow_up');
+
+    $this->actingAs($superAdmin)->post(route('admin.treatments.reopen', $treatment));
+
+    $response = $this->actingAs($superAdmin)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'patient_id' => $patient->id,
+        'center_id' => $center->id,
+    ]);
+
+    $response->assertUnprocessable();
+    $response->assertJsonValidationErrors('patient_id');
 });
 
 test('manager cannot delete a treatment from another center', function () {

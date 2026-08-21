@@ -19,6 +19,12 @@ return new class extends Migration
             $table->string('outcome', 20)->nullable(); // enum: cured/not_cured/percentage
             $table->unsignedTinyInteger('outcome_percentage')->nullable(); // 1-99, only meaningful when outcome = percentage
             $table->text('notes')->nullable();
+            // Set only when status = closed: 'resolved' (auto, every targeted
+            // disease reached a final per-session outcome) / 'lost_to_follow_up'
+            // / 'closed_manually' (any other early/forced closure). See
+            // Treatment::refreshClosureStatus()/manualClose() and CLAUDE.md
+            // "Statut global Treatment".
+            $table->string('closure_reason', 20)->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });

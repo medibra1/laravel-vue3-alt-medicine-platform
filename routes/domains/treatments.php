@@ -11,6 +11,8 @@ Route::middleware(['auth', 'verified', 'center.access'])
         Route::post('treatments/draft', [TreatmentController::class, 'storeDraft'])->name('treatments.draft.store');
         Route::patch('treatments/{treatment}/draft', [TreatmentController::class, 'updateDraft'])->name('treatments.draft.update');
         Route::post('treatments/{treatment}/confirm', [TreatmentController::class, 'confirm'])->name('treatments.confirm');
+        Route::post('treatments/{treatment}/close', [TreatmentController::class, 'close'])->name('treatments.close');
+        Route::post('treatments/{treatment}/reopen', [TreatmentController::class, 'reopen'])->name('treatments.reopen');
         Route::resource('treatments', TreatmentController::class)->only(['index', 'create', 'edit', 'destroy']);
 
         Route::post('treatments/{treatment}/sessions', [TreatmentSessionController::class, 'store'])->name('treatments.sessions.store');

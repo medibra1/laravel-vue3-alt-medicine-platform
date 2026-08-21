@@ -35,6 +35,7 @@ class TreatmentSessionController extends Controller
 
         $session->careItems()->sync($careItemIds);
         $this->syncDiseaseProgress($session, $diseaseProgress);
+        $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }
@@ -49,6 +50,7 @@ class TreatmentSessionController extends Controller
         $session->update($validated);
         $session->careItems()->sync($careItemIds);
         $this->syncDiseaseProgress($session, $diseaseProgress);
+        $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }

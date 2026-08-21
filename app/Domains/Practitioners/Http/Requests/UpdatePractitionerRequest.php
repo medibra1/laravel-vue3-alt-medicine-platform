@@ -28,6 +28,8 @@ class UpdatePractitionerRequest extends FormRequest
         $practitioner = $this->route('practitioner');
 
         return [
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
             'matricule' => [

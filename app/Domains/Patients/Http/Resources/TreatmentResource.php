@@ -35,6 +35,8 @@ class TreatmentResource extends JsonResource
             'outcome' => $this->outcome,
             'outcome_percentage' => $this->outcome_percentage,
             'notes' => $this->notes,
+            'status' => $this->currentStatusName(),
+            'closure_reason' => $this->closure_reason,
             // Plain null-check, not `new PractitionerOptionResource($this->whenLoaded(...))`:
             // a belongsTo relation loaded-but-empty resolves to null, and
             // wrapping null in a Resource throws when toArray() dereferences it.
