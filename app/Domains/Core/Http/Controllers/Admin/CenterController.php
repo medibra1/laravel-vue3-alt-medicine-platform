@@ -47,7 +47,7 @@ class CenterController extends Controller
 
         return Inertia::render('Admin/Centers/Index', [
             'centers' => $centers,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'countries' => Country::query()->orderBy('code')->get(['id', 'name', 'code'])
                 ->map(fn (Country $country) => ['id' => $country->id, 'name' => $country->name, 'code' => $country->code]),
         ]);

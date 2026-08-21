@@ -48,7 +48,7 @@ class CareItemController extends Controller
 
         return Inertia::render('Admin/CareItems/Index', [
             'careItems' => $careItems,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'categories' => CareCategoryAdminResource::collection(
                 CareCategory::query()->orderBy('order')->get(),
             ),

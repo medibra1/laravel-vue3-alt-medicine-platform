@@ -47,7 +47,7 @@ class DiseaseController extends Controller
 
         return Inertia::render('Admin/Diseases/Index', [
             'diseases' => $diseases,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'categories' => DiseaseCategory::query()->orderBy('order')->get(['id', 'code', 'label'])
                 ->map(fn (DiseaseCategory $category) => [
                     'id' => $category->id,

@@ -45,7 +45,7 @@ class DiseaseCategoryController extends Controller
 
         return Inertia::render('Admin/DiseaseCategories/Index', [
             'categories' => $categories,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'types' => EnumOption::query()
                 ->where('enum_type', 'disease_category.type')
                 ->orderBy('order')

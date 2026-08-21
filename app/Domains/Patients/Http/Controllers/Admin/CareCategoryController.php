@@ -43,7 +43,7 @@ class CareCategoryController extends Controller
 
         return Inertia::render('Admin/CareCategories/Index', [
             'careCategories' => $careCategories,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
         ]);
     }
 

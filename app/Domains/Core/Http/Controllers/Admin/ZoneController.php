@@ -43,7 +43,7 @@ class ZoneController extends Controller
 
         return Inertia::render('Admin/Zones/Index', [
             'zones' => $zones,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
         ]);
     }
 

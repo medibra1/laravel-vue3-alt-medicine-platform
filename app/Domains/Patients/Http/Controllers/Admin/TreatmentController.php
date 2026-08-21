@@ -55,7 +55,7 @@ class TreatmentController extends Controller
 
         return Inertia::render('Admin/Treatments/Index', [
             'treatments' => $treatments,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $this->centerOptions($request),
         ]);
     }

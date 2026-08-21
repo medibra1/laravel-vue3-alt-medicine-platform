@@ -46,7 +46,7 @@ class CountryController extends Controller
 
         return Inertia::render('Admin/Countries/Index', [
             'countries' => $countries,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'zones' => ZoneResource::collection(Zone::query()->orderBy('order')->get()),
         ]);
     }

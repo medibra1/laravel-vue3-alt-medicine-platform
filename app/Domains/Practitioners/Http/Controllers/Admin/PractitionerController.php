@@ -50,7 +50,7 @@ class PractitionerController extends Controller
 
         return Inertia::render('Admin/Practitioners/Index', [
             'practitioners' => $practitioners,
-            'filters' => $request->only(['filter', 'sort']),
+            'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
             'grades' => Grade::query()->orderBy('order')->get(['id', 'label', 'coefficient']),
         ]);
