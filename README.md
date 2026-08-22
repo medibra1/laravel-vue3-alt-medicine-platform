@@ -244,6 +244,28 @@ touché. Vérifié : `vue-tsc --noEmit` clean, build OK, 176 tests Pest +
 (zéro erreur console), dialog de création re-testé pour confirmer la
 compatibilité avec le nouveau header.
 
+**Timeline verticale des séances dans le dossier patient** (2026-08-22,
+branche `feature/patient-treatment-timeline`) : la liste plate des
+séances d'un traitement (`Patients/Form.vue`) est remplacée par un vrai
+composant timeline, `Components/Patients/TreatmentTimeline.vue`
+(`v-timeline` natif Vuetify, `density="compact"`, `side="end"`) —
+pastille colorée (`primary` sur la séance la plus récente, `muted`
+sinon), carte `AppCard` par séance (date, durée, chips de soins,
+icônes de progression par maladie), clic émettant `edit-session` pour
+rouvrir `TreatmentSessionDialog.vue` (comportement inchangé). Premier
+composant Vue du projet à avoir un vrai test Vitest de composant (les
+sessions précédentes n'avaient testé que des composables) — a exigé
+d'inliner `vuetify` dans `vite.config.ts` (`test.server.deps.inline`)
+et d'activer `test.css: true`, sinon Vitest échoue à charger le CSS
+co-localisé des composants Vuetify (`Unknown file extension ".css"`).
+Vérifié : 176 tests Pest inchangés (aucun fichier PHP touché), 7 tests
+Vitest (5 existants + 2 nouveaux), `pint --test` clean, build Vite
+client+SSR OK, `vue-tsc --noEmit` clean, golden path navigateur réel
+(Playwright, données de test via tinker — patient avec un traitement
+`ongoing` et 3 séances) : timeline affichée avec les 3 séances, clic
+sur une carte rouvrant bien le dialog pré-rempli, mode clair et sombre,
+zéro erreur console.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
