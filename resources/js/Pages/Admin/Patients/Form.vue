@@ -8,6 +8,7 @@ import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import TreatmentCloseDialog from '@/Components/Patients/TreatmentCloseDialog.vue';
 import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog.vue';
+import TreatmentTimeline from '@/Components/Patients/TreatmentTimeline.vue';
 import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
@@ -483,22 +484,11 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
 
                         <div v-if="treatment.sessions.length">
                             <p class="text-body-2 font-weight-medium mb-2">Séances</p>
-                            <AppCard
-                                v-for="session in treatment.sessions"
-                                :key="session.id"
-                                variant="tonal"
-                                class="mb-2 pa-3"
-                                clickable
-                                @click="openEditSession(treatment, session)"
-                            >
-                                <p class="text-body-2">
-                                    {{ session.session_date ? new Date(session.session_date).toLocaleDateString() : '—' }}
-                                    <span v-if="session.duration_minutes"> — {{ session.duration_minutes }} min</span>
-                                </p>
-                                <p v-if="session.care_items.length" class="text-caption text-medium-emphasis">
-                                    Soins : {{ session.care_items.map((i) => i.label).join(', ') }}
-                                </p>
-                            </AppCard>
+                            <TreatmentTimeline
+                                :sessions="treatment.sessions"
+                                :treatment-status="treatment.status ?? ''"
+                                @edit-session="(session) => openEditSession(treatment, session)"
+                            />
                         </div>
                     </v-card-text>
                 </AppCard>
