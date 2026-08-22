@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, {
     type AppDataTableColumn,
     type AppDataTableSortEvent,
@@ -8,6 +9,7 @@ import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
@@ -205,21 +207,27 @@ function destroy(practitioner: Practitioner) {
     <Head title="Praticiens" />
 
     <AuthenticatedLayout>
-        <template #header>Praticiens</template>
+        <AppPageHeader title="Praticiens" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Praticiens' }]">
+            <template #actions>
+                <AppButton label="Nouveau praticien" icon="mdi-plus" @click="openCreate" />
+            </template>
+        </AppPageHeader>
 
         <div class="d-flex flex-column ga-4">
-            <div class="d-flex flex-wrap align-end ga-3">
-                <AppInputText
-                    id="filter-search"
-                    v-model="search.search"
-                    label="Rechercher (nom, code, matricule)"
-                    @keyup.enter="reload()"
-                />
-                <AppButton label="Filtrer" @click="reload()" />
-                <AppButton label="Nouveau praticien" class="ms-auto" @click="openCreate" />
-            </div>
+            <AppCard variant="elevated" elevation="1">
+                <v-card-text class="d-flex flex-wrap align-end ga-3">
+                    <AppInputText
+                        id="filter-search"
+                        v-model="search.search"
+                        label="Rechercher (nom, code, matricule)"
+                        prepend-inner-icon="mdi-magnify"
+                        @keyup.enter="reload()"
+                    />
+                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                </v-card-text>
+            </AppCard>
 
-            <v-card>
+            <AppCard variant="elevated" elevation="1">
                 <AppDataTable
                     :value="practitioners.data"
                     :columns="columns"
@@ -249,7 +257,7 @@ function destroy(practitioner: Practitioner) {
                         </div>
                     </template>
                 </AppDataTable>
-            </v-card>
+            </AppCard>
         </div>
 
         <AppDialog v-model:visible="isCreating" header="Nouveau praticien">

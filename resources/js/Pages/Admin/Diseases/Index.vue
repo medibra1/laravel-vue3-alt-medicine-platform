@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDataTable, {
     type AppDataTableColumn,
@@ -8,6 +9,7 @@ import AppDataTable, {
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -179,21 +181,27 @@ function destroy(disease: Disease) {
     <Head title="Maladies" />
 
     <AuthenticatedLayout>
-        <template #header>Maladies</template>
+        <AppPageHeader title="Maladies" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Maladies' }]">
+            <template #actions>
+                <AppButton label="Nouvelle maladie" icon="mdi-plus" @click="openCreate" />
+            </template>
+        </AppPageHeader>
 
         <div class="d-flex flex-column ga-4">
-            <div class="d-flex flex-wrap align-end ga-3">
-                <AppInputText
-                    id="filter-search"
-                    v-model="search.search"
-                    label="Rechercher (code, libellé)"
-                    @keyup.enter="reload()"
-                />
-                <AppButton label="Filtrer" @click="reload()" />
-                <AppButton label="Nouvelle maladie" class="ms-auto" @click="openCreate" />
-            </div>
+            <AppCard variant="elevated" elevation="1">
+                <v-card-text class="d-flex flex-wrap align-end ga-3">
+                    <AppInputText
+                        id="filter-search"
+                        v-model="search.search"
+                        label="Rechercher (code, libellé)"
+                        prepend-inner-icon="mdi-magnify"
+                        @keyup.enter="reload()"
+                    />
+                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                </v-card-text>
+            </AppCard>
 
-            <v-card>
+            <AppCard variant="elevated" elevation="1">
                 <AppDataTable
                     :value="diseases.data"
                     :columns="columns"
@@ -223,7 +231,7 @@ function destroy(disease: Disease) {
                         </div>
                     </template>
                 </AppDataTable>
-            </v-card>
+            </AppCard>
         </div>
 
         <AppDialog v-model:visible="isCreating" header="Nouvelle maladie">

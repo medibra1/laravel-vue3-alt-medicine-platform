@@ -2,38 +2,43 @@ import '@mdi/font/css/materialdesignicons.css';
 import 'vuetify/styles';
 import { createVuetify } from 'vuetify';
 
-const indigoTheme = {
+// Palette adopted 2026-08-21 — see CLAUDE.md for the full rationale.
+// `brand` (navy) is used on the app-bar/aside, distinct from `primary`
+// (actions/links).
+const ruqyaTheme = {
     dark: false,
     colors: {
-        primary: '#4F46E5',
+        primary: '#4E9BF9',
         secondary: '#6B7280',
-        error: '#DC2626',
-        success: '#16A34A',
-        warning: '#D97706',
-        background: '#F3F4F6',
+        error: '#FF637D',
+        success: '#6BC070',
+        warning: '#DFB52F',
+        background: '#F6F8FA',
         surface: '#FFFFFF',
+        brand: '#1C3250',
     },
 };
 
-const indigoThemeDark = {
+const ruqyaThemeDark = {
     dark: true,
     colors: {
-        primary: '#818CF8',
+        primary: '#4E9BF9',
         secondary: '#9CA3AF',
-        error: '#F87171',
-        success: '#4ADE80',
-        warning: '#FBBF24',
+        error: '#FF8FA3',
+        success: '#7FD187',
+        warning: '#E8C662',
         background: '#111827',
         surface: '#1F2937',
+        brand: '#1C3250',
     },
 };
 
 export const vuetify = createVuetify({
     theme: {
-        defaultTheme: 'indigoTheme',
+        defaultTheme: 'ruqyaTheme',
         themes: {
-            indigoTheme,
-            indigoThemeDark,
+            ruqyaTheme,
+            ruqyaThemeDark,
         },
     },
     locale: {

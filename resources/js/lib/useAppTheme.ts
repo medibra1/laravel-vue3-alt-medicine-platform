@@ -2,16 +2,16 @@ import { useTheme } from 'vuetify';
 
 const STORAGE_KEY = 'ruqya-theme';
 
-export type AppThemeName = 'indigoTheme' | 'indigoThemeDark';
+export type AppThemeName = 'ruqyaTheme' | 'ruqyaThemeDark';
 
 function readStoredTheme(): AppThemeName {
     if (typeof localStorage === 'undefined') {
-        return 'indigoTheme';
+        return 'ruqyaTheme';
     }
 
     return localStorage.getItem(STORAGE_KEY) === 'dark'
-        ? 'indigoThemeDark'
-        : 'indigoTheme';
+        ? 'ruqyaThemeDark'
+        : 'ruqyaTheme';
 }
 
 export function useAppTheme() {
@@ -27,18 +27,18 @@ export function useAppTheme() {
 
     function toggle() {
         const next: AppThemeName =
-            theme.global.name.value === 'indigoThemeDark'
-                ? 'indigoTheme'
-                : 'indigoThemeDark';
+            theme.global.name.value === 'ruqyaThemeDark'
+                ? 'ruqyaTheme'
+                : 'ruqyaThemeDark';
 
         apply(next);
         localStorage.setItem(
             STORAGE_KEY,
-            next === 'indigoThemeDark' ? 'dark' : 'light',
+            next === 'ruqyaThemeDark' ? 'dark' : 'light',
         );
     }
 
-    const isDark = () => theme.global.name.value === 'indigoThemeDark';
+    const isDark = () => theme.global.name.value === 'ruqyaThemeDark';
 
     return { init, toggle, isDark };
 }
