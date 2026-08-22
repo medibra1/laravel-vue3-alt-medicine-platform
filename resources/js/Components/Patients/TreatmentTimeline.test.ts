@@ -50,4 +50,14 @@ describe('TreatmentTimeline', () => {
         expect(wrapper.emitted('edit-session')).toHaveLength(1);
         expect(wrapper.emitted('edit-session')?.[0]).toEqual([sessions[0]]);
     });
+
+    it('shows the outcome label alongside the disease name for each distinct status', () => {
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        expect(wrapper.text()).toContain('Acidity — Guéri');
+        expect(wrapper.text()).toContain('Acidity — En cours');
+    });
 });

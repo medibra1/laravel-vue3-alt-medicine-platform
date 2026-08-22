@@ -6,6 +6,7 @@ import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
@@ -64,13 +65,6 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
-
-const outcomeOptions = [
-    { label: 'Guéri', value: 'cured' },
-    { label: 'Non guéri', value: 'not_cured' },
-    { label: 'En cours', value: 'ongoing' },
-    { label: 'Pourcentage', value: 'percentage' },
-];
 
 const form = reactive({
     session_date: null as string | null,

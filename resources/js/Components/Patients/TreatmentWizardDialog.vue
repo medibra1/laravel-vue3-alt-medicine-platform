@@ -10,6 +10,7 @@ import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStepper from '@/Components/App/AppStepper.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
+import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -84,13 +85,6 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
-
-const outcomeOptions = [
-    { label: 'Guéri', value: 'cured' },
-    { label: 'Non guéri', value: 'not_cured' },
-    { label: 'En cours', value: 'ongoing' },
-    { label: 'Pourcentage', value: 'percentage' },
-];
 
 const patientOptions = computed(() =>
     props.patients.map((patient) => ({
