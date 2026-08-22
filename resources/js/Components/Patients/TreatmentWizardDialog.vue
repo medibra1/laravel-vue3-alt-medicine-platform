@@ -60,16 +60,28 @@ interface Treatment {
     disease_ids: number[];
 }
 
-const props = defineProps<{
-    visible: boolean;
-    treatment: Treatment | null;
-    patientId?: number;
-    centers: Center[];
-    patients: PatientOption[];
-    practitioners: PractitionerOption[];
-    diseases: DiseaseOption[];
-    diseaseCategories: DiseaseCategoryOption[];
-}>();
+const props = withDefaults(
+    defineProps<{
+        visible: boolean;
+        treatment: Treatment | null;
+        patientId?: number;
+        centers: Center[];
+        patients: PatientOption[];
+        practitioners: PractitionerOption[];
+        diseases: DiseaseOption[];
+        diseaseCategories: DiseaseCategoryOption[];
+        /**
+         * Diseases that already have tracked session progress on this
+         * treatment — mirrors the server-side rule in
+         * UpdateTreatmentDraftRequest (a disease with a progress row can no
+         * longer be removed from disease_ids, only added to). Empty on a
+         * brand-new treatment (no `treatment` prop yet) since nothing can
+         * be locked before it exists.
+         */
+        lockedDiseaseIds?: number[];
+    }>(),
+    { lockedDiseaseIds: () => [] },
+);
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 
@@ -171,7 +183,22 @@ const selectedDiseaseIds = computed<Set<number>>({
     },
 });
 
+const lockedDiseaseIdSet = computed(() => new Set(props.lockedDiseaseIds));
+
+function isDiseaseLocked(diseaseId: number): boolean {
+    return lockedDiseaseIdSet.value.has(diseaseId);
+}
+
 function toggleDisease(diseaseId: number) {
+    // Locked diseases already have tracked session progress — removing
+    // them would orphan that history (see UpdateTreatmentDraftRequest).
+    // They're always selected, so this only ever guards against
+    // unchecking; the checkbox is also rendered disabled for the same
+    // reason, this is the belt-and-braces check.
+    if (isDiseaseLocked(diseaseId)) {
+        return;
+    }
+
     const next = new Set(selectedDiseaseIds.value);
 
     if (next.has(diseaseId)) {
@@ -353,6 +380,11 @@ function close() {
                     </div>
 
                     <div v-else-if="step === 'diseases'" class="d-flex flex-column ga-4">
+                        <v-alert v-if="lockedDiseaseIdSet.size" type="info" variant="tonal" density="compact">
+                            Certaines maladies ne peuvent plus être retirées car elles ont déjà un suivi de
+                            séance.
+                        </v-alert>
+
                         <AppInputText
                             v-model="diseaseSearch"
                             label="Rechercher une maladie (toutes catégories)"
@@ -368,10 +400,16 @@ function close() {
                                 :key="disease.id"
                                 class="d-flex align-center ga-2"
                             >
-                                <AppCheckbox
-                                    :model-value="selectedDiseaseIds.has(disease.id)"
-                                    @update:model-value="toggleDisease(disease.id)"
-                                />
+                                <span>
+                                    <AppCheckbox
+                                        :model-value="selectedDiseaseIds.has(disease.id)"
+                                        :disabled="isDiseaseLocked(disease.id)"
+                                        @update:model-value="toggleDisease(disease.id)"
+                                    />
+                                    <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
+                                        Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                    </v-tooltip>
+                                </span>
                                 <span>{{ disease.code }} — {{ disease.label }}</span>
                                 <v-chip size="small" variant="tonal">{{ disease.category_label }}</v-chip>
                             </div>
@@ -401,11 +439,17 @@ function close() {
                                     :key="disease.id"
                                     class="d-flex align-center ga-2"
                                 >
-                                    <AppCheckbox
-                                        :model-value="selectedDiseaseIds.has(disease.id)"
-                                        :label="`${disease.code} — ${disease.label}`"
-                                        @update:model-value="toggleDisease(disease.id)"
-                                    />
+                                    <span>
+                                        <AppCheckbox
+                                            :model-value="selectedDiseaseIds.has(disease.id)"
+                                            :label="`${disease.code} — ${disease.label}`"
+                                            :disabled="isDiseaseLocked(disease.id)"
+                                            @update:model-value="toggleDisease(disease.id)"
+                                        />
+                                        <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
+                                            Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                        </v-tooltip>
+                                    </span>
                                 </div>
                             </div>
                         </template>

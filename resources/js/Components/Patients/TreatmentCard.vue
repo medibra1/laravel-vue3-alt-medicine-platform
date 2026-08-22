@@ -34,6 +34,8 @@ interface TreatmentSummary {
     practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
     diseases: TreatmentDisease[];
     sessions: TreatmentSessionSummary[];
+    locked_disease_ids: number[];
+    latest_known_outcomes: Record<number, { outcome: string | null; outcome_percentage: number | null; notes: string | null }>;
 }
 
 const props = defineProps<{

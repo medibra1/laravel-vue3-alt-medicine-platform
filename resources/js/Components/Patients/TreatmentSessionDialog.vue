@@ -37,13 +37,31 @@ interface Session {
     disease_progress: { disease_id: number; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
 }
 
-const props = defineProps<{
-    visible: boolean;
-    treatmentId: number;
-    session: Session | null;
-    treatmentDiseases: TreatmentDisease[];
-    careCategories: CareCategoryOption[];
-}>();
+interface LastKnownOutcome {
+    outcome: string | null;
+    outcome_percentage: number | null;
+    notes: string | null;
+}
+
+const props = withDefaults(
+    defineProps<{
+        visible: boolean;
+        treatmentId: number;
+        session: Session | null;
+        treatmentDiseases: TreatmentDisease[];
+        careCategories: CareCategoryOption[];
+        /**
+         * Most recent outcome/percentage/notes recorded for each disease
+         * across every past session of this treatment — used to prefill a
+         * brand-new session (props.session === null) instead of starting
+         * every field blank, so the practitioner isn't forced to re-key
+         * values that haven't changed since last time. Ignored entirely
+         * when editing an existing session (that session's own values win).
+         */
+        lastKnownOutcomes?: Record<number, LastKnownOutcome>;
+    }>(),
+    { lastKnownOutcomes: () => ({}) },
+);
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 
@@ -78,6 +96,10 @@ interface DiseaseOutcomeRow {
 }
 
 const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
+// Disease ids whose row was prefilled from lastKnownOutcomes (new session
+// only) rather than typed by the practitioner — drives the "valeur reprise
+// de la dernière séance" hint so it's never presented as if freshly entered.
+const prefilledDiseaseIds = ref<Set<number>>(new Set());
 
 function resetForm() {
     form.session_date = props.session?.session_date ?? new Date().toISOString().slice(0, 10);
@@ -86,16 +108,39 @@ function resetForm() {
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
 
     const next: Record<number, DiseaseOutcomeRow> = {};
+    const prefilled = new Set<number>();
+
     for (const disease of props.treatmentDiseases) {
         const existing = props.session?.disease_progress.find((row) => row.disease_id === disease.id);
+
+        if (existing) {
+            next[disease.id] = {
+                disease_id: disease.id,
+                outcome: existing.outcome,
+                outcome_percentage: existing.outcome_percentage,
+                notes: existing.notes,
+            };
+            continue;
+        }
+
+        // No existing session to edit — start from the last known outcome
+        // for this disease (if any) instead of leaving every field blank.
+        const lastKnown = props.session === null ? props.lastKnownOutcomes[disease.id] : undefined;
+
         next[disease.id] = {
             disease_id: disease.id,
-            outcome: existing?.outcome ?? null,
-            outcome_percentage: existing?.outcome_percentage ?? null,
-            notes: existing?.notes ?? null,
+            outcome: lastKnown?.outcome ?? null,
+            outcome_percentage: lastKnown?.outcome_percentage ?? null,
+            notes: lastKnown?.notes ?? null,
         };
+
+        if (lastKnown) {
+            prefilled.add(disease.id);
+        }
     }
+
     diseaseOutcomes.value = next;
+    prefilledDiseaseIds.value = prefilled;
 }
 
 watch(
@@ -107,6 +152,16 @@ watch(
     },
     { immediate: true },
 );
+
+function clearPrefilled(diseaseId: number) {
+    if (!prefilledDiseaseIds.value.has(diseaseId)) {
+        return;
+    }
+
+    const next = new Set(prefilledDiseaseIds.value);
+    next.delete(diseaseId);
+    prefilledDiseaseIds.value = next;
+}
 
 function toggleCareItem(itemId: number) {
     const next = new Set(selectedCareItemIds.value);
@@ -194,7 +249,12 @@ function close() {
             <div v-if="treatmentDiseases.length" class="d-flex flex-column ga-4">
                 <p class="text-subtitle-2">Progression par maladie</p>
                 <div v-for="disease in treatmentDiseases" :key="disease.id" class="d-flex flex-column ga-2">
-                    <p class="text-body-2">{{ disease.code }} — {{ disease.label }}</p>
+                    <div class="d-flex align-center ga-2">
+                        <p class="text-body-2 mb-0">{{ disease.code }} — {{ disease.label }}</p>
+                        <v-chip v-if="prefilledDiseaseIds.has(disease.id)" size="x-small" variant="tonal" color="info">
+                            Reprise de la dernière séance
+                        </v-chip>
+                    </div>
 
                     <AppSelect
                         v-model="diseaseOutcomes[disease.id].outcome"
@@ -204,6 +264,7 @@ function close() {
                         label="Issue"
                         show-clear
                         placeholder="Non renseignée"
+                        @update:model-value="clearPrefilled(disease.id)"
                     />
 
                     <AppInputNumber
@@ -212,9 +273,15 @@ function close() {
                         label="Pourcentage"
                         :min="1"
                         :max="99"
+                        @update:model-value="clearPrefilled(disease.id)"
                     />
 
-                    <AppTextarea v-model="diseaseOutcomes[disease.id].notes" label="Notes" :rows="2" />
+                    <AppTextarea
+                        v-model="diseaseOutcomes[disease.id].notes"
+                        label="Notes"
+                        :rows="2"
+                        @update:model-value="clearPrefilled(disease.id)"
+                    />
                 </div>
             </div>
 

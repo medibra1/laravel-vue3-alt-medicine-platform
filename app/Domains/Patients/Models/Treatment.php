@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Spatie\ModelStatus\HasStatuses;
 
 class Treatment extends Model
@@ -53,16 +54,10 @@ class Treatment extends Model
             return true;
         }
 
-        $latestOutcomeByDisease = TreatmentSessionDiseaseProgress::query()
-            ->whereIn('disease_id', $diseaseIds)
-            ->whereIn('treatment_session_id', $this->sessions()->pluck('id'))
-            ->orderByDesc('created_at')
-            ->get()
-            ->unique('disease_id')
-            ->pluck('outcome', 'disease_id');
+        $latestOutcomeByDisease = $this->latestOutcomePerDisease();
 
         foreach ($diseaseIds as $diseaseId) {
-            $outcome = $latestOutcomeByDisease->get($diseaseId);
+            $outcome = $latestOutcomeByDisease->get($diseaseId)?->outcome;
 
             if ($outcome === null || $outcome === 'ongoing') {
                 return true;
@@ -70,6 +65,27 @@ class Treatment extends Model
         }
 
         return false;
+    }
+
+    /**
+     * The most recent treatment_session_disease_progress row per disease,
+     * across every session of this treatment (not just the one being
+     * edited) — keyed by disease_id. Shared by hasUnresolvedDiseases()
+     * (only needs ->outcome) and by callers that need the full row to
+     * prefill a new session's starting values (outcome_percentage, notes)
+     * or to know which diseases are "locked" from removal once they have
+     * tracked history — one query, not duplicated per caller.
+     *
+     * @return Collection<int, TreatmentSessionDiseaseProgress>
+     */
+    public function latestOutcomePerDisease(): Collection
+    {
+        return TreatmentSessionDiseaseProgress::query()
+            ->whereIn('treatment_session_id', $this->sessions()->pluck('id'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->unique('disease_id')
+            ->keyBy('disease_id');
     }
 
     /**

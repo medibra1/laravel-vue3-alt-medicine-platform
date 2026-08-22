@@ -3,6 +3,7 @@
 namespace App\Domains\Patients\Http\Resources;
 
 use App\Domains\Patients\Models\Treatment;
+use App\Domains\Patients\Models\TreatmentSessionDiseaseProgress;
 use App\Domains\Practitioners\Http\Resources\PractitionerOptionResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -43,6 +44,31 @@ class TreatmentResource extends JsonResource
             'practitioner' => $this->whenLoaded('practitioner', fn () => $this->practitioner ? new PractitionerOptionResource($this->practitioner) : null),
             'diseases' => DiseaseResource::collection($this->whenLoaded('diseases')),
             'sessions' => TreatmentSessionResource::collection($this->whenLoaded('sessions')),
+            // Same rule UpdateTreatmentDraftRequest enforces server-side: a
+            // disease with at least one tracked progress row can no longer
+            // be removed from disease_ids. Computed here (not re-derived
+            // from `sessions` client-side) so the wizard's checkbox
+            // lock/unlock always matches the validation it's meant to
+            // preempt, from a single source of truth.
+            'locked_disease_ids' => $this->whenLoaded('sessions', fn () => $this->latestOutcomePerDisease()->keys()->values()),
+            // Starting values for a brand-new session (TreatmentSessionDialog,
+            // props.session === null) — the most recent outcome/percentage/
+            // notes recorded for each disease across every past session of
+            // this treatment, not the disease's definition. Keyed by
+            // disease_id so the frontend can index straight into it.
+            'latest_known_outcomes' => $this->whenLoaded('sessions', fn () => $this->latestKnownOutcomes()),
         ];
+    }
+
+    /** @return array<int, array{outcome: ?string, outcome_percentage: ?int, notes: ?string}> */
+    protected function latestKnownOutcomes(): array
+    {
+        return $this->latestOutcomePerDisease()
+            ->map(fn (TreatmentSessionDiseaseProgress $row): array => [
+                'outcome' => $row->outcome,
+                'outcome_percentage' => $row->outcome_percentage,
+                'notes' => $row->notes,
+            ])
+            ->all();
     }
 }

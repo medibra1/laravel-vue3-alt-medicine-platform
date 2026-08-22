@@ -74,12 +74,13 @@ class TreatmentController extends Controller
     {
         Gate::authorize('update', $treatment);
 
-        $treatment->load('diseases.category');
+        $treatment->load('diseases.category', 'sessions');
 
         return Inertia::render('Admin/Treatments/Form', [
             'treatment' => [
                 ...$treatment->toArray(),
                 'disease_ids' => $treatment->diseases->pluck('id')->all(),
+                'locked_disease_ids' => $treatment->latestOutcomePerDisease()->keys()->values(),
             ],
             ...$this->formOptions($request),
         ]);

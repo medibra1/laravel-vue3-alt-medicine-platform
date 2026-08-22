@@ -65,6 +65,8 @@ interface TreatmentSummary {
     practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
     diseases: TreatmentDisease[];
     sessions: TreatmentSessionSummary[];
+    locked_disease_ids: number[];
+    latest_known_outcomes: Record<number, { outcome: string | null; outcome_percentage: number | null; notes: string | null }>;
 }
 
 interface PractitionerOption {
@@ -194,6 +196,10 @@ async function confirmPatient() {
 // --- Treatments section (dossier patient) ---
 const wizardVisible = ref(false);
 const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: number; practitioner_id: number | null; center_id: number | null; started_at: string | null; ended_at: string | null; outcome: string | null; outcome_percentage: number | null; notes: string | null; disease_ids: number[] } | null>(null);
+// Diseases already tracked by a session on the treatment being edited —
+// passed to TreatmentWizardDialog so it can lock their checkboxes. Always
+// empty for a brand-new treatment (nothing tracked yet).
+const editingTreatmentLockedDiseaseIds = ref<number[]>([]);
 
 // TreatmentWizardDialog stays mounted for the page's whole lifetime (its
 // `v-if="patient"` never toggles once a patient exists), so its internal
@@ -242,6 +248,7 @@ watch(activeTab, (value) => {
 
 function openNewTreatment() {
     editingTreatment.value = null;
+    editingTreatmentLockedDiseaseIds.value = [];
     wizardKey.value++;
     wizardVisible.value = true;
 }
@@ -260,6 +267,7 @@ function editTreatment(treatment: TreatmentSummary) {
         notes: treatment.notes,
         disease_ids: treatment.diseases.map((d) => d.id),
     };
+    editingTreatmentLockedDiseaseIds.value = treatment.locked_disease_ids;
     wizardKey.value++;
     wizardVisible.value = true;
 }
@@ -306,6 +314,10 @@ function reopenTreatment(treatment: TreatmentSummary) {
 
 function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
     return props.treatments?.find((t) => t.id === treatmentId)?.diseases ?? [];
+}
+
+function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_known_outcomes'] {
+    return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
 }
 </script>
 
@@ -412,6 +424,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             :practitioners="practitioners ?? []"
             :diseases="diseases ?? []"
             :disease-categories="diseaseCategories ?? []"
+            :locked-disease-ids="editingTreatmentLockedDiseaseIds"
             @saved="reloadPatient"
         />
 
@@ -422,6 +435,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
+            :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
             @saved="reloadPatient"
         />
 

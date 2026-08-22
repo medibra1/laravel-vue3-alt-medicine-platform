@@ -8,3 +8,14 @@ class ResizeObserverStub {
 }
 
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+
+// jsdom has no visualViewport either; Vuetify's VOverlay (which VDialog is
+// built on) reads it to position itself, even for a dialog that's never
+// actually rendered visibly in a test. A minimal stub with just the fields
+// VOverlay's locationStrategies touches is enough to mount.
+globalThis.visualViewport ??= {
+    width: 1024,
+    height: 768,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+} as unknown as VisualViewport;
