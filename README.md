@@ -215,6 +215,57 @@ régression), `pint --test` clean, Larastan clean, build OK,
 `vue-tsc --noEmit` clean, golden path navigateur réel confirmant le fix
 sur `EnumOptions` et re-testé sur `Centers`.
 
+**Adaptation visuelle inspirée d'InPACT** (2026-08-21, branche
+`feature/treatments`) : identité visuelle et patterns UX du projet de
+référence `Model/` (InPACT) transposés à notre stack Vuetify — palette
+bleu/navy, police Poppins (shell authentifié seulement), nouveau
+composant `AppPageHeader` (titre + fil d'Ariane), toolbar de liste en
+carte, `AppCard` étendu (`variant`/`elevation`), regroupement visuel
+"Administration" dans la nav. Portée volontairement limitée au shell
+applicatif + la page `Patients` (liste + dossier patient) comme pilote
+— les autres pages (Praticiens, Traitements, Centres, référentiels
+admin) suivront le même pattern dans une session dédiée future. Détail
+complet dans `CLAUDE.md` "Adaptation visuelle inspirée d'InPACT".
+Vérifié : 176 tests Pest inchangés (aucun fichier PHP touché), 5 tests
+Vitest inchangés, build Vite client+SSR OK, `vue-tsc --noEmit` clean,
+golden path navigateur réel (Playwright) sur le dossier patient complet
+(formulaire, carte de traitement en cours, séance), mode clair et
+sombre, zéro erreur console.
+
+**Généralisation du pattern visuel à toutes les pages** (2026-08-21,
+même branche, suite immédiate) : `AppPageHeader` + toolbar-en-carte +
+`AppCard` (au lieu de `<v-card>` nu) étendus aux 9 pages restantes
+(Praticiens, Centres, Zones, Pays, Catégories de maladies, Maladies,
+Catégories de soins, Soins, Options dynamiques, Traitements) — plus
+aucune page de liste admin n'utilise l'ancien header en slot d'app-bar
+ni un `<v-card>` nu. Transformation mécanique, aucun fichier PHP
+touché. Vérifié : `vue-tsc --noEmit` clean, build OK, 176 tests Pest +
+5 tests Vitest inchangés, golden path navigateur réel sur les 10 pages
+(zéro erreur console), dialog de création re-testé pour confirmer la
+compatibilité avec le nouveau header.
+
+**Timeline verticale des séances dans le dossier patient** (2026-08-22,
+branche `feature/patient-treatment-timeline`) : la liste plate des
+séances d'un traitement (`Patients/Form.vue`) est remplacée par un vrai
+composant timeline, `Components/Patients/TreatmentTimeline.vue`
+(`v-timeline` natif Vuetify, `density="compact"`, `side="end"`) —
+pastille colorée (`primary` sur la séance la plus récente, `muted`
+sinon), carte `AppCard` par séance (date, durée, chips de soins,
+icônes de progression par maladie), clic émettant `edit-session` pour
+rouvrir `TreatmentSessionDialog.vue` (comportement inchangé). Premier
+composant Vue du projet à avoir un vrai test Vitest de composant (les
+sessions précédentes n'avaient testé que des composables) — a exigé
+d'inliner `vuetify` dans `vite.config.ts` (`test.server.deps.inline`)
+et d'activer `test.css: true`, sinon Vitest échoue à charger le CSS
+co-localisé des composants Vuetify (`Unknown file extension ".css"`).
+Vérifié : 176 tests Pest inchangés (aucun fichier PHP touché), 7 tests
+Vitest (5 existants + 2 nouveaux), `pint --test` clean, build Vite
+client+SSR OK, `vue-tsc --noEmit` clean, golden path navigateur réel
+(Playwright, données de test via tinker — patient avec un traitement
+`ongoing` et 3 séances) : timeline affichée avec les 3 séances, clic
+sur une carte rouvrant bien le dialog pré-rempli, mode clair et sombre,
+zéro erreur console.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —

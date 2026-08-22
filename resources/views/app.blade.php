@@ -10,6 +10,10 @@
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        {{-- Poppins, applied only to the authenticated shell (.ruqya-shell
+             class, see resources/css/app.css) — Guest/Welcome pages keep
+             Figtree. --}}
+        <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @routes

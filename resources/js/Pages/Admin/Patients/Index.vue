@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, {
     type AppDataTableColumn,
     type AppDataTableSortEvent,
 } from '@/Components/App/AppDataTable.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -94,23 +96,29 @@ function destroy(patient: Patient) {
     <Head title="Patients" />
 
     <AuthenticatedLayout>
-        <template #header>Patients</template>
+        <AppPageHeader title="Patients" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Patients' }]">
+            <template #actions>
+                <Link :href="route('admin.patients.create')">
+                    <AppButton label="Nouveau patient" icon="mdi-plus" as="span" />
+                </Link>
+            </template>
+        </AppPageHeader>
 
         <div class="d-flex flex-column ga-4">
-            <div class="d-flex flex-wrap align-end ga-3">
-                <AppInputText
-                    id="filter-search"
-                    v-model="search.search"
-                    label="Rechercher (prénom, nom)"
-                    @keyup.enter="reload()"
-                />
-                <AppButton label="Filtrer" @click="reload()" />
-                <Link :href="route('admin.patients.create')" class="ms-auto">
-                    <AppButton label="Nouveau patient" as="span" />
-                </Link>
-            </div>
+            <AppCard variant="elevated" elevation="1">
+                <v-card-text class="d-flex flex-wrap align-end ga-3">
+                    <AppInputText
+                        id="filter-search"
+                        v-model="search.search"
+                        label="Rechercher (prénom, nom)"
+                        prepend-inner-icon="mdi-magnify"
+                        @keyup.enter="reload()"
+                    />
+                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                </v-card-text>
+            </AppCard>
 
-            <v-card>
+            <AppCard variant="elevated" elevation="1">
                 <AppDataTable
                     :value="patients.data"
                     :columns="columns"
@@ -141,7 +149,7 @@ function destroy(patient: Patient) {
                         </div>
                     </template>
                 </AppDataTable>
-            </v-card>
+            </AppCard>
         </div>
     </AuthenticatedLayout>
 </template>

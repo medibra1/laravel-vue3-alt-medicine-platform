@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, {
     type AppDataTableColumn,
     type AppDataTableSortEvent,
 } from '@/Components/App/AppDataTable.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -80,16 +82,16 @@ function destroy(treatment: Treatment) {
     <Head title="Traitements" />
 
     <AuthenticatedLayout>
-        <template #header>Traitements</template>
+        <AppPageHeader title="Traitements" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Traitements' }]">
+            <template #actions>
+                <Link :href="route('admin.treatments.create')">
+                    <AppButton label="Nouveau traitement" icon="mdi-plus" as="span" />
+                </Link>
+            </template>
+        </AppPageHeader>
 
         <div class="d-flex flex-column ga-4">
-            <div class="d-flex flex-wrap align-end ga-3">
-                <Link :href="route('admin.treatments.create')" class="ms-auto">
-                    <AppButton label="Nouveau traitement" as="span" />
-                </Link>
-            </div>
-
-            <v-card>
+            <AppCard variant="elevated" elevation="1">
                 <AppDataTable
                     :value="treatments.data"
                     :columns="columns"
@@ -128,7 +130,7 @@ function destroy(treatment: Treatment) {
                         </div>
                     </template>
                 </AppDataTable>
-            </v-card>
+            </AppCard>
         </div>
     </AuthenticatedLayout>
 </template>

@@ -10,6 +10,8 @@ const props = withDefaults(
         loading?: boolean;
         disabled?: boolean;
         as?: string;
+        /** MDI icon shown before the label (e.g. 'mdi-plus'). */
+        icon?: string;
     }>(),
     {
         label: undefined,
@@ -19,6 +21,7 @@ const props = withDefaults(
         loading: false,
         disabled: false,
         as: 'button',
+        icon: undefined,
     },
 );
 
@@ -44,6 +47,7 @@ const severityToVariant: Record<Severity, 'flat' | 'tonal'> = {
         :size="size"
         :loading="loading"
         :disabled="disabled"
+        :prepend-icon="icon"
     >
         <slot>{{ label }}</slot>
     </v-btn>

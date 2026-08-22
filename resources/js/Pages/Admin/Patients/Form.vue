@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import TreatmentCloseDialog from '@/Components/Patients/TreatmentCloseDialog.vue';
 import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog.vue';
+import TreatmentTimeline from '@/Components/Patients/TreatmentTimeline.vue';
 import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
@@ -326,7 +329,14 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
     <Head :title="patient ? 'Modifier le patient' : 'Nouveau patient'" />
 
     <AuthenticatedLayout>
-        <template #header>{{ patient ? 'Modifier le patient' : 'Nouveau patient' }}</template>
+        <AppPageHeader
+            :title="patient ? 'Modifier le patient' : 'Nouveau patient'"
+            :breadcrumbs="[
+                { label: 'Tableau de bord', href: route('dashboard') },
+                { label: 'Patients', href: route('admin.patients.index') },
+                { label: patient ? 'Modifier' : 'Nouveau' },
+            ]"
+        />
 
         <div class="mx-auto d-flex flex-column ga-6" style="max-width: 800px">
             <div>
@@ -344,7 +354,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
                     </ul>
                 </v-alert>
 
-                <v-card>
+                <AppCard variant="elevated" elevation="1">
                     <v-card-text>
                         <form class="d-flex flex-column ga-4" @submit.prevent="confirmPatient">
                             <AppSelect
@@ -398,13 +408,13 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
                             </div>
                         </form>
                     </v-card-text>
-                </v-card>
+                </AppCard>
             </div>
 
             <div v-if="patient">
                 <div class="d-flex align-center justify-space-between mb-1">
                     <h2 class="text-h6">Traitements</h2>
-                    <AppButton label="Ajouter un traitement" :disabled="hasOngoingTreatment" @click="openNewTreatment" />
+                    <AppButton label="Ajouter un traitement" icon="mdi-plus" :disabled="hasOngoingTreatment" @click="openNewTreatment" />
                 </div>
 
                 <p v-if="hasOngoingTreatment" class="text-body-2 text-medium-emphasis mb-3">
@@ -415,7 +425,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
                     Aucun traitement pour ce patient.
                 </p>
 
-                <v-card v-for="treatment in treatments" :key="treatment.id" class="mb-4" variant="outlined">
+                <AppCard v-for="treatment in treatments" :key="treatment.id" class="mb-4" variant="outlined">
                     <v-card-text>
                         <div class="d-flex justify-space-between align-start mb-2">
                             <div>
@@ -474,25 +484,14 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
 
                         <div v-if="treatment.sessions.length">
                             <p class="text-body-2 font-weight-medium mb-2">Séances</p>
-                            <v-card
-                                v-for="session in treatment.sessions"
-                                :key="session.id"
-                                variant="tonal"
-                                class="mb-2 pa-3"
-                                link
-                                @click="openEditSession(treatment, session)"
-                            >
-                                <p class="text-body-2">
-                                    {{ session.session_date ? new Date(session.session_date).toLocaleDateString() : '—' }}
-                                    <span v-if="session.duration_minutes"> — {{ session.duration_minutes }} min</span>
-                                </p>
-                                <p v-if="session.care_items.length" class="text-caption text-medium-emphasis">
-                                    Soins : {{ session.care_items.map((i) => i.label).join(', ') }}
-                                </p>
-                            </v-card>
+                            <TreatmentTimeline
+                                :sessions="treatment.sessions"
+                                :treatment-status="treatment.status ?? ''"
+                                @edit-session="(session) => openEditSession(treatment, session)"
+                            />
                         </div>
                     </v-card-text>
-                </v-card>
+                </AppCard>
             </div>
         </div>
 

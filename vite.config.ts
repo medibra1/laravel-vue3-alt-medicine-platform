@@ -30,5 +30,11 @@ export default defineConfig({
     },
     test: {
         environment: 'jsdom',
+        css: true,
+        server: {
+            deps: {
+                inline: ['vuetify'],
+            },
+        },
     },
 });
