@@ -319,6 +319,27 @@ fait partie de ce traitement", ne porte aucun statut/outcome — le
 suivi réel vit dans `treatment_session_disease_progress`
 (historisé par séance, voir plus bas), pas ici.
 
+**Verrouillage post-suivi (2026-08-22)** : `treatment_diseases`
+`cascadeOnDelete` sur `treatment_session_disease_progress` (via
+`treatment_sessions`), mais rien n'empêchait avant cette date de
+retirer une maladie de `disease_ids` — depuis le wizard rouvert sur un
+traitement déjà confirmé — alors même qu'elle avait déjà des lignes de
+suivi enregistrées, laissant ces lignes orphelines. Règle actée :
+- Tant qu'un traitement n'a **aucune** `treatment_session`, `disease_ids`
+  reste librement modifiable (ajout et retrait) — comportement inchangé.
+- Dès qu'une session existe, une maladie ayant au moins une ligne dans
+  `treatment_session_disease_progress` (peu importe son `outcome`, même
+  `ongoing`) ne peut plus être retirée de `disease_ids` — seulement
+  ajoutée (extension de périmètre, jamais de perte de données).
+- Appliqué côté serveur dans `UpdateTreatmentDraftRequest::withValidator()`
+  (source de vérité), via `Treatment::latestOutcomePerDisease()`
+  (factorisée depuis `hasUnresolvedDiseases()`, qui l'utilise aussi).
+  Côté client, `TreatmentResource`/`TreatmentController::edit()`
+  exposent `locked_disease_ids` (même calcul) pour que
+  `TreatmentWizardDialog` désactive les checkboxes correspondantes
+  avant même la soumission, plutôt que de laisser l'utilisateur
+  découvrir le blocage seulement à l'échec de validation.
+
 ### `treatment_sessions` (séances individuelles) — **implémenté** (2026-08-20)
 CRUD simple (pas le pattern wizard résilient — une séance est une
 saisie courte en une fois, pas un formulaire long autosauvegardé, donc
@@ -342,6 +363,20 @@ disease_id (fk `diseases`, cascade) · outcome (enum:
 cured/not_cured/percentage/ongoing), nullable · outcome_percentage
 (1-99), nullable · notes · timestamps ·
 unique(treatment_session_id, disease_id)
+
+**Pré-remplissage à partir de la dernière valeur connue (2026-08-22)** :
+`TreatmentSessionDialog` demandait auparavant de ressaisir
+outcome/outcome_percentage/notes pour chaque maladie à chaque nouvelle
+séance, même sans changement depuis la précédente.
+`Treatment::latestOutcomePerDisease()` (la ligne la plus récente par
+`disease_id`, toutes séances confondues) sert désormais aussi à
+pré-remplir une **nouvelle** séance (`TreatmentResource::
+latest_known_outcomes`, exposé uniquement quand `sessions` est chargé) —
+uniquement au moment de créer une nouvelle séance, jamais en édition
+d'une séance existante (ses propres valeurs l'emportent toujours). Un
+badge "Reprise de la dernière séance" indique quand une valeur vient de
+ce pré-remplissage plutôt que d'une saisie du praticien, et disparaît
+dès que le champ correspondant est modifié.
 
 ### `treatment_session_care_items` (pivot) — **implémenté** (2026-08-20)
 treatment_session_id (fk) · care_item_id (fk `care_items`) —

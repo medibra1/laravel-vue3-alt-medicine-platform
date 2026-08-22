@@ -172,6 +172,54 @@ test('manager can update a draft treatment in their own center with a partial pa
     expect($treatment->fresh()->notes)->toBe('Séance bien passée');
 });
 
+test('a disease with tracked session progress cannot be removed from disease_ids, but a new one can be added', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $trackedDisease = Disease::factory()->create();
+    $untrackedDisease = Disease::factory()->create();
+    $newDisease = Disease::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->diseases()->sync([$trackedDisease->id, $untrackedDisease->id]);
+    $treatment->setStatus('confirmed');
+    $session = $treatment->sessions()->create(['session_date' => now(), 'created_by' => $superAdmin->id]);
+    $session->diseaseProgress()->create(['disease_id' => $trackedDisease->id, 'outcome' => 'ongoing']);
+
+    $removingTracked = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => [$untrackedDisease->id]],
+    );
+
+    $removingTracked->assertUnprocessable();
+    $removingTracked->assertJsonValidationErrors('disease_ids');
+    expect($treatment->diseases()->pluck('diseases.id')->sort()->values()->all())
+        ->toBe(collect([$trackedDisease->id, $untrackedDisease->id])->sort()->values()->all());
+
+    $addingNew = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => [$trackedDisease->id, $untrackedDisease->id, $newDisease->id]],
+    );
+
+    $addingNew->assertOk();
+    expect($treatment->diseases()->pluck('diseases.id')->sort()->values()->all())
+        ->toBe(collect([$trackedDisease->id, $untrackedDisease->id, $newDisease->id])->sort()->values()->all());
+});
+
+test('disease_ids stays freely editable while the treatment has no sessions yet', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $disease = Disease::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $response = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => []],
+    );
+
+    $response->assertOk();
+    expect($treatment->diseases()->count())->toBe(0);
+});
+
 test('confirming with missing required fields fails and status stays draft', function () {
     $superAdmin = actingAsSuperAdmin();
     $treatment = Treatment::factory()->create(['practitioner_id' => null, 'started_at' => null]);
