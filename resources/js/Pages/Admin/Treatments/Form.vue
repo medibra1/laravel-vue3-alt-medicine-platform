@@ -49,6 +49,7 @@ interface Treatment {
     outcome_percentage: number | null;
     notes: string | null;
     disease_ids: number[];
+    locked_disease_ids: number[];
 }
 
 defineProps<{
@@ -97,6 +98,7 @@ function onClose(value: boolean) {
             :practitioners="practitioners"
             :diseases="diseases"
             :disease-categories="diseaseCategories"
+            :locked-disease-ids="treatment?.locked_disease_ids ?? []"
             @update:visible="onClose"
             @saved="onSaved"
         />

@@ -2,6 +2,7 @@
 defineProps<{
     modelValue: boolean;
     label?: string;
+    disabled?: boolean;
 }>();
 
 defineEmits<{ 'update:modelValue': [value: boolean] }>();
@@ -11,6 +12,7 @@ defineEmits<{ 'update:modelValue': [value: boolean] }>();
     <v-checkbox
         :model-value="modelValue"
         :label="label"
+        :disabled="disabled"
         hide-details="auto"
         @update:model-value="$emit('update:modelValue', Boolean($event))"
     />
