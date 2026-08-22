@@ -53,6 +53,21 @@ npm run dev
 Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 103 maladies / 19 sous-cas de blocage, en français et en anglais.
 
+## Tests
+
+```bash
+./vendor/bin/pest    # Pest (backend)
+npm run test         # Vitest (composables + composants Vue)
+npm run test:e2e     # Playwright — golden paths navigateur réel
+```
+
+`test:e2e` lance son propre serveur (`php artisan serve`) et pilote
+`php artisan tinker` en coulisses (`tests/e2e/global-setup.ts`/
+`global-teardown.ts`) pour préparer puis nettoyer ses propres données —
+il tourne contre la DB de dev locale (`database/database.sqlite`), pas
+une DB isolée comme Pest (sqlite `:memory:`), donc à éviter en même
+temps qu'un usage manuel actif de cette DB.
+
 ## État d'avancement (2026-08-20)
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
@@ -265,6 +280,42 @@ client+SSR OK, `vue-tsc --noEmit` clean, golden path navigateur réel
 `ongoing` et 3 séances) : timeline affichée avec les 3 séances, clic
 sur une carte rouvrant bien le dialog pré-rempli, mode clair et sombre,
 zéro erreur console.
+
+**Navigation par onglets dans le dossier patient** (2026-08-22, branche
+`feature/patient-file-tabs`) : `Patients/Form.vue` (jusqu'ici une longue
+page verticale — formulaire, traitement en cours, historique, séances,
+le tout empilé) réorganisé en trois onglets Vuetify (`v-tabs`+`v-window`,
+nouveau wrapper `Components/App/AppTabs.vue`) — Informations / Traitement
+en cours (uniquement le traitement `ongoing`, s'il existe) / Historique
+(traitements clôturés + leur timeline de séances). Onglet actif piloté
+par `?tab=` dans l'URL, défaut sur "Traitement en cours" si le patient en
+a un, sinon "Informations". Extraction de deux composants pour éviter
+toute duplication de template/logique : `Components/Patients/
+PatientInfoForm.vue` (formulaire identité/contact, utilisé à la fois
+dans l'onglet et pour un patient pas encore créé) et `Components/
+Patients/TreatmentCard.vue` (carte de traitement, partagée entre
+l'onglet "en cours" et "historique" — c'était un seul bloc dupliqué en
+V-for avant cette session). Tous les dialogs existants
+(`TreatmentWizardDialog`, `TreatmentSessionDialog`,
+`TreatmentCloseDialog`) inchangés dans leur logique, seul leur point de
+déclenchement a changé de place. Détail complet dans `CLAUDE.md`
+"Navigation par onglets dans le dossier patient".
+
+Playwright devient une vraie dépendance du projet à cette occasion
+(`@playwright/test`, `playwright.config.ts`, `tests/e2e/`,
+`npm run test:e2e`) — jusqu'ici réinstallé à la volée dans un scratchpad
+de session à chaque vérification manuelle (voir les sessions
+précédentes). Premier test E2E versionné : golden path de navigation
+entre les trois onglets sur un patient avec un traitement `ongoing` et
+un traitement `closed` fixture. Vérifié : 176 tests Pest inchangés
+(aucun fichier PHP touché), 9 tests Vitest (7 existants + 2 nouveaux sur
+`AppTabs`, a nécessité un mock `ResizeObserver` dans un nouveau
+`resources/js/vitest.setup.ts` — Vuetify's `v-tabs` en a besoin même en
+environnement jsdom de test), `pint --test` clean, build Vite
+client+SSR OK, `vue-tsc --noEmit` clean, test E2E Playwright vert (deux
+runs consécutifs pour confirmer l'idempotence du setup/teardown),
+vérification navigateur manuelle complémentaire (mode clair/sombre,
+zéro erreur console).
 
 ## Points ouverts connus
 
