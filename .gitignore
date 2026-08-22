@@ -28,3 +28,9 @@ CLAUDE.md
 # inspiration (patterns Resource/wizard/DDD) — jamais suivi ni poussé.
 /Model
 
+# Playwright E2E run artifacts (reports, traces) — not the test files
+# themselves (tests/e2e/*.spec.ts, playwright.config.ts stay tracked).
+/test-results
+/playwright-report
+/tests/e2e/.fixture.json
+
