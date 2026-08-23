@@ -10,6 +10,7 @@ import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStepper from '@/Components/App/AppStepper.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -142,9 +143,9 @@ const steps = [
 
 function dateBinding(field: 'started_at' | 'ended_at') {
     return computed<Date | null>({
-        get: () => (form[field] ? new Date(form[field] as string) : null),
+        get: () => fromLocalDateString(form[field] as string | null),
         set: (value) => {
-            form[field] = value ? value.toISOString().slice(0, 10) : null;
+            form[field] = value ? toLocalDateString(value) : null;
         },
     });
 }

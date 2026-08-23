@@ -12,14 +12,15 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
 function dateBinding(form: { hired_at: string | null }) {
     return computed<Date | null>({
-        get: () => (form.hired_at ? new Date(form.hired_at) : null),
+        get: () => fromLocalDateString(form.hired_at),
         set: (value) => {
-            form.hired_at = value ? value.toISOString().slice(0, 10) : null;
+            form.hired_at = value ? toLocalDateString(value) : null;
         },
     });
 }
