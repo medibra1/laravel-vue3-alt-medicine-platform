@@ -359,18 +359,22 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
 function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_known_outcomes'] {
     return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
 }
+
+const pageTitle = computed(() =>
+    props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
+);
 </script>
 
 <template>
-    <Head :title="patient ? 'Modifier le patient' : 'Nouveau patient'" />
+    <Head :title="pageTitle" />
 
     <AuthenticatedLayout>
         <AppPageHeader
-            :title="patient ? 'Modifier le patient' : 'Nouveau patient'"
+            :title="pageTitle"
             :breadcrumbs="[
                 { label: 'Tableau de bord', href: route('dashboard') },
                 { label: 'Patients', href: route('admin.patients.index') },
-                { label: patient ? 'Modifier' : 'Nouveau' },
+                { label: pageTitle },
             ]"
         />
 

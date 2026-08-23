@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { handleNavClick } from '@/utils/inertiaNavClick';
 import { computed } from 'vue';
 
 export interface AppBreadcrumbItem {
@@ -29,7 +30,16 @@ const items = computed(() =>
     <div class="d-flex flex-column flex-md-row flex-wrap align-md-center justify-space-between ga-3 mb-4">
         <div class="d-flex flex-column ga-1">
             <h1 class="text-h5 text-md-h4 font-weight-bold mb-0">{{ title }}</h1>
-            <v-breadcrumbs v-if="items.length" :items="items" density="compact" class="pa-0" />
+            <v-breadcrumbs v-if="items.length" :items="items" density="compact" class="pa-0">
+                <template #item="{ item }">
+                    <v-breadcrumbs-item
+                        :title="item.title"
+                        :href="item.href"
+                        :disabled="item.disabled"
+                        @click="item.href && handleNavClick($event, item.href)"
+                    />
+                </template>
+            </v-breadcrumbs>
         </div>
 
         <div v-if="$slots.actions" class="d-flex flex-wrap ga-2">

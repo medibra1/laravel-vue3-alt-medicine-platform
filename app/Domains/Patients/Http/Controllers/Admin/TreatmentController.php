@@ -169,7 +169,15 @@ class TreatmentController extends Controller
         // step (adding a session, tracking progress) only happens on the
         // patient's own page — landing there continues the workflow
         // instead of dropping the user back at an unrelated index.
-        return redirect()->route('admin.patients.edit', $treatment->patient_id);
+        // ?tab=ongoing lands directly on the tab showing the treatment
+        // just confirmed — unlike PatientController::confirm()'s ?tab=,
+        // this one is always correct here regardless of whether the
+        // wizard was creating or editing, since the confirmed treatment
+        // is necessarily the one in that tab.
+        return redirect()->route('admin.patients.edit', [
+            'patient' => $treatment->patient_id,
+            'tab' => 'ongoing',
+        ]);
     }
 
     /**
