@@ -10,7 +10,7 @@ import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.v
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface Center {
     id: number;
@@ -275,6 +275,38 @@ function editTreatment(treatment: TreatmentSummary) {
 function reloadPatient() {
     router.reload({ only: ['patient', 'treatments'] });
 }
+
+// Only ever set by PatientController::confirm()'s redirect, right after a
+// patient is first confirmed (draft -> confirmed happens once in a
+// patient's lifecycle) — auto-opens the treatment wizard so the raqi isn't
+// forced to click "Ajouter un traitement" as an extra step. Skipped if a
+// treatment somehow already exists (shouldn't happen right after
+// confirmation, but ongoingTreatment is the single source of truth here).
+// `open` is stripped from the URL either way, so a page reload never
+// re-opens the wizard on its own.
+//
+// Checked on Inertia's `navigate` event, not just onMounted: confirming a
+// patient redirects back to this same route/component, so Inertia reuses
+// the existing Form.vue instance instead of remounting it — onMounted alone
+// would never fire for this navigation.
+function checkOpenTreatmentParam() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('open') === 'treatment' && !ongoingTreatment.value) {
+        openNewTreatment();
+    }
+
+    if (params.has('open')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('open');
+        window.history.replaceState({}, '', url);
+    }
+}
+
+onMounted(checkOpenTreatmentParam);
+
+const removeNavigateListener = router.on('navigate', checkOpenTreatmentParam);
+onUnmounted(removeNavigateListener);
 
 const sessionDialogVisible = ref(false);
 const sessionTreatmentId = ref<number | null>(null);

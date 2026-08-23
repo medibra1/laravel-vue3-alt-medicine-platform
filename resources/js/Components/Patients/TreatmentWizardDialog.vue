@@ -330,49 +330,59 @@ function close() {
         <AppStepper v-model="currentStep" :steps="steps">
             <template #default="{ step }">
                 <div class="pa-4">
-                    <div v-if="step === 'infos'" class="d-flex flex-column ga-4">
-                        <AppSelect
-                            v-if="centers.length"
-                            v-model="form.center_id"
-                            :options="centers"
-                            option-label="name"
-                            option-value="id"
-                            label="Centre"
-                            placeholder="Choisir un centre"
-                            :error="fieldErrors.center_id"
-                        />
+                    <v-row v-if="step === 'infos'">
+                        <v-col cols="12" :md="patientId ? 12 : 6">
+                            <AppSelect
+                                v-if="centers.length"
+                                v-model="form.center_id"
+                                :options="centers"
+                                option-label="name"
+                                option-value="id"
+                                label="Centre"
+                                placeholder="Choisir un centre"
+                                :error="fieldErrors.center_id"
+                            />
+                        </v-col>
 
-                        <AppSelect
-                            v-if="!patientId"
-                            v-model="form.patient_id"
-                            :options="patientOptions"
-                            option-label="name"
-                            option-value="id"
-                            label="Patient"
-                            placeholder="Choisir un patient"
-                            :error="fieldErrors.patient_id"
-                        />
+                        <v-col v-if="!patientId" cols="12" md="6">
+                            <AppSelect
+                                v-model="form.patient_id"
+                                :options="patientOptions"
+                                option-label="name"
+                                option-value="id"
+                                label="Patient"
+                                placeholder="Choisir un patient"
+                                :error="fieldErrors.patient_id"
+                            />
+                        </v-col>
 
-                        <AppSelect
-                            v-model="form.practitioner_id"
-                            :options="practitionerOptions"
-                            option-label="name"
-                            option-value="id"
-                            label="Praticien"
-                            placeholder="Choisir un praticien"
-                            :error="fieldErrors.practitioner_id"
-                        />
+                        <v-col cols="12">
+                            <AppSelect
+                                v-model="form.practitioner_id"
+                                :options="practitionerOptions"
+                                option-label="name"
+                                option-value="id"
+                                label="Praticien"
+                                placeholder="Choisir un praticien"
+                                :error="fieldErrors.practitioner_id"
+                            />
+                        </v-col>
 
-                        <AppDatePicker
-                            v-model="startedAtBinding"
-                            label="Date de début"
-                            :error="fieldErrors.started_at"
-                        />
+                        <v-col cols="12" md="6">
+                            <AppDatePicker
+                                v-model="startedAtBinding"
+                                label="Date de début"
+                                :error="fieldErrors.started_at"
+                            />
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
+                        </v-col>
 
-                        <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
-
-                        <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
-                    </div>
+                        <v-col cols="12">
+                            <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
+                        </v-col>
+                    </v-row>
 
                     <div v-else-if="step === 'diseases'" class="d-flex flex-column ga-4">
                         <v-alert v-if="lockedDiseaseIdSet.size" type="info" variant="tonal" density="compact">

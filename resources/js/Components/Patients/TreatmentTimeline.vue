@@ -25,24 +25,11 @@ const props = defineProps<{
 
 defineEmits<{ 'edit-session': [session: TreatmentSessionSummary] }>();
 
-// Only the most recent session (chronologically, not the last array entry —
-// sessions aren't guaranteed sorted) gets the "primary" dot; the rest are
-// "muted" once a treatment has moved on. An ongoing treatment with a single
-// session still highlights it, since it's also the most recent one.
+// Treatment::sessions() is now ordered orderByDesc('session_date')
+// server-side, so the most recent session is always the first array entry —
+// no client-side re-sort needed here, just read [0].
 function mostRecentSessionId(sessions: TreatmentSessionSummary[]): number | null {
-    let latest: TreatmentSessionSummary | null = null;
-
-    for (const session of sessions) {
-        if (!session.session_date) {
-            continue;
-        }
-
-        if (!latest || !latest.session_date || session.session_date > latest.session_date) {
-            latest = session;
-        }
-    }
-
-    return latest?.id ?? sessions[sessions.length - 1]?.id ?? null;
+    return sessions[0]?.id ?? null;
 }
 
 function statusColor(session: TreatmentSessionSummary): string {

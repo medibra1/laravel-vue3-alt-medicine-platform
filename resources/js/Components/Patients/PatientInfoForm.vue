@@ -69,48 +69,68 @@ const birthDateBinding = computed<Date | null>({
 
     <AppCard variant="elevated" elevation="1">
         <v-card-text>
-            <form class="d-flex flex-column ga-4" @submit.prevent="emit('confirm')">
-                <AppSelect
-                    v-if="centers.length"
-                    v-model="form.intake_center_id"
-                    :options="centers"
-                    option-label="name"
-                    option-value="id"
-                    label="Centre d'accueil"
-                    placeholder="Choisir un centre"
-                    :error="fieldErrors.intake_center_id"
-                />
+            <form @submit.prevent="emit('confirm')">
+                <v-row>
+                    <v-col cols="12">
+                        <AppSelect
+                            v-if="centers.length"
+                            v-model="form.intake_center_id"
+                            :options="centers"
+                            option-label="name"
+                            option-value="id"
+                            label="Centre d'accueil"
+                            placeholder="Choisir un centre"
+                            :error="fieldErrors.intake_center_id"
+                        />
+                    </v-col>
 
-                <AppInputText v-model="form.first_name" label="Prénom" :error="fieldErrors.first_name" />
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.first_name" label="Prénom" :error="fieldErrors.first_name" />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.last_name" label="Nom" :error="fieldErrors.last_name" />
+                    </v-col>
 
-                <AppInputText v-model="form.last_name" label="Nom" :error="fieldErrors.last_name" />
+                    <v-col cols="12" md="6">
+                        <AppSelect
+                            v-model="form.gender"
+                            :options="genderOptions"
+                            option-label="label"
+                            option-value="value"
+                            label="Genre"
+                            show-clear
+                            placeholder="Non renseigné"
+                            :error="fieldErrors.gender"
+                        />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
+                    </v-col>
 
-                <AppSelect
-                    v-model="form.gender"
-                    :options="genderOptions"
-                    option-label="label"
-                    option-value="value"
-                    label="Genre"
-                    show-clear
-                    placeholder="Non renseigné"
-                    :error="fieldErrors.gender"
-                />
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.phone" label="Téléphone" :error="fieldErrors.phone" />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.email" type="email" label="Email" />
+                    </v-col>
 
-                <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
+                    <v-col cols="12">
+                        <AppInputText v-model="form.city" label="Ville" :error="fieldErrors.city" />
+                    </v-col>
 
-                <AppInputText v-model="form.phone" label="Téléphone" :error="fieldErrors.phone" />
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <AppInputText v-model="form.emergency_contact_phone" label="Contact d'urgence — téléphone" />
+                    </v-col>
 
-                <AppInputText v-model="form.email" type="email" label="Email" />
+                    <v-col cols="12">
+                        <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
+                    </v-col>
+                </v-row>
 
-                <AppInputText v-model="form.city" label="Ville" :error="fieldErrors.city" />
-
-                <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
-
-                <AppInputText v-model="form.emergency_contact_phone" label="Contact d'urgence — téléphone" />
-
-                <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
-
-                <div class="d-flex justify-end ga-2">
+                <div class="d-flex justify-end ga-2 mt-2">
                     <AppButton type="button" label="Retour à la liste" severity="secondary" @click="emit('cancel')" />
                     <AppButton type="submit" label="Confirmer" :loading="confirming" />
                 </div>

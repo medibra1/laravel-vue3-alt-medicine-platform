@@ -49,7 +49,7 @@ describe('TreatmentSessionDialog', () => {
         expect(vm.diseaseOutcomes[2].outcome).toBeNull();
     });
 
-    it('shows a "reprise de la dernière séance" hint only for prefilled diseases', () => {
+    it('shows a "reprise de la dernière séance" hint only for prefilled diseases', async () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
@@ -62,6 +62,12 @@ describe('TreatmentSessionDialog', () => {
             attachTo: document.body,
             global: { plugins: [vuetify] },
         });
+
+        // The disease-outcome fields live under the "Suivi des maladies" tab
+        // (v-window only renders the active tab's content).
+        const diseasesTab = activeWrapper.findAllComponents({ name: 'VTab' }).find((tab) => tab.text() === 'Suivi des maladies');
+        await diseasesTab?.trigger('click');
+        await activeWrapper.vm.$nextTick();
 
         const bodyText = document.body.textContent ?? '';
         expect(bodyText).toContain('Reprise de la dernière séance');

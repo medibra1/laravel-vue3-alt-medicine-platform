@@ -147,7 +147,14 @@ class PatientController extends Controller
         // Back to the patient's own file, not the flat list: confirming is
         // rarely the end of the task, it's usually followed by adding the
         // first treatment — staying in place saves re-finding the patient.
-        return redirect()->route('admin.patients.edit', $patient);
+        // ?tab=ongoing&open=treatment additionally opens the treatment
+        // wizard automatically, since confirm() only ever fires once in a
+        // patient's lifecycle (draft -> confirmed), never on a later update.
+        return redirect()->route('admin.patients.edit', [
+            'patient' => $patient,
+            'tab' => 'ongoing',
+            'open' => 'treatment',
+        ]);
     }
 
     public function destroy(Patient $patient): RedirectResponse
