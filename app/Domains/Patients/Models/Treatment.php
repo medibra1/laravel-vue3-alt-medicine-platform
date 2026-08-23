@@ -167,9 +167,15 @@ class Treatment extends Model
         return $this->belongsToMany(Disease::class, 'treatment_diseases');
     }
 
-    /** @return HasMany<TreatmentSession, $this> */
+    /**
+     * Most recent session first everywhere this relation is loaded — not
+     * just in the timeline UI, which used to re-sort on its own. Ordered
+     * here once so every future caller gets it for free.
+     *
+     * @return HasMany<TreatmentSession, $this>
+     */
     public function sessions(): HasMany
     {
-        return $this->hasMany(TreatmentSession::class);
+        return $this->hasMany(TreatmentSession::class)->orderByDesc('session_date');
     }
 }

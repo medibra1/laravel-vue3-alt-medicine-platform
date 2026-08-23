@@ -183,8 +183,14 @@ test('confirming with complete data transitions the patient to confirmed', funct
     $response = $this->actingAs($superAdmin)->post(route('admin.patients.confirm', $patient), []);
 
     // Back to the patient's own file, not the index — confirming is
-    // usually followed by adding the first treatment.
-    $response->assertRedirect(route('admin.patients.edit', $patient));
+    // usually followed by adding the first treatment. ?tab=ongoing&open=treatment
+    // auto-opens the treatment wizard, since this only ever fires once per
+    // patient (draft -> confirmed).
+    $response->assertRedirect(route('admin.patients.edit', [
+        'patient' => $patient,
+        'tab' => 'ongoing',
+        'open' => 'treatment',
+    ]));
     expect($patient->fresh()->latestStatus()->name)->toBe('confirmed');
 });
 
