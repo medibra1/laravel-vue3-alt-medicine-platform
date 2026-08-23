@@ -170,12 +170,15 @@ class Treatment extends Model
     /**
      * Most recent session first everywhere this relation is loaded — not
      * just in the timeline UI, which used to re-sort on its own. Ordered
-     * here once so every future caller gets it for free.
+     * here once so every future caller gets it for free. `id` desc as a
+     * tiebreaker: session_date alone doesn't disambiguate two sessions
+     * logged on the same date — the one created last (higher id) should
+     * still surface first.
      *
      * @return HasMany<TreatmentSession, $this>
      */
     public function sessions(): HasMany
     {
-        return $this->hasMany(TreatmentSession::class)->orderByDesc('session_date');
+        return $this->hasMany(TreatmentSession::class)->orderByDesc('session_date')->orderByDesc('id');
     }
 }

@@ -4,14 +4,12 @@ import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
-import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStepper from '@/Components/App/AppStepper.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
 import { fromLocalDateString, toLocalDateString } from '@/utils/date';
-import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -166,13 +164,30 @@ watch(
 
 watch(form, () => scheduleSave(), { deep: true });
 
-const currentStep = ref<'infos' | 'diseases' | 'outcomes' | 'careItems'>('infos');
-const steps = [
-    { title: 'Infos générales', value: 'infos' },
-    { title: 'Maladies', value: 'diseases' },
-    { title: 'Issue par maladie', value: 'outcomes' },
-    { title: 'Soins — 1ère séance', value: 'careItems' },
-];
+// The "Soins" step only makes sense on a brand-new treatment — it seeds
+// the first (implicit) session created by TreatmentController::confirm(),
+// gated there on Treatment::sessions()->doesntExist(). Editing an
+// already-started treatment (props.treatment !== null) has no such
+// implicit session to seed: care from then on only goes through
+// TreatmentSessionController, so the step is simply not part of the
+// wizard in that mode rather than shown-but-inert.
+const isCreatingNewTreatment = computed(() => props.treatment === null);
+
+const currentStep = ref<'infos' | 'diseases' | 'careItems'>('infos');
+const steps = computed(() =>
+    isCreatingNewTreatment.value
+        ? [
+              { title: 'Infos générales', value: 'infos' },
+              { title: 'Maladies', value: 'diseases' },
+              { title: 'Soins — 1ère séance', value: 'careItems' },
+          ]
+        : [
+              { title: 'Infos générales', value: 'infos' },
+              { title: 'Maladies', value: 'diseases' },
+          ],
+);
+
+const isLastStep = computed(() => steps.value[steps.value.length - 1]?.value === currentStep.value);
 
 function dateBinding(field: 'started_at' | 'ended_at') {
     return computed<Date | null>({
@@ -255,40 +270,6 @@ const searchResults = computed(() => {
     );
 });
 
-const selectedDiseases = computed(() =>
-    props.diseases.filter((disease) => selectedDiseaseIds.value.has(disease.id)),
-);
-
-// --- Per-disease outcome (step 3) ---
-interface DiseaseOutcomeRow {
-    [key: string]: number | string | null;
-    disease_id: number;
-    outcome: string | null;
-    outcome_percentage: number | null;
-    notes: string | null;
-}
-
-const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
-
-watch(
-    selectedDiseases,
-    (diseases) => {
-        const next: Record<number, DiseaseOutcomeRow> = {};
-
-        for (const disease of diseases) {
-            next[disease.id] = diseaseOutcomes.value[disease.id] ?? {
-                disease_id: disease.id,
-                outcome: null,
-                outcome_percentage: null,
-                notes: null,
-            };
-        }
-
-        diseaseOutcomes.value = next;
-    },
-    { immediate: true },
-);
-
 const confirming = ref(false);
 const confirmErrors = ref<Record<string, string>>({});
 
@@ -317,7 +298,6 @@ async function confirmTreatment() {
         route('admin.treatments.confirm', serverId.value),
         {
             ...form,
-            disease_progress: Object.values(diseaseOutcomes.value),
             care_item_ids: Array.from(selectedCareItemIds.value),
         },
         {
@@ -498,44 +478,6 @@ function close() {
                         </v-alert>
                     </div>
 
-                    <div v-else-if="step === 'outcomes'" class="d-flex flex-column ga-6">
-                        <p v-if="!selectedDiseases.length" class="text-body-2 text-medium-emphasis">
-                            Sélectionnez d'abord au moins une maladie à l'étape précédente.
-                        </p>
-
-                        <div
-                            v-for="disease in selectedDiseases"
-                            :key="disease.id"
-                            class="d-flex flex-column ga-2"
-                        >
-                            <p class="text-subtitle-2">{{ disease.code }} — {{ disease.label }}</p>
-
-                            <AppSelect
-                                v-model="diseaseOutcomes[disease.id].outcome"
-                                :options="outcomeOptions"
-                                option-label="label"
-                                option-value="value"
-                                label="Issue"
-                                show-clear
-                                placeholder="Non renseignée"
-                            />
-
-                            <AppInputNumber
-                                v-if="diseaseOutcomes[disease.id].outcome === 'percentage'"
-                                v-model="diseaseOutcomes[disease.id].outcome_percentage"
-                                label="Pourcentage"
-                                :min="1"
-                                :max="99"
-                            />
-
-                            <AppTextarea
-                                v-model="diseaseOutcomes[disease.id].notes"
-                                label="Notes"
-                                :rows="2"
-                            />
-                        </div>
-                    </div>
-
                     <div v-else-if="step === 'careItems'" class="d-flex flex-column ga-4">
                         <p class="text-body-2 text-medium-emphasis">
                             Soins donnés lors de cette première séance — pas un protocole pour
@@ -574,7 +516,7 @@ function close() {
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) - 1].value as typeof currentStep"
                 />
                 <AppButton
-                    v-if="currentStep !== 'careItems'"
+                    v-if="!isLastStep"
                     type="button"
                     label="Suivant"
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) + 1].value as typeof currentStep"

@@ -324,6 +324,14 @@ function openEditSession(treatment: TreatmentSummary, session: TreatmentSessionS
     sessionDialogVisible.value = true;
 }
 
+// TreatmentTimeline already confirms via window.confirm() before emitting
+// this — no second confirmation here.
+function deleteSession(treatment: TreatmentSummary, session: TreatmentSessionSummary) {
+    router.delete(route('admin.treatments.sessions.destroy', [treatment.id, session.id]), {
+        onSuccess: reloadPatient,
+    });
+}
+
 const closeDialogVisible = ref(false);
 const closingTreatmentId = ref<number | null>(null);
 
@@ -405,6 +413,7 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
                             @close="openCloseTreatment"
                             @reopen="reopenTreatment"
                             @edit-session="openEditSession"
+                            @delete-session="deleteSession"
                         />
                     </div>
                 </template>
@@ -427,6 +436,7 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
                             @close="openCloseTreatment"
                             @reopen="reopenTreatment"
                             @edit-session="openEditSession"
+                            @delete-session="deleteSession"
                         />
                     </div>
                 </template>

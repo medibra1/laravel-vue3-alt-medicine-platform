@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import { outcomeColor, outcomeIcon, outcomeLabel } from '@/utils/diseaseOutcome';
 
@@ -23,7 +24,22 @@ const props = defineProps<{
     treatmentStatus: string;
 }>();
 
-defineEmits<{ 'edit-session': [session: TreatmentSessionSummary] }>();
+const emit = defineEmits<{
+    'edit-session': [session: TreatmentSessionSummary];
+    'delete-session': [session: TreatmentSessionSummary];
+}>();
+
+// window.confirm() is the project-wide pattern for destructive actions
+// (Patients/Practitioners/Centers/Treatments index pages, Form.vue's
+// reopenTreatment()) — no dedicated confirmation dialog component exists,
+// so this follows the same convention rather than introducing a new one.
+function confirmDelete(session: TreatmentSessionSummary) {
+    if (!confirm('Supprimer cette séance ? Cette action est irréversible.')) {
+        return;
+    }
+
+    emit('delete-session', session);
+}
 
 // Treatment::sessions() is now ordered orderByDesc('session_date')
 // server-side, so the most recent session is always the first array entry —
@@ -48,12 +64,23 @@ function formatSessionDate(session: TreatmentSessionSummary): string {
                 <span class="text-body-2 text-medium-emphasis">{{ formatSessionDate(session) }}</span>
             </template>
 
-            <AppCard variant="tonal" clickable @click="$emit('edit-session', session)">
+            <AppCard variant="tonal" clickable @click="emit('edit-session', session)">
                 <v-card-text>
-                    <p class="text-body-2 font-weight-medium mb-2">
-                        {{ formatSessionDate(session) }}
-                        <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
-                    </p>
+                    <div class="d-flex justify-space-between align-start ga-2 mb-2">
+                        <p class="text-body-2 font-weight-medium mb-0" style="min-width: 0">
+                            {{ formatSessionDate(session) }}
+                            <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
+                        </p>
+
+                        <AppButton
+                            class="flex-shrink-0"
+                            icon="mdi-delete"
+                            severity="danger"
+                            size="small"
+                            aria-label="Supprimer la séance"
+                            @click.stop="confirmDelete(session)"
+                        />
+                    </div>
 
                     <div v-if="session.care_items.length" class="d-flex flex-wrap ga-2 mb-2">
                         <v-chip v-for="item in session.care_items" :key="item.id" size="small" variant="tonal">

@@ -57,9 +57,21 @@ class TreatmentSessionController extends Controller
 
     public function destroy(Treatment $treatment, TreatmentSession $session): RedirectResponse
     {
+        // {session} isn't a scoped route-model binding — a session id that
+        // exists but belongs to a *different* treatment than the one in
+        // the URL would otherwise still resolve. TreatmentSessionPolicy
+        // already protects against cross-center deletion (it scopes on
+        // the session's real parent treatment), but a mismatched
+        // treatment/session pair in the URL is a data-consistency bug on
+        // the caller's side, not a permission question — surfaced as 404
+        // rather than silently deleting the right session under the
+        // wrong URL.
+        abort_unless($session->treatment_id === $treatment->id, 404);
+
         Gate::authorize('delete', $session);
 
         $session->delete();
+        $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }
