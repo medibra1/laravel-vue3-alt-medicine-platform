@@ -328,11 +328,55 @@ traitement. Front-end : bouton "Ajouter un traitement" désactivé côté
 (`TreatmentCloseDialog.vue`).
 
 ### `treatment_diseases` (pivot) — **implémenté**
-treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre.
-Reste volontairement simple (2026-08-20) : dit juste "cette maladie
-fait partie de ce traitement", ne porte aucun statut/outcome — le
-suivi réel vit dans `treatment_session_disease_progress`
-(historisé par séance, voir plus bas), pas ici.
+treatment_id (fk) · disease_id (fk) — clé composite, pas d'id propre ·
+**actively_tracked** (boolean, default `true`, voir ci-dessous). Reste
+volontairement simple par ailleurs (2026-08-20) : dit juste "cette
+maladie fait partie de ce traitement", ne porte aucun autre
+statut/outcome — le suivi réel vit dans
+`treatment_session_disease_progress` (historisé par séance, voir plus
+bas), pas ici.
+
+**Suivi actif vs maladie secondaire (2026-08-23)** : `actively_tracked`
+distingue une maladie que le traitement doit évaluer à chaque séance
+d'une maladie que le patient a, mais qui n'est pas la raison du suivi —
+avant cette colonne, `treatment_diseases` était binaire (une maladie
+attachée était automatiquement obligatoire à chaque séance, sans
+entre-deux). Défaut `true` pour préserver le comportement des lignes
+existantes (rien ne devient "secondaire" rétroactivement). Basculable
+librement à tout moment via le wizard (`TreatmentWizardDialog`, un
+toggle "Suivi actif à chaque séance" par maladie sélectionnée), y
+compris sur un traitement déjà confirmé — **ce n'est pas soumis à la
+même règle de verrouillage que le retrait complet** (voir
+"Verrouillage post-suivi" ci-dessous) : désactiver le suivi actif d'une
+maladie qui a déjà du progress reste toujours autorisé, elle garde son
+historique, elle sort juste de l'évaluation obligatoire des séances
+futures.
+
+Effets :
+- `Treatment::hasUnresolvedDiseases()`/l'auto-clôture
+  (`refreshClosureStatus()`) ne considèrent que les maladies
+  `actively_tracked = true` (`$this->diseases()->wherePivot('actively_tracked', true)`)
+  — une maladie désactivée ne bloque plus jamais la clôture automatique
+  du traitement.
+- `TreatmentSessionDialog` (onglet "Suivi des maladies") n'affiche que
+  les maladies actives — aucune saisie obligatoire pour une maladie
+  désactivée.
+- `TreatmentCard` affiche les maladies désactivées en chip discrète
+  (`outlined`, sans couleur de statut, icône "non suivie") plutôt
+  qu'avec la couleur de statut habituelle.
+
+Payload : deux arrays séparés côté formulaire plutôt qu'un seul array
+d'objets — `disease_ids` (inchangé) + `actively_tracked_disease_ids`
+(sous-ensemble de `disease_ids`, validé comme tel via `Rule::in()` dans
+les trois FormRequests concernées). Choisi pour rester un diff minimal
+sur la validation Laravel existante et sur l'état du wizard
+(`selectedDiseaseIds`/`isDiseaseLocked()` inchangés), au prix d'un
+deuxième champ plutôt qu'une forme unique — discuté et tranché
+explicitement avec l'utilisateur avant implémentation.
+`TreatmentController::syncDiseases()` (privée) centralise le calcul
+`sync()` avec attributs pivot pour les trois écritures
+(`storeDraft`/`updateDraft`/`confirm`), pour que les trois ne
+divergent jamais sur comment ce flag est appliqué.
 
 **Verrouillage post-suivi (2026-08-22)** : `treatment_diseases`
 `cascadeOnDelete` sur `treatment_session_disease_progress` (via

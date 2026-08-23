@@ -47,6 +47,7 @@ interface TreatmentDisease {
     code: string;
     label: string;
     category_label: string;
+    actively_tracked: boolean;
 }
 
 interface TreatmentSessionSummary {
@@ -203,7 +204,7 @@ async function confirmPatient() {
 
 // --- Treatments section (dossier patient) ---
 const wizardVisible = ref(false);
-const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: number; practitioner_id: number | null; center_id: number | null; started_at: string | null; ended_at: string | null; outcome: string | null; outcome_percentage: number | null; notes: string | null; disease_ids: number[] } | null>(null);
+const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: number; practitioner_id: number | null; center_id: number | null; started_at: string | null; ended_at: string | null; outcome: string | null; outcome_percentage: number | null; notes: string | null; disease_ids: number[]; actively_tracked_disease_ids: number[] } | null>(null);
 // Diseases already tracked by a session on the treatment being edited —
 // passed to TreatmentWizardDialog so it can lock their checkboxes. Always
 // empty for a brand-new treatment (nothing tracked yet).
@@ -274,6 +275,7 @@ function editTreatment(treatment: TreatmentSummary) {
         outcome_percentage: treatment.outcome_percentage,
         notes: treatment.notes,
         disease_ids: treatment.diseases.map((d) => d.id),
+        actively_tracked_disease_ids: treatment.diseases.filter((d) => d.actively_tracked).map((d) => d.id),
     };
     editingTreatmentLockedDiseaseIds.value = treatment.locked_disease_ids;
     wizardKey.value++;
@@ -360,8 +362,13 @@ function reopenTreatment(treatment: TreatmentSummary) {
     router.post(route('admin.treatments.reopen', treatment.id), {}, { onSuccess: reloadPatient });
 }
 
+// Only actively tracked diseases are handed to TreatmentSessionDialog — a
+// disease the treatment merely records but doesn't actively follow has no
+// required evaluation at each session, so it never appears in that form.
 function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
-    return props.treatments?.find((t) => t.id === treatmentId)?.diseases ?? [];
+    return (props.treatments?.find((t) => t.id === treatmentId)?.diseases ?? []).filter(
+        (disease) => disease.actively_tracked,
+    );
 }
 
 function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_known_outcomes'] {

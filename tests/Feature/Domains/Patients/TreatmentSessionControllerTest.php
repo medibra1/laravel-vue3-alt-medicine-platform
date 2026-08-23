@@ -108,6 +108,32 @@ test('a session that resolves the last unresolved disease auto-closes the treatm
     expect($fresh->closure_reason)->toBe('resolved');
 });
 
+test('a treatment with one actively tracked and one non-tracked disease auto-closes once only the tracked one resolves', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->setStatus('ongoing');
+    $trackedDisease = Disease::factory()->create();
+    $secondaryDisease = Disease::factory()->create();
+    $treatment->diseases()->sync([
+        $trackedDisease->id => ['actively_tracked' => true],
+        $secondaryDisease->id => ['actively_tracked' => false],
+    ]);
+
+    // Resolves the only actively tracked disease — $secondaryDisease is
+    // never given an outcome at all, and must not be waited on.
+    $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'disease_progress' => [
+            ['disease_id' => $trackedDisease->id, 'outcome' => 'cured'],
+        ],
+    ]);
+
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('resolved');
+});
+
 test('a session marking a disease as still ongoing does not close the treatment', function () {
     $superAdmin = actingAsSuperAdmin();
     $treatment = Treatment::factory()->create();
