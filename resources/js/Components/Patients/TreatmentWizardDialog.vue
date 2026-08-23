@@ -4,12 +4,12 @@ import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
-import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStepper from '@/Components/App/AppStepper.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -46,6 +46,19 @@ interface DiseaseCategoryOption {
     label: string;
 }
 
+interface CareItemOption {
+    id: number;
+    code: string;
+    label: string;
+}
+
+interface CareCategoryOption {
+    id: number;
+    code: string;
+    label: string;
+    items: CareItemOption[];
+}
+
 interface Treatment {
     id: number;
     client_uuid: string;
@@ -60,25 +73,31 @@ interface Treatment {
     disease_ids: number[];
 }
 
-const props = defineProps<{
-    visible: boolean;
-    treatment: Treatment | null;
-    patientId?: number;
-    centers: Center[];
-    patients: PatientOption[];
-    practitioners: PractitionerOption[];
-    diseases: DiseaseOption[];
-    diseaseCategories: DiseaseCategoryOption[];
-}>();
+const props = withDefaults(
+    defineProps<{
+        visible: boolean;
+        treatment: Treatment | null;
+        patientId?: number;
+        centers: Center[];
+        patients: PatientOption[];
+        practitioners: PractitionerOption[];
+        diseases: DiseaseOption[];
+        diseaseCategories: DiseaseCategoryOption[];
+        careCategories: CareCategoryOption[];
+        /**
+         * Diseases that already have tracked session progress on this
+         * treatment — mirrors the server-side rule in
+         * UpdateTreatmentDraftRequest (a disease with a progress row can no
+         * longer be removed from disease_ids, only added to). Empty on a
+         * brand-new treatment (no `treatment` prop yet) since nothing can
+         * be locked before it exists.
+         */
+        lockedDiseaseIds?: number[];
+    }>(),
+    { lockedDiseaseIds: () => [] },
+);
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
-
-const outcomeOptions = [
-    { label: 'Guéri', value: 'cured' },
-    { label: 'Non guéri', value: 'not_cured' },
-    { label: 'En cours', value: 'ongoing' },
-    { label: 'Pourcentage', value: 'percentage' },
-];
 
 const patientOptions = computed(() =>
     props.patients.map((patient) => ({
@@ -116,29 +135,65 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
         },
     );
 
+// --- Care items given during this first (implicit) session (step 4) ---
+// Care stays 100% per-session (option B) — this is not a treatment-wide
+// protocol, only what was given during the session confirmation creates.
+const selectedCareItemIds = ref<Set<number>>(new Set());
+
+function toggleCareItem(itemId: number) {
+    const next = new Set(selectedCareItemIds.value);
+
+    if (next.has(itemId)) {
+        next.delete(itemId);
+    } else {
+        next.add(itemId);
+    }
+
+    selectedCareItemIds.value = next;
+}
+
 watch(
     () => props.visible,
     (visible) => {
         if (visible) {
             currentStep.value = 'infos';
+            selectedCareItemIds.value = new Set();
         }
     },
 );
 
 watch(form, () => scheduleSave(), { deep: true });
 
-const currentStep = ref<'infos' | 'diseases' | 'outcomes'>('infos');
-const steps = [
-    { title: 'Infos générales', value: 'infos' },
-    { title: 'Maladies', value: 'diseases' },
-    { title: 'Issue par maladie', value: 'outcomes' },
-];
+// The "Soins" step only makes sense on a brand-new treatment — it seeds
+// the first (implicit) session created by TreatmentController::confirm(),
+// gated there on Treatment::sessions()->doesntExist(). Editing an
+// already-started treatment (props.treatment !== null) has no such
+// implicit session to seed: care from then on only goes through
+// TreatmentSessionController, so the step is simply not part of the
+// wizard in that mode rather than shown-but-inert.
+const isCreatingNewTreatment = computed(() => props.treatment === null);
+
+const currentStep = ref<'infos' | 'diseases' | 'careItems'>('infos');
+const steps = computed(() =>
+    isCreatingNewTreatment.value
+        ? [
+              { title: 'Infos générales', value: 'infos' },
+              { title: 'Maladies', value: 'diseases' },
+              { title: 'Soins — 1ère séance', value: 'careItems' },
+          ]
+        : [
+              { title: 'Infos générales', value: 'infos' },
+              { title: 'Maladies', value: 'diseases' },
+          ],
+);
+
+const isLastStep = computed(() => steps.value[steps.value.length - 1]?.value === currentStep.value);
 
 function dateBinding(field: 'started_at' | 'ended_at') {
     return computed<Date | null>({
-        get: () => (form[field] ? new Date(form[field] as string) : null),
+        get: () => fromLocalDateString(form[field] as string | null),
         set: (value) => {
-            form[field] = value ? value.toISOString().slice(0, 10) : null;
+            form[field] = value ? toLocalDateString(value) : null;
         },
     });
 }
@@ -171,7 +226,22 @@ const selectedDiseaseIds = computed<Set<number>>({
     },
 });
 
+const lockedDiseaseIdSet = computed(() => new Set(props.lockedDiseaseIds));
+
+function isDiseaseLocked(diseaseId: number): boolean {
+    return lockedDiseaseIdSet.value.has(diseaseId);
+}
+
 function toggleDisease(diseaseId: number) {
+    // Locked diseases already have tracked session progress — removing
+    // them would orphan that history (see UpdateTreatmentDraftRequest).
+    // They're always selected, so this only ever guards against
+    // unchecking; the checkbox is also rendered disabled for the same
+    // reason, this is the belt-and-braces check.
+    if (isDiseaseLocked(diseaseId)) {
+        return;
+    }
+
     const next = new Set(selectedDiseaseIds.value);
 
     if (next.has(diseaseId)) {
@@ -199,40 +269,6 @@ const searchResults = computed(() => {
             disease.label.toLowerCase().includes(term) || disease.code.includes(term),
     );
 });
-
-const selectedDiseases = computed(() =>
-    props.diseases.filter((disease) => selectedDiseaseIds.value.has(disease.id)),
-);
-
-// --- Per-disease outcome (step 3) ---
-interface DiseaseOutcomeRow {
-    [key: string]: number | string | null;
-    disease_id: number;
-    outcome: string | null;
-    outcome_percentage: number | null;
-    notes: string | null;
-}
-
-const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
-
-watch(
-    selectedDiseases,
-    (diseases) => {
-        const next: Record<number, DiseaseOutcomeRow> = {};
-
-        for (const disease of diseases) {
-            next[disease.id] = diseaseOutcomes.value[disease.id] ?? {
-                disease_id: disease.id,
-                outcome: null,
-                outcome_percentage: null,
-                notes: null,
-            };
-        }
-
-        diseaseOutcomes.value = next;
-    },
-    { immediate: true },
-);
 
 const confirming = ref(false);
 const confirmErrors = ref<Record<string, string>>({});
@@ -262,7 +298,7 @@ async function confirmTreatment() {
         route('admin.treatments.confirm', serverId.value),
         {
             ...form,
-            disease_progress: Object.values(diseaseOutcomes.value),
+            care_item_ids: Array.from(selectedCareItemIds.value),
         },
         {
             onError: (errors) => {
@@ -308,51 +344,66 @@ function close() {
         <AppStepper v-model="currentStep" :steps="steps">
             <template #default="{ step }">
                 <div class="pa-4">
-                    <div v-if="step === 'infos'" class="d-flex flex-column ga-4">
-                        <AppSelect
-                            v-if="centers.length"
-                            v-model="form.center_id"
-                            :options="centers"
-                            option-label="name"
-                            option-value="id"
-                            label="Centre"
-                            placeholder="Choisir un centre"
-                            :error="fieldErrors.center_id"
-                        />
+                    <v-row v-if="step === 'infos'">
+                        <v-col cols="12" :md="patientId ? 12 : 6">
+                            <AppSelect
+                                v-if="centers.length"
+                                v-model="form.center_id"
+                                :options="centers"
+                                option-label="name"
+                                option-value="id"
+                                label="Centre"
+                                placeholder="Choisir un centre"
+                                :error="fieldErrors.center_id"
+                            />
+                        </v-col>
 
-                        <AppSelect
-                            v-if="!patientId"
-                            v-model="form.patient_id"
-                            :options="patientOptions"
-                            option-label="name"
-                            option-value="id"
-                            label="Patient"
-                            placeholder="Choisir un patient"
-                            :error="fieldErrors.patient_id"
-                        />
+                        <v-col v-if="!patientId" cols="12" md="6">
+                            <AppSelect
+                                v-model="form.patient_id"
+                                :options="patientOptions"
+                                option-label="name"
+                                option-value="id"
+                                label="Patient"
+                                placeholder="Choisir un patient"
+                                :error="fieldErrors.patient_id"
+                            />
+                        </v-col>
 
-                        <AppSelect
-                            v-model="form.practitioner_id"
-                            :options="practitionerOptions"
-                            option-label="name"
-                            option-value="id"
-                            label="Praticien"
-                            placeholder="Choisir un praticien"
-                            :error="fieldErrors.practitioner_id"
-                        />
+                        <v-col cols="12">
+                            <AppSelect
+                                v-model="form.practitioner_id"
+                                :options="practitionerOptions"
+                                option-label="name"
+                                option-value="id"
+                                label="Praticien"
+                                placeholder="Choisir un praticien"
+                                :error="fieldErrors.practitioner_id"
+                            />
+                        </v-col>
 
-                        <AppDatePicker
-                            v-model="startedAtBinding"
-                            label="Date de début"
-                            :error="fieldErrors.started_at"
-                        />
+                        <v-col cols="12" md="6">
+                            <AppDatePicker
+                                v-model="startedAtBinding"
+                                label="Date de début"
+                                :error="fieldErrors.started_at"
+                            />
+                        </v-col>
+                        <v-col cols="12" md="6">
+                            <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
+                        </v-col>
 
-                        <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
-
-                        <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
-                    </div>
+                        <v-col cols="12">
+                            <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
+                        </v-col>
+                    </v-row>
 
                     <div v-else-if="step === 'diseases'" class="d-flex flex-column ga-4">
+                        <v-alert v-if="lockedDiseaseIdSet.size" type="info" variant="tonal" density="compact">
+                            Certaines maladies ne peuvent plus être retirées car elles ont déjà un suivi de
+                            séance.
+                        </v-alert>
+
                         <AppInputText
                             v-model="diseaseSearch"
                             label="Rechercher une maladie (toutes catégories)"
@@ -368,10 +419,16 @@ function close() {
                                 :key="disease.id"
                                 class="d-flex align-center ga-2"
                             >
-                                <AppCheckbox
-                                    :model-value="selectedDiseaseIds.has(disease.id)"
-                                    @update:model-value="toggleDisease(disease.id)"
-                                />
+                                <span>
+                                    <AppCheckbox
+                                        :model-value="selectedDiseaseIds.has(disease.id)"
+                                        :disabled="isDiseaseLocked(disease.id)"
+                                        @update:model-value="toggleDisease(disease.id)"
+                                    />
+                                    <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
+                                        Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                    </v-tooltip>
+                                </span>
                                 <span>{{ disease.code }} — {{ disease.label }}</span>
                                 <v-chip size="small" variant="tonal">{{ disease.category_label }}</v-chip>
                             </div>
@@ -401,11 +458,17 @@ function close() {
                                     :key="disease.id"
                                     class="d-flex align-center ga-2"
                                 >
-                                    <AppCheckbox
-                                        :model-value="selectedDiseaseIds.has(disease.id)"
-                                        :label="`${disease.code} — ${disease.label}`"
-                                        @update:model-value="toggleDisease(disease.id)"
-                                    />
+                                    <span>
+                                        <AppCheckbox
+                                            :model-value="selectedDiseaseIds.has(disease.id)"
+                                            :label="`${disease.code} — ${disease.label}`"
+                                            :disabled="isDiseaseLocked(disease.id)"
+                                            @update:model-value="toggleDisease(disease.id)"
+                                        />
+                                        <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
+                                            Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                        </v-tooltip>
+                                    </span>
                                 </div>
                             </div>
                         </template>
@@ -415,42 +478,27 @@ function close() {
                         </v-alert>
                     </div>
 
-                    <div v-else-if="step === 'outcomes'" class="d-flex flex-column ga-6">
-                        <p v-if="!selectedDiseases.length" class="text-body-2 text-medium-emphasis">
-                            Sélectionnez d'abord au moins une maladie à l'étape précédente.
+                    <div v-else-if="step === 'careItems'" class="d-flex flex-column ga-4">
+                        <p class="text-body-2 text-medium-emphasis">
+                            Soins donnés lors de cette première séance — pas un protocole pour
+                            l'ensemble du traitement, seulement ce qui a été fait aujourd'hui.
                         </p>
 
-                        <div
-                            v-for="disease in selectedDiseases"
-                            :key="disease.id"
-                            class="d-flex flex-column ga-2"
-                        >
-                            <p class="text-subtitle-2">{{ disease.code }} — {{ disease.label }}</p>
-
-                            <AppSelect
-                                v-model="diseaseOutcomes[disease.id].outcome"
-                                :options="outcomeOptions"
-                                option-label="label"
-                                option-value="value"
-                                label="Issue"
-                                show-clear
-                                placeholder="Non renseignée"
-                            />
-
-                            <AppInputNumber
-                                v-if="diseaseOutcomes[disease.id].outcome === 'percentage'"
-                                v-model="diseaseOutcomes[disease.id].outcome_percentage"
-                                label="Pourcentage"
-                                :min="1"
-                                :max="99"
-                            />
-
-                            <AppTextarea
-                                v-model="diseaseOutcomes[disease.id].notes"
-                                label="Notes"
-                                :rows="2"
-                            />
+                        <div v-if="careCategories.length">
+                            <div v-for="category in careCategories" :key="category.id" class="mb-3">
+                                <p class="text-body-2 text-medium-emphasis">{{ category.label }}</p>
+                                <div class="d-flex flex-wrap ga-3">
+                                    <AppCheckbox
+                                        v-for="item in category.items"
+                                        :key="item.id"
+                                        :model-value="selectedCareItemIds.has(item.id)"
+                                        :label="item.label"
+                                        @update:model-value="toggleCareItem(item.id)"
+                                    />
+                                </div>
+                            </div>
                         </div>
+                        <p v-else class="text-body-2 text-medium-emphasis">Aucun soin disponible.</p>
                     </div>
                 </div>
             </template>
@@ -468,7 +516,7 @@ function close() {
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) - 1].value as typeof currentStep"
                 />
                 <AppButton
-                    v-if="currentStep !== 'outcomes'"
+                    v-if="!isLastStep"
                     type="button"
                     label="Suivant"
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) + 1].value as typeof currentStep"

@@ -74,12 +74,13 @@ class TreatmentController extends Controller
     {
         Gate::authorize('update', $treatment);
 
-        $treatment->load('diseases.category');
+        $treatment->load('diseases.category', 'sessions');
 
         return Inertia::render('Admin/Treatments/Form', [
             'treatment' => [
                 ...$treatment->toArray(),
                 'disease_ids' => $treatment->diseases->pluck('id')->all(),
+                'locked_disease_ids' => $treatment->latestOutcomePerDisease()->keys()->values(),
             ],
             ...$this->formOptions($request),
         ]);
@@ -131,8 +132,8 @@ class TreatmentController extends Controller
     {
         $validated = $request->validated();
         $treatment->diseases()->sync($validated['disease_ids']);
-        $diseaseProgress = $validated['disease_progress'] ?? [];
-        unset($validated['disease_ids'], $validated['disease_progress']);
+        $careItemIds = $validated['care_item_ids'] ?? [];
+        unset($validated['disease_ids'], $validated['care_item_ids']);
 
         $treatment->update($validated);
         $treatment->setStatus('confirmed');
@@ -141,31 +142,26 @@ class TreatmentController extends Controller
         // global Treatment" for why this transition is automatic.
         $treatment->setStatus('ongoing');
 
-        // The wizard's "Issue par maladie" step is stored as the
+        // The wizard's "Soins — 1ère séance" step is stored as the
         // treatment's first (implicit) session rather than on the
         // treatment/pivot directly — same storage path every later real
         // session uses, see CLAUDE.md "Domaine Treatment" for the
-        // per-session-history reasoning.
-        if ($diseaseProgress !== []) {
+        // per-session-history reasoning. Gated on doesntExist() rather
+        // than "care_item_ids non vide": confirm() can be reached again
+        // on an already-started treatment (editing it after the fact),
+        // and that must never spawn a second implicit session — care for
+        // an already-started treatment only ever goes through
+        // TreatmentSessionController from then on, so a resubmitted
+        // care_item_ids payload here is silently ignored once a session
+        // exists.
+        if ($careItemIds !== [] && $treatment->sessions()->doesntExist()) {
             $session = $treatment->sessions()->create([
                 'practitioner_id' => $treatment->practitioner_id,
                 'session_date' => $treatment->started_at,
                 'created_by' => $request->user()->id,
             ]);
 
-            foreach ($diseaseProgress as $row) {
-                $session->diseaseProgress()->create([
-                    'disease_id' => $row['disease_id'],
-                    'outcome' => $row['outcome'] ?? null,
-                    'outcome_percentage' => $row['outcome_percentage'] ?? null,
-                    'notes' => $row['notes'] ?? null,
-                ]);
-            }
-
-            // Edge case, but a real one: every disease could already be
-            // resolved right at confirmation (e.g. a same-day cure logged
-            // retroactively) — same auto-close path a later session uses.
-            $treatment->refreshClosureStatus();
+            $session->careItems()->sync($careItemIds);
         }
 
         // Not the flat treatments list: whether this wizard was opened

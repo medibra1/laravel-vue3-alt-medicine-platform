@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
+import { outcomeColor, outcomeIcon, outcomeLabel } from '@/utils/diseaseOutcome';
 
 interface TreatmentDisease {
     id: number;
@@ -22,28 +24,28 @@ const props = defineProps<{
     treatmentStatus: string;
 }>();
 
-defineEmits<{ 'edit-session': [session: TreatmentSessionSummary] }>();
+const emit = defineEmits<{
+    'edit-session': [session: TreatmentSessionSummary];
+    'delete-session': [session: TreatmentSessionSummary];
+}>();
 
-const resolvedOutcomes = new Set(['cured', 'resolved']);
-
-// Only the most recent session (chronologically, not the last array entry —
-// sessions aren't guaranteed sorted) gets the "primary" dot; the rest are
-// "muted" once a treatment has moved on. An ongoing treatment with a single
-// session still highlights it, since it's also the most recent one.
-function mostRecentSessionId(sessions: TreatmentSessionSummary[]): number | null {
-    let latest: TreatmentSessionSummary | null = null;
-
-    for (const session of sessions) {
-        if (!session.session_date) {
-            continue;
-        }
-
-        if (!latest || !latest.session_date || session.session_date > latest.session_date) {
-            latest = session;
-        }
+// window.confirm() is the project-wide pattern for destructive actions
+// (Patients/Practitioners/Centers/Treatments index pages, Form.vue's
+// reopenTreatment()) — no dedicated confirmation dialog component exists,
+// so this follows the same convention rather than introducing a new one.
+function confirmDelete(session: TreatmentSessionSummary) {
+    if (!confirm('Supprimer cette séance ? Cette action est irréversible.')) {
+        return;
     }
 
-    return latest?.id ?? sessions[sessions.length - 1]?.id ?? null;
+    emit('delete-session', session);
+}
+
+// Treatment::sessions() is now ordered orderByDesc('session_date')
+// server-side, so the most recent session is always the first array entry —
+// no client-side re-sort needed here, just read [0].
+function mostRecentSessionId(sessions: TreatmentSessionSummary[]): number | null {
+    return sessions[0]?.id ?? null;
 }
 
 function statusColor(session: TreatmentSessionSummary): string {
@@ -52,10 +54,6 @@ function statusColor(session: TreatmentSessionSummary): string {
 
 function formatSessionDate(session: TreatmentSessionSummary): string {
     return session.session_date ? new Date(session.session_date).toLocaleDateString() : '—';
-}
-
-function isResolved(progress: { outcome: string | null }): boolean {
-    return progress.outcome !== null && resolvedOutcomes.has(progress.outcome);
 }
 </script>
 
@@ -66,12 +64,23 @@ function isResolved(progress: { outcome: string | null }): boolean {
                 <span class="text-body-2 text-medium-emphasis">{{ formatSessionDate(session) }}</span>
             </template>
 
-            <AppCard variant="tonal" clickable @click="$emit('edit-session', session)">
+            <AppCard variant="tonal" clickable @click="emit('edit-session', session)">
                 <v-card-text>
-                    <p class="text-body-2 font-weight-medium mb-2">
-                        {{ formatSessionDate(session) }}
-                        <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
-                    </p>
+                    <div class="d-flex justify-space-between align-start ga-2 mb-2">
+                        <p class="text-body-2 font-weight-medium mb-0" style="min-width: 0">
+                            {{ formatSessionDate(session) }}
+                            <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
+                        </p>
+
+                        <AppButton
+                            class="flex-shrink-0"
+                            icon="mdi-delete"
+                            severity="danger"
+                            size="small"
+                            aria-label="Supprimer la séance"
+                            @click.stop="confirmDelete(session)"
+                        />
+                    </div>
 
                     <div v-if="session.care_items.length" class="d-flex flex-wrap ga-2 mb-2">
                         <v-chip v-for="item in session.care_items" :key="item.id" size="small" variant="tonal">
@@ -81,8 +90,10 @@ function isResolved(progress: { outcome: string | null }): boolean {
 
                     <div v-if="session.disease_progress.length" class="d-flex flex-column ga-1">
                         <div v-for="progress in session.disease_progress" :key="progress.disease_id" class="d-flex align-center ga-1">
-                            <v-icon :icon="isResolved(progress) ? 'mdi-check-circle' : 'mdi-progress-clock'" :color="isResolved(progress) ? 'success' : undefined" size="small" />
-                            <span class="text-body-2">{{ progress.disease_label }}</span>
+                            <v-icon :icon="outcomeIcon(progress.outcome)" :color="outcomeColor(progress.outcome)" size="small" />
+                            <span class="text-body-2">
+                                {{ progress.disease_label }} — {{ outcomeLabel(progress.outcome, progress.outcome_percentage) }}
+                            </span>
                         </div>
                     </div>
                 </v-card-text>

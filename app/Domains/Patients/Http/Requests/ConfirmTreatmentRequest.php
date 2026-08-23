@@ -5,7 +5,6 @@ namespace App\Domains\Patients\Http\Requests;
 use App\Domains\Patients\Models\Treatment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 class ConfirmTreatmentRequest extends FormRequest
 {
@@ -23,11 +22,14 @@ class ConfirmTreatmentRequest extends FormRequest
      * columns for `treatments` plus at least one disease (a
      * confirmed treatment without any targeted disease is meaningless).
      *
-     * disease_progress carries the wizard's "Issue par maladie" step —
-     * optional per-disease outcome/percentage/notes captured at
-     * confirmation time, stored as the treatment's first (implicit)
-     * TreatmentSession rather than on the treatment itself, so it uses
-     * the same storage path as every later real session.
+     * care_item_ids carries the wizard's "Soins — 1ère séance" step —
+     * optional, captured at confirmation time, stored as the treatment's
+     * first (implicit) TreatmentSession rather than on the treatment
+     * itself, so it uses the same storage path as every later real
+     * session. Only has an effect on the treatment's very first
+     * confirmation (see Treatment::sessions()->doesntExist() in
+     * TreatmentController::confirm()) — disease-outcome tracking now
+     * only ever happens through TreatmentSessionController, not here.
      *
      * @return array<string, mixed>
      */
@@ -39,26 +41,9 @@ class ConfirmTreatmentRequest extends FormRequest
             'disease_ids' => ['required', 'array', 'min:1'],
             'disease_ids.*' => ['integer', 'exists:diseases,id'],
             'outcome_percentage' => [Rule::requiredIf($this->input('outcome') === 'percentage'), 'nullable', 'integer', 'min:1', 'max:99'],
-            'disease_progress' => ['nullable', 'array'],
-            'disease_progress.*.disease_id' => ['required', 'integer', 'exists:diseases,id'],
-            'disease_progress.*.outcome' => ['nullable', Rule::in(['cured', 'not_cured', 'percentage', 'ongoing'])],
-            'disease_progress.*.outcome_percentage' => ['nullable', 'integer', 'min:1', 'max:99'],
-            'disease_progress.*.notes' => ['nullable', 'string'],
+            'care_item_ids' => ['nullable', 'array'],
+            'care_item_ids.*' => ['integer', 'exists:care_items,id'],
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator) {
-            foreach ($this->input('disease_progress', []) as $index => $row) {
-                if (($row['outcome'] ?? null) === 'percentage' && ($row['outcome_percentage'] ?? null) === null) {
-                    $validator->errors()->add(
-                        "disease_progress.{$index}.outcome_percentage",
-                        'The outcome percentage field is required when outcome is percentage.'
-                    );
-                }
-            }
-        });
     }
 
     /**

@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVuetify } from 'vuetify';
 import TreatmentTimeline from './TreatmentTimeline.vue';
 
@@ -49,5 +49,73 @@ describe('TreatmentTimeline', () => {
 
         expect(wrapper.emitted('edit-session')).toHaveLength(1);
         expect(wrapper.emitted('edit-session')?.[0]).toEqual([sessions[0]]);
+    });
+
+    it('shows the outcome label alongside the disease name for each distinct status', () => {
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        expect(wrapper.text()).toContain('Acidity — Guéri');
+        expect(wrapper.text()).toContain('Acidity — En cours');
+    });
+});
+
+describe('TreatmentTimeline — delete session', () => {
+    let confirmSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        confirmSpy = vi.spyOn(window, 'confirm');
+    });
+
+    afterEach(() => {
+        confirmSpy.mockRestore();
+    });
+
+    it('emits delete-session with the session when confirmed', async () => {
+        confirmSpy.mockReturnValue(true);
+
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        const deleteButtons = wrapper.findAll('button[aria-label="Supprimer la séance"]');
+        expect(deleteButtons).toHaveLength(2);
+        await deleteButtons[0].trigger('click');
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(wrapper.emitted('delete-session')).toHaveLength(1);
+        expect(wrapper.emitted('delete-session')?.[0]).toEqual([sessions[0]]);
+    });
+
+    it('does not emit delete-session when the confirmation is cancelled', async () => {
+        confirmSpy.mockReturnValue(false);
+
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        const deleteButtons = wrapper.findAll('button[aria-label="Supprimer la séance"]');
+        await deleteButtons[0].trigger('click');
+
+        expect(confirmSpy).toHaveBeenCalledTimes(1);
+        expect(wrapper.emitted('delete-session')).toBeUndefined();
+    });
+
+    it('does not emit edit-session when the delete button is clicked (click.stop)', async () => {
+        confirmSpy.mockReturnValue(true);
+
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        const deleteButtons = wrapper.findAll('button[aria-label="Supprimer la séance"]');
+        await deleteButtons[0].trigger('click');
+
+        expect(wrapper.emitted('edit-session')).toBeUndefined();
     });
 });

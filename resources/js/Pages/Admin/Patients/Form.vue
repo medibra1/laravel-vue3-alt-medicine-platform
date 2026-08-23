@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
-import AppCard from '@/Components/App/AppCard.vue';
-import AppDatePicker from '@/Components/App/AppDatePicker.vue';
-import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
-import AppSelect from '@/Components/App/AppSelect.vue';
-import AppTextarea from '@/Components/App/AppTextarea.vue';
+import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
+import TreatmentCard from '@/Components/Patients/TreatmentCard.vue';
 import TreatmentCloseDialog from '@/Components/Patients/TreatmentCloseDialog.vue';
 import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog.vue';
-import TreatmentTimeline from '@/Components/Patients/TreatmentTimeline.vue';
 import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface Center {
     id: number;
@@ -68,6 +65,8 @@ interface TreatmentSummary {
     practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
     diseases: TreatmentDisease[];
     sessions: TreatmentSessionSummary[];
+    locked_disease_ids: number[];
+    latest_known_outcomes: Record<number, { outcome: string | null; outcome_percentage: number | null; notes: string | null }>;
 }
 
 interface PractitionerOption {
@@ -114,11 +113,6 @@ const props = defineProps<{
     careCategories?: CareCategoryOption[];
 }>();
 
-const genderOptions = [
-    { label: 'Homme', value: 'male' },
-    { label: 'Femme', value: 'female' },
-];
-
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
     useResilientForm(
         'patients',
@@ -144,13 +138,6 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
     );
 
 watch(form, () => scheduleSave(), { deep: true });
-
-const birthDateBinding = computed<Date | null>({
-    get: () => (form.birth_date ? new Date(form.birth_date as string) : null),
-    set: (value) => {
-        form.birth_date = value ? value.toISOString().slice(0, 10) : null;
-    },
-});
 
 const fieldErrors = computed<Record<string, string>>(() => ({
     ...Object.fromEntries(
@@ -209,6 +196,10 @@ async function confirmPatient() {
 // --- Treatments section (dossier patient) ---
 const wizardVisible = ref(false);
 const editingTreatment = ref<{ id: number; client_uuid: string; patient_id: number; practitioner_id: number | null; center_id: number | null; started_at: string | null; ended_at: string | null; outcome: string | null; outcome_percentage: number | null; notes: string | null; disease_ids: number[] } | null>(null);
+// Diseases already tracked by a session on the treatment being edited —
+// passed to TreatmentWizardDialog so it can lock their checkboxes. Always
+// empty for a brand-new treatment (nothing tracked yet).
+const editingTreatmentLockedDiseaseIds = ref<number[]>([]);
 
 // TreatmentWizardDialog stays mounted for the page's whole lifetime (its
 // `v-if="patient"` never toggles once a patient exists), so its internal
@@ -224,40 +215,40 @@ const wizardKey = ref(0);
 // not start a whole new treatment) — the backend enforces this too
 // (StoreTreatmentDraftRequest), this just avoids making them fill the
 // whole wizard before finding out.
-const hasOngoingTreatment = computed(() => (props.treatments ?? []).some((t) => t.status === 'ongoing'));
+const ongoingTreatment = computed(() => (props.treatments ?? []).find((t) => t.status === 'ongoing') ?? null);
 
-const treatmentStatusLabels: Record<string, string> = {
-    draft: 'Brouillon',
-    confirmed: 'Confirmé',
-    ongoing: 'En cours',
-    closed: 'Fermé',
-};
+const pastTreatments = computed(() => (props.treatments ?? []).filter((t) => t.status !== 'ongoing'));
 
-const closureReasonLabels: Record<string, string> = {
-    resolved: 'toutes les maladies résolues',
-    lost_to_follow_up: 'perdu de vue',
-    closed_manually: 'clôture manuelle',
-};
+// --- Tabs (patient file navigation) ---
+const tabs: AppTabItem[] = [
+    { title: 'Informations', value: 'informations' },
+    { title: 'Traitement en cours', value: 'ongoing' },
+    { title: 'Historique', value: 'history' },
+];
 
-function treatmentStatusLabel(treatment: TreatmentSummary): string {
-    const base = treatment.status ? (treatmentStatusLabels[treatment.status] ?? treatment.status) : '—';
+const urlParams = new URLSearchParams(window.location.search);
+const tabFromUrl = urlParams.get('tab');
 
-    if (treatment.status === 'closed' && treatment.closure_reason) {
-        return `${base} (${closureReasonLabels[treatment.closure_reason] ?? treatment.closure_reason})`;
-    }
+// Defaults to "informations" on arrival, unless the patient already has an
+// ongoing treatment — in that case the raqi almost always came here to log
+// a session or close it, not to re-edit identity fields.
+const activeTab = ref<string>(
+    tabFromUrl && tabs.some((tab) => tab.value === tabFromUrl)
+        ? tabFromUrl
+        : ongoingTreatment.value
+          ? 'ongoing'
+          : 'informations',
+);
 
-    return base;
-}
-
-function treatmentStatusColor(treatment: TreatmentSummary): string {
-    if (treatment.status === 'ongoing') return 'primary';
-    if (treatment.status === 'closed') return treatment.closure_reason === 'resolved' ? 'success' : 'warning';
-
-    return 'secondary';
-}
+watch(activeTab, (value) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', value);
+    window.history.replaceState({}, '', url);
+});
 
 function openNewTreatment() {
     editingTreatment.value = null;
+    editingTreatmentLockedDiseaseIds.value = [];
     wizardKey.value++;
     wizardVisible.value = true;
 }
@@ -276,6 +267,7 @@ function editTreatment(treatment: TreatmentSummary) {
         notes: treatment.notes,
         disease_ids: treatment.diseases.map((d) => d.id),
     };
+    editingTreatmentLockedDiseaseIds.value = treatment.locked_disease_ids;
     wizardKey.value++;
     wizardVisible.value = true;
 }
@@ -283,6 +275,38 @@ function editTreatment(treatment: TreatmentSummary) {
 function reloadPatient() {
     router.reload({ only: ['patient', 'treatments'] });
 }
+
+// Only ever set by PatientController::confirm()'s redirect, right after a
+// patient is first confirmed (draft -> confirmed happens once in a
+// patient's lifecycle) — auto-opens the treatment wizard so the raqi isn't
+// forced to click "Ajouter un traitement" as an extra step. Skipped if a
+// treatment somehow already exists (shouldn't happen right after
+// confirmation, but ongoingTreatment is the single source of truth here).
+// `open` is stripped from the URL either way, so a page reload never
+// re-opens the wizard on its own.
+//
+// Checked on Inertia's `navigate` event, not just onMounted: confirming a
+// patient redirects back to this same route/component, so Inertia reuses
+// the existing Form.vue instance instead of remounting it — onMounted alone
+// would never fire for this navigation.
+function checkOpenTreatmentParam() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('open') === 'treatment' && !ongoingTreatment.value) {
+        openNewTreatment();
+    }
+
+    if (params.has('open')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('open');
+        window.history.replaceState({}, '', url);
+    }
+}
+
+onMounted(checkOpenTreatmentParam);
+
+const removeNavigateListener = router.on('navigate', checkOpenTreatmentParam);
+onUnmounted(removeNavigateListener);
 
 const sessionDialogVisible = ref(false);
 const sessionTreatmentId = ref<number | null>(null);
@@ -298,6 +322,14 @@ function openEditSession(treatment: TreatmentSummary, session: TreatmentSessionS
     sessionTreatmentId.value = treatment.id;
     editingSession.value = session;
     sessionDialogVisible.value = true;
+}
+
+// TreatmentTimeline already confirms via window.confirm() before emitting
+// this — no second confirmation here.
+function deleteSession(treatment: TreatmentSummary, session: TreatmentSessionSummary) {
+    router.delete(route('admin.treatments.sessions.destroy', [treatment.id, session.id]), {
+        onSuccess: reloadPatient,
+    });
 }
 
 const closeDialogVisible = ref(false);
@@ -323,6 +355,10 @@ function reopenTreatment(treatment: TreatmentSummary) {
 function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
     return props.treatments?.find((t) => t.id === treatmentId)?.diseases ?? [];
 }
+
+function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_known_outcomes'] {
+    return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
+}
 </script>
 
 <template>
@@ -338,161 +374,85 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             ]"
         />
 
-        <div class="mx-auto d-flex flex-column ga-6" style="max-width: 800px">
-            <div>
-                <p class="text-body-2 text-medium-emphasis mb-4">{{ savedLabel }}</p>
+        <div class="mx-auto" style="max-width: 800px">
+            <AppTabs v-if="patient" v-model="activeTab" :tabs="tabs">
+                <template #informations>
+                    <PatientInfoForm
+                        :form="form"
+                        :centers="centers"
+                        :field-errors="fieldErrors"
+                        :saved-label="savedLabel"
+                        :save-errors="saveErrors"
+                        :confirming="confirming"
+                        @confirm="confirmPatient"
+                        @cancel="router.get(route('admin.patients.index'))"
+                    />
+                </template>
 
-                <v-alert
-                    v-if="Object.keys(saveErrors).length"
-                    type="error"
-                    variant="tonal"
-                    class="mb-4"
-                    title="Enregistrement impossible"
-                >
-                    <ul class="ps-4">
-                        <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
-                    </ul>
-                </v-alert>
-
-                <AppCard variant="elevated" elevation="1">
-                    <v-card-text>
-                        <form class="d-flex flex-column ga-4" @submit.prevent="confirmPatient">
-                            <AppSelect
-                                v-if="centers.length"
-                                v-model="form.intake_center_id"
-                                :options="centers"
-                                option-label="name"
-                                option-value="id"
-                                label="Centre d'accueil"
-                                placeholder="Choisir un centre"
-                                :error="fieldErrors.intake_center_id"
-                            />
-
-                            <AppInputText v-model="form.first_name" label="Prénom" :error="fieldErrors.first_name" />
-
-                            <AppInputText v-model="form.last_name" label="Nom" :error="fieldErrors.last_name" />
-
-                            <AppSelect
-                                v-model="form.gender"
-                                :options="genderOptions"
-                                option-label="label"
-                                option-value="value"
-                                label="Genre"
-                                show-clear
-                                placeholder="Non renseigné"
-                                :error="fieldErrors.gender"
-                            />
-
-                            <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
-
-                            <AppInputText v-model="form.phone" label="Téléphone" :error="fieldErrors.phone" />
-
-                            <AppInputText v-model="form.email" type="email" label="Email" />
-
-                            <AppInputText v-model="form.city" label="Ville" :error="fieldErrors.city" />
-
-                            <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
-
-                            <AppInputText v-model="form.emergency_contact_phone" label="Contact d'urgence — téléphone" />
-
-                            <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
-
-                            <div class="d-flex justify-end ga-2">
-                                <AppButton
-                                    type="button"
-                                    label="Retour à la liste"
-                                    severity="secondary"
-                                    @click="router.get(route('admin.patients.index'))"
-                                />
-                                <AppButton type="submit" label="Confirmer" :loading="confirming" />
-                            </div>
-                        </form>
-                    </v-card-text>
-                </AppCard>
-            </div>
-
-            <div v-if="patient">
-                <div class="d-flex align-center justify-space-between mb-1">
-                    <h2 class="text-h6">Traitements</h2>
-                    <AppButton label="Ajouter un traitement" icon="mdi-plus" :disabled="hasOngoingTreatment" @click="openNewTreatment" />
-                </div>
-
-                <p v-if="hasOngoingTreatment" class="text-body-2 text-medium-emphasis mb-3">
-                    Un traitement est en cours — clôturez-le avant d'en ajouter un nouveau.
-                </p>
-
-                <p v-if="!treatments?.length" class="text-body-2 text-medium-emphasis">
-                    Aucun traitement pour ce patient.
-                </p>
-
-                <AppCard v-for="treatment in treatments" :key="treatment.id" class="mb-4" variant="outlined">
-                    <v-card-text>
-                        <div class="d-flex justify-space-between align-start mb-2">
-                            <div>
-                                <div class="d-flex align-center ga-2 mb-1">
-                                    <p class="text-subtitle-1 mb-0">
-                                        Début : {{ treatment.started_at ? new Date(treatment.started_at).toLocaleDateString() : '—' }}
-                                    </p>
-                                    <v-chip size="small" :color="treatmentStatusColor(treatment)" variant="tonal">
-                                        {{ treatmentStatusLabel(treatment) }}
-                                    </v-chip>
-                                </div>
-                                <p class="text-body-2 text-medium-emphasis">
-                                    Praticien :
-                                    {{
-                                        treatment.practitioner
-                                            ? `${treatment.practitioner.first_name} ${treatment.practitioner.last_name} (${treatment.practitioner.full_code})`
-                                            : '—'
-                                    }}
-                                </p>
-                            </div>
-                            <div class="d-flex ga-2">
-                                <AppButton
-                                    label="Modifier"
-                                    severity="secondary"
-                                    size="small"
-                                    @click="editTreatment(treatment)"
-                                />
-                                <AppButton
-                                    v-if="treatment.status === 'ongoing'"
-                                    label="Ajouter une séance"
-                                    size="small"
-                                    @click="openNewSession(treatment)"
-                                />
-                                <AppButton
-                                    v-if="treatment.status === 'ongoing'"
-                                    label="Clôturer"
-                                    severity="secondary"
-                                    size="small"
-                                    @click="openCloseTreatment(treatment)"
-                                />
-                                <AppButton
-                                    v-if="treatment.status === 'closed'"
-                                    label="Rouvrir"
-                                    severity="secondary"
-                                    size="small"
-                                    @click="reopenTreatment(treatment)"
-                                />
-                            </div>
-                        </div>
-
-                        <div class="d-flex flex-wrap ga-2 mb-3">
-                            <v-chip v-for="disease in treatment.diseases" :key="disease.id" size="small" variant="tonal">
-                                {{ disease.code }} — {{ disease.label }}
-                            </v-chip>
-                        </div>
-
-                        <div v-if="treatment.sessions.length">
-                            <p class="text-body-2 font-weight-medium mb-2">Séances</p>
-                            <TreatmentTimeline
-                                :sessions="treatment.sessions"
-                                :treatment-status="treatment.status ?? ''"
-                                @edit-session="(session) => openEditSession(treatment, session)"
+                <template #ongoing>
+                    <div>
+                        <div class="d-flex align-center justify-space-between mb-1">
+                            <h2 class="text-h6">Traitement en cours</h2>
+                            <AppButton
+                                v-if="!ongoingTreatment"
+                                label="Ajouter un traitement"
+                                icon="mdi-plus"
+                                @click="openNewTreatment"
                             />
                         </div>
-                    </v-card-text>
-                </AppCard>
-            </div>
+
+                        <p v-if="!ongoingTreatment" class="text-body-2 text-medium-emphasis">
+                            Aucun traitement en cours pour ce patient.
+                        </p>
+
+                        <TreatmentCard
+                            v-else
+                            :treatment="ongoingTreatment"
+                            @edit="editTreatment"
+                            @add-session="openNewSession"
+                            @close="openCloseTreatment"
+                            @reopen="reopenTreatment"
+                            @edit-session="openEditSession"
+                            @delete-session="deleteSession"
+                        />
+                    </div>
+                </template>
+
+                <template #history>
+                    <div>
+                        <h2 class="text-h6 mb-3">Historique des traitements</h2>
+
+                        <p v-if="!pastTreatments.length" class="text-body-2 text-medium-emphasis">
+                            Aucun traitement passé pour ce patient.
+                        </p>
+
+                        <TreatmentCard
+                            v-for="treatment in pastTreatments"
+                            :key="treatment.id"
+                            class="mb-4"
+                            :treatment="treatment"
+                            @edit="editTreatment"
+                            @add-session="openNewSession"
+                            @close="openCloseTreatment"
+                            @reopen="reopenTreatment"
+                            @edit-session="openEditSession"
+                            @delete-session="deleteSession"
+                        />
+                    </div>
+                </template>
+            </AppTabs>
+
+            <PatientInfoForm
+                v-else
+                :form="form"
+                :centers="centers"
+                :field-errors="fieldErrors"
+                :saved-label="savedLabel"
+                :save-errors="saveErrors"
+                :confirming="confirming"
+                @confirm="confirmPatient"
+                @cancel="router.get(route('admin.patients.index'))"
+            />
         </div>
 
         <TreatmentWizardDialog
@@ -506,6 +466,8 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             :practitioners="practitioners ?? []"
             :diseases="diseases ?? []"
             :disease-categories="diseaseCategories ?? []"
+            :care-categories="careCategories ?? []"
+            :locked-disease-ids="editingTreatmentLockedDiseaseIds"
             @saved="reloadPatient"
         />
 
@@ -516,6 +478,7 @@ function treatmentDiseasesFor(treatmentId: number): TreatmentDisease[] {
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
+            :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
             @saved="reloadPatient"
         />
 

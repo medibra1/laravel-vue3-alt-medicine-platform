@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Core\Models\Center;
+use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
@@ -172,6 +173,54 @@ test('manager can update a draft treatment in their own center with a partial pa
     expect($treatment->fresh()->notes)->toBe('Séance bien passée');
 });
 
+test('a disease with tracked session progress cannot be removed from disease_ids, but a new one can be added', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $trackedDisease = Disease::factory()->create();
+    $untrackedDisease = Disease::factory()->create();
+    $newDisease = Disease::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->diseases()->sync([$trackedDisease->id, $untrackedDisease->id]);
+    $treatment->setStatus('confirmed');
+    $session = $treatment->sessions()->create(['session_date' => now(), 'created_by' => $superAdmin->id]);
+    $session->diseaseProgress()->create(['disease_id' => $trackedDisease->id, 'outcome' => 'ongoing']);
+
+    $removingTracked = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => [$untrackedDisease->id]],
+    );
+
+    $removingTracked->assertUnprocessable();
+    $removingTracked->assertJsonValidationErrors('disease_ids');
+    expect($treatment->diseases()->pluck('diseases.id')->sort()->values()->all())
+        ->toBe(collect([$trackedDisease->id, $untrackedDisease->id])->sort()->values()->all());
+
+    $addingNew = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => [$trackedDisease->id, $untrackedDisease->id, $newDisease->id]],
+    );
+
+    $addingNew->assertOk();
+    expect($treatment->diseases()->pluck('diseases.id')->sort()->values()->all())
+        ->toBe(collect([$trackedDisease->id, $untrackedDisease->id, $newDisease->id])->sort()->values()->all());
+});
+
+test('disease_ids stays freely editable while the treatment has no sessions yet', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $disease = Disease::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $response = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => []],
+    );
+
+    $response->assertOk();
+    expect($treatment->diseases()->count())->toBe(0);
+});
+
 test('confirming with missing required fields fails and status stays draft', function () {
     $superAdmin = actingAsSuperAdmin();
     $treatment = Treatment::factory()->create(['practitioner_id' => null, 'started_at' => null]);
@@ -202,7 +251,27 @@ test('confirming with complete data transitions the treatment to ongoing', funct
     expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
 });
 
-test('confirming with disease progress that already resolves every disease auto-closes the treatment', function () {
+test('confirming with only care_item_ids creates the implicit first session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+    $careItem = CareItem::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'care_item_ids' => [$careItem->id],
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $session = $treatment->fresh()->sessions()->first();
+    expect($session)->not->toBeNull();
+    expect($session->careItems()->pluck('care_items.id')->all())->toBe([$careItem->id]);
+});
+
+test('confirming with no care_item_ids creates no session', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
     $practitioner = Practitioner::factory()->for($center)->create();
@@ -211,16 +280,41 @@ test('confirming with disease progress that already resolves every disease auto-
     $disease = Disease::factory()->create();
     $treatment->diseases()->sync([$disease->id]);
 
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), []);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    expect($treatment->fresh()->sessions()->count())->toBe(0);
+});
+
+test('confirming an already-confirmed treatment a second time does not create a second implicit session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+    $firstCareItem = CareItem::factory()->create();
+    $secondCareItem = CareItem::factory()->create();
+
+    $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'care_item_ids' => [$firstCareItem->id],
+    ]);
+    expect($treatment->fresh()->sessions()->count())->toBe(1);
+
+    // Re-submitting confirm() (e.g. re-opening and re-saving the wizard on
+    // an already-started treatment) must not spawn a second implicit
+    // session — care from here on only goes through
+    // TreatmentSessionController, so this second care_item_ids payload is
+    // silently ignored.
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
-        'disease_progress' => [
-            ['disease_id' => $disease->id, 'outcome' => 'cured'],
-        ],
+        'care_item_ids' => [$secondCareItem->id],
     ]);
 
     $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
     $fresh = $treatment->fresh();
-    expect($fresh->latestStatus()->name)->toBe('closed');
-    expect($fresh->closure_reason)->toBe('resolved');
+    expect($fresh->sessions()->count())->toBe(1);
+    expect($fresh->sessions()->first()->careItems()->pluck('care_items.id')->all())->toBe([$firstCareItem->id]);
 });
 
 test('a patient with an ongoing treatment cannot start a new one', function () {

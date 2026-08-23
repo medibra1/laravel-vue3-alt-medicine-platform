@@ -31,6 +31,11 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         css: true,
+        setupFiles: ['resources/js/vitest.setup.ts'],
+        // tests/e2e/*.spec.ts are Playwright specs (run via `npm run
+        // test:e2e`), not Vitest's — Vitest's default include pattern
+        // would otherwise try to collect them too.
+        exclude: ['**/node_modules/**', 'tests/e2e/**'],
         server: {
             deps: {
                 inline: ['vuetify'],
