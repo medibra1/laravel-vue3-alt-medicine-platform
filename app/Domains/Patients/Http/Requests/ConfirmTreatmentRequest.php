@@ -23,11 +23,11 @@ class ConfirmTreatmentRequest extends FormRequest
      * columns for `treatments` plus at least one disease (a
      * confirmed treatment without any targeted disease is meaningless).
      *
-     * disease_progress carries the wizard's "Issue par maladie" step —
-     * optional per-disease outcome/percentage/notes captured at
-     * confirmation time, stored as the treatment's first (implicit)
-     * TreatmentSession rather than on the treatment itself, so it uses
-     * the same storage path as every later real session.
+     * disease_progress carries the wizard's "Issue par maladie" step and
+     * care_item_ids its "Soins — 1ère séance" step — both optional,
+     * captured at confirmation time, stored as the treatment's first
+     * (implicit) TreatmentSession rather than on the treatment itself, so
+     * they use the same storage path as every later real session.
      *
      * @return array<string, mixed>
      */
@@ -44,6 +44,8 @@ class ConfirmTreatmentRequest extends FormRequest
             'disease_progress.*.outcome' => ['nullable', Rule::in(['cured', 'not_cured', 'percentage', 'ongoing'])],
             'disease_progress.*.outcome_percentage' => ['nullable', 'integer', 'min:1', 'max:99'],
             'disease_progress.*.notes' => ['nullable', 'string'],
+            'care_item_ids' => ['nullable', 'array'],
+            'care_item_ids.*' => ['integer', 'exists:care_items,id'],
         ];
     }
 

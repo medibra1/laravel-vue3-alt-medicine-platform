@@ -383,6 +383,14 @@ treatment_session_id (fk) · care_item_id (fk `care_items`) —
 clé composite. Quels soins concrets (voir catalogue ci-dessous) ont été
 utilisés à une séance donnée.
 
+**Alimenté aussi depuis le wizard Treatment (2026-08-23)** — le 4e step
+du wizard ("Soins — 1ère séance") capture les soins de la toute première
+séance implicite créée à la confirmation (voir "Domaine Treatment" dans
+`CLAUDE.md` pour le mécanisme de séance implicite). Les soins restent
+100% par séance (option B retenue explicitement, pas de protocole/plan
+au niveau du traitement) — ce step ne fait qu'ajouter un deuxième point
+d'entrée vers ce même pivot, pas une nouvelle notion de donnée.
+
 ### `care_categories` / `care_items` — **implémenté** (2026-08-20)
 Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
 de `disease_categories`/`diseases` (décision : la

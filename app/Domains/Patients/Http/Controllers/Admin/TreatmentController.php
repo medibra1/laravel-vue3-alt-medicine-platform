@@ -133,7 +133,8 @@ class TreatmentController extends Controller
         $validated = $request->validated();
         $treatment->diseases()->sync($validated['disease_ids']);
         $diseaseProgress = $validated['disease_progress'] ?? [];
-        unset($validated['disease_ids'], $validated['disease_progress']);
+        $careItemIds = $validated['care_item_ids'] ?? [];
+        unset($validated['disease_ids'], $validated['disease_progress'], $validated['care_item_ids']);
 
         $treatment->update($validated);
         $treatment->setStatus('confirmed');
@@ -142,12 +143,14 @@ class TreatmentController extends Controller
         // global Treatment" for why this transition is automatic.
         $treatment->setStatus('ongoing');
 
-        // The wizard's "Issue par maladie" step is stored as the
-        // treatment's first (implicit) session rather than on the
-        // treatment/pivot directly — same storage path every later real
-        // session uses, see CLAUDE.md "Domaine Treatment" for the
-        // per-session-history reasoning.
-        if ($diseaseProgress !== []) {
+        // The wizard's "Issue par maladie" and "Soins — 1ère séance" steps
+        // are stored as the treatment's first (implicit) session rather
+        // than on the treatment/pivot directly — same storage path every
+        // later real session uses, see CLAUDE.md "Domaine Treatment" for
+        // the per-session-history reasoning. Either step alone is enough
+        // to warrant the session: a treatment can legitimately start with
+        // care given but no outcome yet known, or vice versa.
+        if ($diseaseProgress !== [] || $careItemIds !== []) {
             $session = $treatment->sessions()->create([
                 'practitioner_id' => $treatment->practitioner_id,
                 'session_date' => $treatment->started_at,
@@ -161,6 +164,10 @@ class TreatmentController extends Controller
                     'outcome_percentage' => $row['outcome_percentage'] ?? null,
                     'notes' => $row['notes'] ?? null,
                 ]);
+            }
+
+            if ($careItemIds !== []) {
+                $session->careItems()->sync($careItemIds);
             }
 
             // Edge case, but a real one: every disease could already be

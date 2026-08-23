@@ -37,6 +37,19 @@ interface DiseaseCategoryOption {
     label: string;
 }
 
+interface CareItemOption {
+    id: number;
+    code: string;
+    label: string;
+}
+
+interface CareCategoryOption {
+    id: number;
+    code: string;
+    label: string;
+    items: CareItemOption[];
+}
+
 interface Treatment {
     id: number;
     client_uuid: string;
@@ -59,6 +72,7 @@ defineProps<{
     practitioners: PractitionerOption[];
     diseases: DiseaseOption[];
     diseaseCategories: DiseaseCategoryOption[];
+    careCategories: CareCategoryOption[];
 }>();
 
 const visible = ref(true);
@@ -98,6 +112,7 @@ function onClose(value: boolean) {
             :practitioners="practitioners"
             :diseases="diseases"
             :disease-categories="diseaseCategories"
+            :care-categories="careCategories"
             :locked-disease-ids="treatment?.locked_disease_ids ?? []"
             @update:visible="onClose"
             @saved="onSaved"
