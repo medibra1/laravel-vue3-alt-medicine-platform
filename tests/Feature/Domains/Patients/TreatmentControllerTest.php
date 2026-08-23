@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Core\Models\Center;
+use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
@@ -269,6 +270,41 @@ test('confirming with disease progress that already resolves every disease auto-
     $fresh = $treatment->fresh();
     expect($fresh->latestStatus()->name)->toBe('closed');
     expect($fresh->closure_reason)->toBe('resolved');
+});
+
+test('confirming with only care_item_ids (no disease_progress) still creates the implicit session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+    $careItem = CareItem::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'care_item_ids' => [$careItem->id],
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $session = $treatment->fresh()->sessions()->first();
+    expect($session)->not->toBeNull();
+    expect($session->careItems()->pluck('care_items.id')->all())->toBe([$careItem->id]);
+});
+
+test('confirming with neither disease_progress nor care_item_ids creates no session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), []);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    expect($treatment->fresh()->sessions()->count())->toBe(0);
 });
 
 test('a patient with an ongoing treatment cannot start a new one', function () {

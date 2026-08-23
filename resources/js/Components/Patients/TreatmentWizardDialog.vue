@@ -48,6 +48,19 @@ interface DiseaseCategoryOption {
     label: string;
 }
 
+interface CareItemOption {
+    id: number;
+    code: string;
+    label: string;
+}
+
+interface CareCategoryOption {
+    id: number;
+    code: string;
+    label: string;
+    items: CareItemOption[];
+}
+
 interface Treatment {
     id: number;
     client_uuid: string;
@@ -72,6 +85,7 @@ const props = withDefaults(
         practitioners: PractitionerOption[];
         diseases: DiseaseOption[];
         diseaseCategories: DiseaseCategoryOption[];
+        careCategories: CareCategoryOption[];
         /**
          * Diseases that already have tracked session progress on this
          * treatment — mirrors the server-side rule in
@@ -123,22 +137,41 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
         },
     );
 
+// --- Care items given during this first (implicit) session (step 4) ---
+// Care stays 100% per-session (option B) — this is not a treatment-wide
+// protocol, only what was given during the session confirmation creates.
+const selectedCareItemIds = ref<Set<number>>(new Set());
+
+function toggleCareItem(itemId: number) {
+    const next = new Set(selectedCareItemIds.value);
+
+    if (next.has(itemId)) {
+        next.delete(itemId);
+    } else {
+        next.add(itemId);
+    }
+
+    selectedCareItemIds.value = next;
+}
+
 watch(
     () => props.visible,
     (visible) => {
         if (visible) {
             currentStep.value = 'infos';
+            selectedCareItemIds.value = new Set();
         }
     },
 );
 
 watch(form, () => scheduleSave(), { deep: true });
 
-const currentStep = ref<'infos' | 'diseases' | 'outcomes'>('infos');
+const currentStep = ref<'infos' | 'diseases' | 'outcomes' | 'careItems'>('infos');
 const steps = [
     { title: 'Infos générales', value: 'infos' },
     { title: 'Maladies', value: 'diseases' },
     { title: 'Issue par maladie', value: 'outcomes' },
+    { title: 'Soins — 1ère séance', value: 'careItems' },
 ];
 
 function dateBinding(field: 'started_at' | 'ended_at') {
@@ -285,6 +318,7 @@ async function confirmTreatment() {
         {
             ...form,
             disease_progress: Object.values(diseaseOutcomes.value),
+            care_item_ids: Array.from(selectedCareItemIds.value),
         },
         {
             onError: (errors) => {
@@ -501,6 +535,29 @@ function close() {
                             />
                         </div>
                     </div>
+
+                    <div v-else-if="step === 'careItems'" class="d-flex flex-column ga-4">
+                        <p class="text-body-2 text-medium-emphasis">
+                            Soins donnés lors de cette première séance — pas un protocole pour
+                            l'ensemble du traitement, seulement ce qui a été fait aujourd'hui.
+                        </p>
+
+                        <div v-if="careCategories.length">
+                            <div v-for="category in careCategories" :key="category.id" class="mb-3">
+                                <p class="text-body-2 text-medium-emphasis">{{ category.label }}</p>
+                                <div class="d-flex flex-wrap ga-3">
+                                    <AppCheckbox
+                                        v-for="item in category.items"
+                                        :key="item.id"
+                                        :model-value="selectedCareItemIds.has(item.id)"
+                                        :label="item.label"
+                                        @update:model-value="toggleCareItem(item.id)"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <p v-else class="text-body-2 text-medium-emphasis">Aucun soin disponible.</p>
+                    </div>
                 </div>
             </template>
         </AppStepper>
@@ -517,7 +574,7 @@ function close() {
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) - 1].value as typeof currentStep"
                 />
                 <AppButton
-                    v-if="currentStep !== 'outcomes'"
+                    v-if="currentStep !== 'careItems'"
                     type="button"
                     label="Suivant"
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) + 1].value as typeof currentStep"

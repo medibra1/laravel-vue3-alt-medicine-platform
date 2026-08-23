@@ -456,6 +456,7 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
             :practitioners="practitioners ?? []"
             :diseases="diseases ?? []"
             :disease-categories="diseaseCategories ?? []"
+            :care-categories="careCategories ?? []"
             :locked-disease-ids="editingTreatmentLockedDiseaseIds"
             @saved="reloadPatient"
         />
