@@ -72,14 +72,23 @@ function formatSessionDate(session: TreatmentSessionSummary): string {
                             <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
                         </p>
 
-                        <AppButton
-                            class="flex-shrink-0"
-                            icon="mdi-delete"
-                            severity="danger"
-                            size="small"
-                            aria-label="Supprimer la séance"
-                            @click.stop="confirmDelete(session)"
-                        />
+                        <div class="d-flex ga-1 flex-shrink-0">
+                            <AppButton
+                                icon="mdi-pencil"
+                                severity="secondary"
+                                size="small"
+                                aria-label="Modifier la séance"
+                                @click.stop="emit('edit-session', session)"
+                            />
+
+                            <AppButton
+                                icon="mdi-delete"
+                                severity="danger"
+                                size="small"
+                                aria-label="Supprimer la séance"
+                                @click.stop="confirmDelete(session)"
+                            />
+                        </div>
                     </div>
 
                     <div v-if="session.care_items.length" class="d-flex flex-wrap ga-2 mb-2">
