@@ -5,6 +5,7 @@ import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { computed } from 'vue';
 
 interface Center {
@@ -44,9 +45,9 @@ const genderOptions = [
 ];
 
 const birthDateBinding = computed<Date | null>({
-    get: () => (props.form.birth_date ? new Date(props.form.birth_date) : null),
+    get: () => fromLocalDateString(props.form.birth_date),
     set: (value) => {
-        props.form.birth_date = value ? value.toISOString().slice(0, 10) : null;
+        props.form.birth_date = value ? toLocalDateString(value) : null;
     },
 });
 </script>

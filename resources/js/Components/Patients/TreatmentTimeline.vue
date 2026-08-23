@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppCard from '@/Components/App/AppCard.vue';
+import { outcomeColor, outcomeIcon, outcomeLabel } from '@/utils/diseaseOutcome';
 
 interface TreatmentDisease {
     id: number;
@@ -23,8 +24,6 @@ const props = defineProps<{
 }>();
 
 defineEmits<{ 'edit-session': [session: TreatmentSessionSummary] }>();
-
-const resolvedOutcomes = new Set(['cured', 'resolved']);
 
 // Only the most recent session (chronologically, not the last array entry —
 // sessions aren't guaranteed sorted) gets the "primary" dot; the rest are
@@ -53,10 +52,6 @@ function statusColor(session: TreatmentSessionSummary): string {
 function formatSessionDate(session: TreatmentSessionSummary): string {
     return session.session_date ? new Date(session.session_date).toLocaleDateString() : '—';
 }
-
-function isResolved(progress: { outcome: string | null }): boolean {
-    return progress.outcome !== null && resolvedOutcomes.has(progress.outcome);
-}
 </script>
 
 <template>
@@ -81,8 +76,10 @@ function isResolved(progress: { outcome: string | null }): boolean {
 
                     <div v-if="session.disease_progress.length" class="d-flex flex-column ga-1">
                         <div v-for="progress in session.disease_progress" :key="progress.disease_id" class="d-flex align-center ga-1">
-                            <v-icon :icon="isResolved(progress) ? 'mdi-check-circle' : 'mdi-progress-clock'" :color="isResolved(progress) ? 'success' : undefined" size="small" />
-                            <span class="text-body-2">{{ progress.disease_label }}</span>
+                            <v-icon :icon="outcomeIcon(progress.outcome)" :color="outcomeColor(progress.outcome)" size="small" />
+                            <span class="text-body-2">
+                                {{ progress.disease_label }} — {{ outcomeLabel(progress.outcome, progress.outcome_percentage) }}
+                            </span>
                         </div>
                     </div>
                 </v-card-text>

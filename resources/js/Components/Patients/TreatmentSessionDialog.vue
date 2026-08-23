@@ -6,6 +6,8 @@ import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
+import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
@@ -65,13 +67,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 
-const outcomeOptions = [
-    { label: 'Guéri', value: 'cured' },
-    { label: 'Non guéri', value: 'not_cured' },
-    { label: 'En cours', value: 'ongoing' },
-    { label: 'Pourcentage', value: 'percentage' },
-];
-
 const form = reactive({
     session_date: null as string | null,
     duration_minutes: null as number | null,
@@ -79,9 +74,9 @@ const form = reactive({
 });
 
 const sessionDateBinding = computed<Date | null>({
-    get: () => (form.session_date ? new Date(form.session_date) : null),
+    get: () => fromLocalDateString(form.session_date),
     set: (value) => {
-        form.session_date = value ? value.toISOString().slice(0, 10) : null;
+        form.session_date = value ? toLocalDateString(value) : null;
     },
 });
 
@@ -102,7 +97,7 @@ const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
 const prefilledDiseaseIds = ref<Set<number>>(new Set());
 
 function resetForm() {
-    form.session_date = props.session?.session_date ?? new Date().toISOString().slice(0, 10);
+    form.session_date = props.session?.session_date ?? toLocalDateString(new Date());
     form.duration_minutes = props.session?.duration_minutes ?? null;
     form.notes = props.session?.notes ?? null;
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
