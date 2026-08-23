@@ -174,3 +174,40 @@ test('super admin can delete a session', function () {
     $response->assertRedirect();
     expect($treatment->sessions()->whereKey($session->id)->exists())->toBeFalse();
 });
+
+test('deleting a session calls refreshClosureStatus without breaking an ongoing treatment', function () {
+    // Treatment::refreshClosureStatus() is a no-op unless the treatment is
+    // still `ongoing` (see its docblock — no auto-reopen path exists), and
+    // deleting a session can never *resolve* a disease, only remove
+    // progress — so this can't assert a status transition today. It does
+    // assert destroy() calls it safely (consistent with store()/update())
+    // and that a still-unresolved treatment is untouched, which would
+    // regress if a future refreshClosureStatus() change ever closed a
+    // treatment based on stale/deleted data.
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->setStatus('ongoing');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $session = $treatment->sessions()->create(['session_date' => '2026-08-20', 'created_by' => $superAdmin->id]);
+    $session->diseaseProgress()->create(['disease_id' => $disease->id, 'outcome' => 'ongoing']);
+
+    $response = $this->actingAs($superAdmin)->delete(route('admin.treatments.sessions.destroy', [$treatment, $session]));
+
+    $response->assertRedirect();
+    expect($treatment->fresh()->currentStatusName())->toBe('ongoing');
+});
+
+test('deleting a session whose treatment_id does not match the route treatment returns 404', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatmentA = Treatment::factory()->create();
+    $treatmentB = Treatment::factory()->create();
+    $session = $treatmentA->sessions()->create(['session_date' => '2026-08-20', 'created_by' => $superAdmin->id]);
+
+    $response = $this->actingAs($superAdmin)->delete(route('admin.treatments.sessions.destroy', [$treatmentB, $session]));
+
+    $response->assertNotFound();
+    expect($treatmentA->sessions()->whereKey($session->id)->exists())->toBeTrue();
+});

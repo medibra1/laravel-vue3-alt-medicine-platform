@@ -49,6 +49,7 @@ const emit = defineEmits<{
     close: [treatment: TreatmentSummary];
     reopen: [treatment: TreatmentSummary];
     'edit-session': [treatment: TreatmentSummary, session: TreatmentSessionSummary];
+    'delete-session': [treatment: TreatmentSummary, session: TreatmentSessionSummary];
 }>();
 
 const treatmentStatusLabels: Record<string, string> = {
@@ -161,6 +162,7 @@ function diseaseStatusLabel(diseaseId: number): string {
                     :sessions="treatment.sessions"
                     :treatment-status="treatment.status ?? ''"
                     @edit-session="(session) => emit('edit-session', treatment, session)"
+                    @delete-session="(session) => emit('delete-session', treatment, session)"
                 />
             </div>
         </v-card-text>

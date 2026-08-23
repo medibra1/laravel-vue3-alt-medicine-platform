@@ -251,28 +251,7 @@ test('confirming with complete data transitions the treatment to ongoing', funct
     expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
 });
 
-test('confirming with disease progress that already resolves every disease auto-closes the treatment', function () {
-    $superAdmin = actingAsSuperAdmin();
-    $center = Center::factory()->create();
-    $practitioner = Practitioner::factory()->for($center)->create();
-    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
-    $treatment->setStatus('draft');
-    $disease = Disease::factory()->create();
-    $treatment->diseases()->sync([$disease->id]);
-
-    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
-        'disease_progress' => [
-            ['disease_id' => $disease->id, 'outcome' => 'cured'],
-        ],
-    ]);
-
-    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
-    $fresh = $treatment->fresh();
-    expect($fresh->latestStatus()->name)->toBe('closed');
-    expect($fresh->closure_reason)->toBe('resolved');
-});
-
-test('confirming with only care_item_ids (no disease_progress) still creates the implicit session', function () {
+test('confirming with only care_item_ids creates the implicit first session', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
     $practitioner = Practitioner::factory()->for($center)->create();
@@ -292,7 +271,7 @@ test('confirming with only care_item_ids (no disease_progress) still creates the
     expect($session->careItems()->pluck('care_items.id')->all())->toBe([$careItem->id]);
 });
 
-test('confirming with neither disease_progress nor care_item_ids creates no session', function () {
+test('confirming with no care_item_ids creates no session', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
     $practitioner = Practitioner::factory()->for($center)->create();
@@ -305,6 +284,37 @@ test('confirming with neither disease_progress nor care_item_ids creates no sess
 
     $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
     expect($treatment->fresh()->sessions()->count())->toBe(0);
+});
+
+test('confirming an already-confirmed treatment a second time does not create a second implicit session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+    $firstCareItem = CareItem::factory()->create();
+    $secondCareItem = CareItem::factory()->create();
+
+    $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'care_item_ids' => [$firstCareItem->id],
+    ]);
+    expect($treatment->fresh()->sessions()->count())->toBe(1);
+
+    // Re-submitting confirm() (e.g. re-opening and re-saving the wizard on
+    // an already-started treatment) must not spawn a second implicit
+    // session — care from here on only goes through
+    // TreatmentSessionController, so this second care_item_ids payload is
+    // silently ignored.
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'care_item_ids' => [$secondCareItem->id],
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->sessions()->count())->toBe(1);
+    expect($fresh->sessions()->first()->careItems()->pluck('care_items.id')->all())->toBe([$firstCareItem->id]);
 });
 
 test('a patient with an ongoing treatment cannot start a new one', function () {
