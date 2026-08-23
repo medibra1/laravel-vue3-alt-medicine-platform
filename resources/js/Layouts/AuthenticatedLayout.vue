@@ -2,6 +2,7 @@
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { useAppDensity, type AppDensity } from '@/lib/useAppDensity';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { handleNavClick } from '@/utils/inertiaNavClick';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeMount, ref } from 'vue';
 import { useDisplay } from 'vuetify';
@@ -24,30 +25,43 @@ const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
 
-const generalNavItems = computed(() => [
-    { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: () => route('dashboard'), active: () => route().current('dashboard') },
-    { label: 'Patients', icon: 'mdi-account-heart-outline', href: () => route('admin.patients.index'), active: () => route().current('admin.patients.*') },
-    { label: 'Traitements', icon: 'mdi-medical-bag', href: () => route('admin.treatments.index'), active: () => route().current('admin.treatments.*') },
-    { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: () => route('admin.practitioners.index'), active: () => route().current('admin.practitioners.*') },
-]);
+// route().current() reads window.location imperatively — it has no Vue
+// reactivity of its own, so each `active` flag is computed here (reading
+// usePage().url, which Inertia does update reactively on every visit)
+// rather than left as a function called at render time. Without this,
+// nav highlighting would only ever reflect the very first page load.
+const currentUrl = computed(() => usePage().url);
+
+const generalNavItems = computed(() => {
+    void currentUrl.value;
+
+    return [
+        { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: route('dashboard'), active: route().current('dashboard') },
+        { label: 'Patients', icon: 'mdi-account-heart-outline', href: route('admin.patients.index'), active: route().current('admin.patients.*') },
+        { label: 'Traitements', icon: 'mdi-medical-bag', href: route('admin.treatments.index'), active: route().current('admin.treatments.*') },
+        { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') },
+    ];
+});
 
 // Visually grouped (v-list-subheader) apart from the business menus
 // above — not collapsible for now; a real collapsible group is a
 // possible future improvement if the shell's nav list keeps growing.
-const adminNavItems = computed(() =>
-    isSuperAdmin.value
+const adminNavItems = computed(() => {
+    void currentUrl.value;
+
+    return isSuperAdmin.value
         ? [
-              { label: 'Centres', icon: 'mdi-domain', href: () => route('admin.centers.index'), active: () => route().current('admin.centers.*') },
-              { label: 'Zones', icon: 'mdi-earth', href: () => route('admin.zones.index'), active: () => route().current('admin.zones.*') },
-              { label: 'Pays', icon: 'mdi-flag-outline', href: () => route('admin.countries.index'), active: () => route().current('admin.countries.*') },
-              { label: 'Catégories de maladies', icon: 'mdi-shape-outline', href: () => route('admin.disease-categories.index'), active: () => route().current('admin.disease-categories.*') },
-              { label: 'Maladies', icon: 'mdi-virus-outline', href: () => route('admin.diseases.index'), active: () => route().current('admin.diseases.*') },
-              { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: () => route('admin.care-categories.index'), active: () => route().current('admin.care-categories.*') },
-              { label: 'Soins', icon: 'mdi-leaf', href: () => route('admin.care-items.index'), active: () => route().current('admin.care-items.*') },
-              { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: () => route('admin.enum-options.index'), active: () => route().current('admin.enum-options.*') },
+              { label: 'Centres', icon: 'mdi-domain', href: route('admin.centers.index'), active: route().current('admin.centers.*') },
+              { label: 'Zones', icon: 'mdi-earth', href: route('admin.zones.index'), active: route().current('admin.zones.*') },
+              { label: 'Pays', icon: 'mdi-flag-outline', href: route('admin.countries.index'), active: route().current('admin.countries.*') },
+              { label: 'Catégories de maladies', icon: 'mdi-shape-outline', href: route('admin.disease-categories.index'), active: route().current('admin.disease-categories.*') },
+              { label: 'Maladies', icon: 'mdi-virus-outline', href: route('admin.diseases.index'), active: route().current('admin.diseases.*') },
+              { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: route('admin.care-categories.index'), active: route().current('admin.care-categories.*') },
+              { label: 'Soins', icon: 'mdi-leaf', href: route('admin.care-items.index'), active: route().current('admin.care-items.*') },
+              { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: route('admin.enum-options.index'), active: route().current('admin.enum-options.*') },
           ]
-        : [],
-);
+        : [];
+});
 
 function toggleRail() {
     rail.value = !rail.value;
@@ -111,9 +125,10 @@ onBeforeMount(() => {
                     :key="item.label"
                     :prepend-icon="item.icon"
                     :title="item.label"
-                    :active="item.active()"
-                    :href="item.href()"
+                    :active="item.active"
+                    :href="item.href"
                     rounded="lg"
+                    @click="handleNavClick($event, item.href)"
                 />
             </v-list>
 
@@ -126,9 +141,10 @@ onBeforeMount(() => {
                         :key="item.label"
                         :prepend-icon="item.icon"
                         :title="item.label"
-                        :active="item.active()"
-                        :href="item.href()"
+                        :active="item.active"
+                        :href="item.href"
                         rounded="lg"
+                        @click="handleNavClick($event, item.href)"
                     />
                 </v-list>
             </template>
@@ -181,7 +197,12 @@ onBeforeMount(() => {
                     </v-btn>
                 </template>
                 <v-list density="compact">
-                    <v-list-item :href="route('profile.edit')" title="Profil" prepend-icon="mdi-account-outline" />
+                    <v-list-item
+                        :href="route('profile.edit')"
+                        title="Profil"
+                        prepend-icon="mdi-account-outline"
+                        @click="handleNavClick($event, route('profile.edit'))"
+                    />
                     <v-list-item
                         title="Se déconnecter"
                         prepend-icon="mdi-logout"

@@ -244,8 +244,9 @@ test('confirming with complete data transitions the treatment to ongoing', funct
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), []);
 
     // Back to the patient's file, not the flat treatments list — that's
-    // where the natural next step (adding a session) happens.
-    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    // where the natural next step (adding a session) happens. ?tab=ongoing
+    // lands directly on the tab showing the treatment just confirmed.
+    $response->assertRedirect(route('admin.patients.edit', ['patient' => $treatment->patient_id, 'tab' => 'ongoing']));
     // Confirming starts real-world follow-up immediately — no separate
     // manual step to reach `ongoing` (see Treatment::refreshClosureStatus()).
     expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
@@ -265,7 +266,7 @@ test('confirming with only care_item_ids creates the implicit first session', fu
         'care_item_ids' => [$careItem->id],
     ]);
 
-    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $response->assertRedirect(route('admin.patients.edit', ['patient' => $treatment->patient_id, 'tab' => 'ongoing']));
     $session = $treatment->fresh()->sessions()->first();
     expect($session)->not->toBeNull();
     expect($session->careItems()->pluck('care_items.id')->all())->toBe([$careItem->id]);
@@ -282,7 +283,7 @@ test('confirming with no care_item_ids creates no session', function () {
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), []);
 
-    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $response->assertRedirect(route('admin.patients.edit', ['patient' => $treatment->patient_id, 'tab' => 'ongoing']));
     expect($treatment->fresh()->sessions()->count())->toBe(0);
 });
 
@@ -311,7 +312,7 @@ test('confirming an already-confirmed treatment a second time does not create a 
         'care_item_ids' => [$secondCareItem->id],
     ]);
 
-    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $response->assertRedirect(route('admin.patients.edit', ['patient' => $treatment->patient_id, 'tab' => 'ongoing']));
     $fresh = $treatment->fresh();
     expect($fresh->sessions()->count())->toBe(1);
     expect($fresh->sessions()->first()->careItems()->pluck('care_items.id')->all())->toBe([$firstCareItem->id]);
