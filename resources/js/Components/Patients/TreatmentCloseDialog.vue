@@ -15,10 +15,14 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 
 // 'resolved' isn't offered here on purpose — that reason is only ever set
 // automatically once every disease has a final outcome
-// (Treatment::refreshClosureStatus()). These two cover every early/forced
-// closure a raqi or manager might need instead.
+// (Treatment::refreshClosureStatus()). These three cover every early/forced
+// closure a raqi or manager might need instead. 'lost_to_follow_up' and
+// 'protocol_not_followed' used to be a single merged reason — split so
+// stats can tell "couldn't reach the patient" apart from "reached them, but
+// they didn't follow the sessions/care plan".
 const reasonOptions = [
-    { label: 'Perdu de vue (injoignable / a arrêté le suivi)', value: 'lost_to_follow_up' },
+    { label: 'Injoignable', value: 'lost_to_follow_up' },
+    { label: 'Arrêté — protocole non suivi (séances/soins non respectés)', value: 'protocol_not_followed' },
     { label: 'Autre motif', value: 'closed_manually' },
 ];
 

@@ -291,15 +291,30 @@ explicitement le jour où des comptes raqi individuels existeront
 
 `closure_reason` (posé uniquement quand statut = `closed`) : `resolved`
 (auto, toutes les maladies rattachées résolues) / `lost_to_follow_up`
-/ `closed_manually` (les deux derniers via clôture manuelle
-uniquement — `resolved` est explicitement rejeté sur l'endpoint manuel,
-c'est une valeur calculée, jamais choisie). Les deux raisons manuelles
-viennent du brief client (`Untitled-3`, "perdu de vue... deux semaines
-après la date butoir" + "n'ont pas poursuivi le traitement", groupés
-dans la même catégorie de stats côté client) ; `closed_manually` couvre
-tout le reste (transfert, décès, arrêt médical...) — non demandé
-explicitement par le client, ajouté pour ne pas bloquer un patient sur
-un cas hors périmètre du document source.
+/ `protocol_not_followed` / `closed_manually` (les trois derniers via
+clôture manuelle uniquement — `resolved` est explicitement rejeté sur
+l'endpoint manuel, c'est une valeur calculée, jamais choisie).
+`lost_to_follow_up`/`protocol_not_followed` viennent tous deux du brief
+client (`Untitled-3`, "perdu de vue... deux semaines après la date
+butoir" + "n'ont pas poursuivi le traitement") — groupés en une seule
+valeur au départ, **scindés en deux le 2026-08-23** pour que les futures
+stats de reporting distinguent "injoignable" (`lost_to_follow_up`) de
+"joignable mais protocole non suivi" (`protocol_not_followed`, séances/
+soins abandonnés en cours de route) ; `closed_manually` couvre tout le
+reste (transfert, décès, arrêt médical...) — non demandé explicitement
+par le client, ajouté pour ne pas bloquer un patient sur un cas hors
+périmètre du document source.
+
+**Statut patient dérivé (2026-08-23)** : `patients` n'a pas de colonne
+`status` indépendante pour l'état affiché à l'écran
+(actif/terminé/injoignable/arrêté/autre) — `Patient::derivedStatus()`
+le calcule à la volée depuis le statut/`closure_reason` du traitement
+le plus récent du patient (`Patient::latestTreatment()`), pour que les
+deux ne puissent jamais diverger. Mapping complet documenté dans
+CLAUDE.md (section "Motif de clôture `protocol_not_followed`, statut
+patient dérivé..."). Rien de nouveau en base — uniquement une méthode
+calculée sur le modèle, exposée aux props Inertia par
+`PatientController::edit()`.
 
 **Garde-fou anti-confusion séance/traitement** : `StoreTreatmentDraftRequest`
 refuse de créer un nouveau traitement (`patient_id`) tant que le

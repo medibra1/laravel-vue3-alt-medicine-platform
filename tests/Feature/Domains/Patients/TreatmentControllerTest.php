@@ -407,6 +407,21 @@ test('super admin can manually close an ongoing treatment', function () {
     expect($fresh->closure_reason)->toBe('lost_to_follow_up');
 });
 
+test('super admin can manually close an ongoing treatment with protocol_not_followed', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'protocol_not_followed',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('protocol_not_followed');
+});
+
 test('closing a treatment that is not ongoing fails validation', function () {
     $superAdmin = actingAsSuperAdmin();
     $treatment = Treatment::factory()->create();

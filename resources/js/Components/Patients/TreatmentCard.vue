@@ -61,7 +61,8 @@ const treatmentStatusLabels: Record<string, string> = {
 
 const closureReasonLabels: Record<string, string> = {
     resolved: 'toutes les maladies résolues',
-    lost_to_follow_up: 'perdu de vue',
+    lost_to_follow_up: 'injoignable',
+    protocol_not_followed: 'protocole non suivi',
     closed_manually: 'clôture manuelle',
 };
 

@@ -3,6 +3,7 @@ import AppButton from '@/Components/App/AppButton.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
+import PatientStatusChip from '@/Components/Patients/PatientStatusChip.vue';
 import TreatmentCard from '@/Components/Patients/TreatmentCard.vue';
 import TreatmentCloseDialog from '@/Components/Patients/TreatmentCloseDialog.vue';
 import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog.vue';
@@ -16,6 +17,12 @@ interface Center {
     id: number;
     name: string;
     code: string;
+}
+
+interface DerivedStatus {
+    key: string;
+    label: string;
+    color: string;
 }
 
 interface Patient {
@@ -32,6 +39,7 @@ interface Patient {
     emergency_contact_name: string | null;
     emergency_contact_phone: string | null;
     notes: string | null;
+    derived_status?: DerivedStatus;
 }
 
 interface TreatmentDisease {
@@ -363,6 +371,17 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
 const pageTitle = computed(() =>
     props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
 );
+
+// Clickable only when the latest treatment is still ongoing — a closed
+// treatment's reopen action already lives on its own TreatmentCard in the
+// Historique tab (Treatment::reopen()), not duplicated here. Reuses
+// openCloseTreatment() rather than a second dialog-opening path, same
+// dialog the "Clôturer" button on the ongoing TreatmentCard already opens.
+function onStatusChipClick() {
+    if (ongoingTreatment.value) {
+        openCloseTreatment(ongoingTreatment.value);
+    }
+}
 </script>
 
 <template>
@@ -376,7 +395,11 @@ const pageTitle = computed(() =>
                 { label: 'Patients', href: route('admin.patients.index') },
                 { label: pageTitle },
             ]"
-        />
+        >
+            <template v-if="patient?.derived_status" #title-suffix>
+                <PatientStatusChip :status="patient.derived_status" :clickable="!!ongoingTreatment" @click="onStatusChipClick" />
+            </template>
+        </AppPageHeader>
 
         <div class="mx-auto" style="max-width: 800px">
             <AppTabs v-if="patient" v-model="activeTab" :tabs="tabs">
