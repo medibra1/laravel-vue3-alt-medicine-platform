@@ -204,37 +204,57 @@ watch(isJoiningExisting, (joining) => {
 // TreatmentWizardDialog (see CLAUDE.md).
 const createDialogKey = ref(0);
 
-function openCreate() {
-    createForm.reset();
-    accountStatus.value = 'idle';
-    createDialogKey.value++;
-    isCreating.value = true;
-}
-
-// Auto-suggested next matricule for the selected center — the field
+// Auto-suggested next matricule for the target center — the field
 // stays editable, this only pre-fills it (see PractitionerCodeGenerator
 // ::suggestNextMatricule()). Never applies when auto-joining an
 // existing practitioner to this center — no new Practitioner row is
 // created there, so a matricule is meaningless (and StorePractitionerRequest
 // rejects it outright — see the isJoiningExisting watch above).
-watch(
-    () => createForm.center_id,
-    async (centerId) => {
-        if (!centerId || createForm.matricule || isJoiningExisting.value) {
-            return;
-        }
+// center_id is omitted from the query for a manager (no center select
+// to read it from) — the endpoint already falls back to
+// managedCenterId() server-side for a non-super_admin, see
+// PractitionerController::nextMatricule().
+async function suggestMatricule(centerId?: number | null) {
+    if (createForm.matricule || isJoiningExisting.value) {
+        return;
+    }
 
-        const response = await fetch(
-            route('admin.practitioners.next-matricule', { center_id: centerId }),
-            { headers: { Accept: 'application/json' } },
-        );
+    if (props.centers.length && !centerId) {
+        return;
+    }
 
-        if (response.ok) {
-            const data = await response.json();
-            createForm.matricule = data.matricule;
-        }
-    },
-);
+    const response = await fetch(
+        route('admin.practitioners.next-matricule', centerId ? { center_id: centerId } : {}),
+        { headers: { Accept: 'application/json' } },
+    );
+
+    if (response.ok) {
+        const data = await response.json();
+        createForm.matricule = data.matricule;
+    }
+}
+
+function openCreate() {
+    createForm.reset();
+    accountStatus.value = 'idle';
+    createDialogKey.value++;
+    isCreating.value = true;
+
+    // A super_admin picks the center from a select (triggers the watch
+    // below once they do). A manager never sees that select at all —
+    // their center is forced server-side — so createForm.center_id
+    // stays null forever and the watch alone would never fire, leaving
+    // matricule empty and 'required' silently failing validation (a 302
+    // redirect-back that looks identical to a real success, no visible
+    // error, found via manual testing after this feature shipped).
+    // Suggest it directly for a manager instead of waiting on a
+    // center_id change that will never happen.
+    if (!props.centers.length) {
+        suggestMatricule();
+    }
+}
+
+watch(() => createForm.center_id, (centerId) => suggestMatricule(centerId));
 
 function submitCreate() {
     createForm.post(route('admin.practitioners.store'), {

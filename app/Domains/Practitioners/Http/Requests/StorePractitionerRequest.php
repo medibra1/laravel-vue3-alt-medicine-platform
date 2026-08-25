@@ -47,7 +47,15 @@ class StorePractitionerRequest extends FormRequest
             'last_name' => $isJoiningExisting ? ['nullable', 'string'] : ['required', 'string', 'max:255'],
             // A manager may not choose the center at all — it's forced to
             // the one EnsureCenterAccess resolved for them, see centerId().
-            'center_id' => [$this->user()->isSuperAdmin() ? 'required' : 'prohibited', 'integer', 'exists:centers,id'],
+            // Separate branches rather than 'prohibited' stacked with
+            // 'integer' in one array — a manager's form has no center
+            // select at all, so center_id arrives as null, which fails
+            // 'integer' before 'prohibited' is even meaningfully
+            // evaluated (found via real manager browser testing: a 302
+            // redirect-back that looked identical to a real success).
+            'center_id' => $this->user()->isSuperAdmin()
+                ? ['required', 'integer', 'exists:centers,id']
+                : ['prohibited'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'grade_id' => ['nullable', 'integer', 'exists:grades,id'],
             // full_code = country + center + matricule, so within one
@@ -73,13 +81,18 @@ class StorePractitionerRequest extends FormRequest
             // creation_mode/password only matter when grant_access is
             // true AND the email resolves to a genuinely new account —
             // an 'existing' match (auto-join) never touches password at
-            // all. Kept as their own conditional branches rather than
-            // stacked with 'prohibited' in the same array — see
-            // CLAUDE.md's Phase 1 'prohibited' gotcha.
+            // all. 'nullable' rather than 'prohibited' when grant_access
+            // is false: the form's creation_mode field defaults to
+            // 'invite' and is never reset to empty just because
+            // grant_access got toggled back off (found via real manager
+            // browser testing — same "leftover value on a field the
+            // controller ignores" shape as matricule/creation_mode
+            // above, this time on the grant_access=false path instead
+            // of the isJoiningExisting one).
             'creation_mode' => match (true) {
                 $isJoiningExisting => ['nullable', Rule::in(['direct', 'invite'])],
                 $grantAccess => ['required', Rule::in(['direct', 'invite'])],
-                default => ['prohibited'],
+                default => ['nullable'],
             },
             'password' => $grantAccess && ! $isJoiningExisting && $this->input('creation_mode') === 'direct'
                 ? ['required', 'confirmed', Password::defaults()]

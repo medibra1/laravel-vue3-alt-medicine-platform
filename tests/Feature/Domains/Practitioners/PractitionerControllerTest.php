@@ -89,6 +89,44 @@ test('manager can create a practitioner without sending a center_id', function (
     expect($practitioner->center_id)->toBe($ownCenter->id);
 });
 
+test('manager can create a practitioner with the full payload the frontend actually sends', function () {
+    // Regression: the real Vue form always submits center_id=null and
+    // creation_mode="invite" (its default, never cleared just because
+    // grant_access is off) for a manager, who has no center select at
+    // all — 'center_id' => ['prohibited', 'integer', ...] failed
+    // 'integer' against null before 'prohibited' meaningfully applied,
+    // and 'creation_mode' => 'prohibited' rejected the leftover
+    // default value. Both silently redirected back with errors (a 302
+    // to the same index URL a real success also uses), found only via
+    // manual browser testing — every existing test omitted these keys
+    // instead of sending the real values.
+    $ownCenter = Center::factory()->create();
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
+        'center_id' => null,
+        'matricule' => '012',
+        'grade_id' => null,
+        'level' => null,
+        'hired_at' => null,
+        'phone' => '',
+        'address' => '',
+        'email' => '',
+        'grant_access' => false,
+        'creation_mode' => 'invite',
+        'password' => '',
+        'password_confirmation' => '',
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('admin.practitioners.index'));
+    $practitioner = Practitioner::query()->where('matricule', '012')->firstOrFail();
+    expect($practitioner->center_id)->toBe($ownCenter->id);
+    expect($practitioner->user_id)->toBeNull();
+});
+
 test('matricule must be exactly three digits', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
