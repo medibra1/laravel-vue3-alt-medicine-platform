@@ -40,6 +40,13 @@ class ConfirmTreatmentRequest extends FormRequest
             'started_at' => ['required', 'date'],
             'disease_ids' => ['required', 'array', 'min:1'],
             'disease_ids.*' => ['integer', 'exists:diseases,id'],
+            // Must be a subset of disease_ids — Rule::in reads the sibling
+            // field so a disease can't be marked actively tracked without
+            // also being selected at all. Missing entirely defaults every
+            // selected disease to actively tracked (see
+            // TreatmentController::syncDiseases()).
+            'actively_tracked_disease_ids' => ['sometimes', 'array'],
+            'actively_tracked_disease_ids.*' => ['integer', Rule::in($this->input('disease_ids', []))],
             'outcome_percentage' => [Rule::requiredIf($this->input('outcome') === 'percentage'), 'nullable', 'integer', 'min:1', 'max:99'],
             'care_item_ids' => ['nullable', 'array'],
             'care_item_ids.*' => ['integer', 'exists:care_items,id'],
@@ -65,6 +72,15 @@ class ConfirmTreatmentRequest extends FormRequest
 
         if (! $this->has('disease_ids')) {
             $this->merge(['disease_ids' => $treatment->diseases()->pluck('diseases.id')->all()]);
+        }
+
+        if (! $this->has('actively_tracked_disease_ids')) {
+            $this->merge([
+                'actively_tracked_disease_ids' => $treatment->diseases()
+                    ->wherePivot('actively_tracked', true)
+                    ->pluck('diseases.id')
+                    ->all(),
+            ]);
         }
     }
 }

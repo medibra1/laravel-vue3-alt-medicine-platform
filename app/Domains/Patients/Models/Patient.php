@@ -55,4 +55,47 @@ class Patient extends Model
     {
         return $this->hasMany(Treatment::class);
     }
+
+    /**
+     * Same tiebreak rule already applied to Treatment::sessions() (most
+     * recent first, `id` desc to disambiguate two treatments started the
+     * same day) — kept here as a single query rather than relying on
+     * `treatments` being eager-loaded in a particular order by the caller.
+     */
+    public function latestTreatment(): ?Treatment
+    {
+        return $this->treatments()->orderByDesc('started_at')->orderByDesc('id')->first();
+    }
+
+    /**
+     * A patient's status is never stored on its own — it's entirely derived
+     * from its most recent treatment, so the two can never drift apart the
+     * way an independent status column would let them. `key` is a stable
+     * machine value (for tests/future filtering), `label`/`color` are the
+     * display pair, `color` chosen from the same Vuetify semantic palette
+     * already used for closure_reason chips elsewhere in this domain.
+     *
+     * @return array{key: string, label: string, color: string}
+     */
+    public function derivedStatus(): array
+    {
+        $treatment = $this->latestTreatment();
+
+        if ($treatment === null) {
+            return ['key' => 'new', 'label' => 'Nouveau', 'color' => 'secondary'];
+        }
+
+        $status = $treatment->currentStatusName();
+
+        if ($status !== 'closed') {
+            return ['key' => 'active', 'label' => 'Actif', 'color' => 'success'];
+        }
+
+        return match ($treatment->closure_reason) {
+            'resolved' => ['key' => 'completed', 'label' => 'Terminé', 'color' => 'info'],
+            'lost_to_follow_up' => ['key' => 'unreachable', 'label' => 'Injoignable', 'color' => 'warning'],
+            'protocol_not_followed' => ['key' => 'stopped', 'label' => 'Arrêté', 'color' => 'error'],
+            default => ['key' => 'other', 'label' => 'Autre', 'color' => 'secondary'],
+        };
+    }
 }

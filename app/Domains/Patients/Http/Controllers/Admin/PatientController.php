@@ -88,7 +88,7 @@ class PatientController extends Controller
         ]);
 
         return Inertia::render('Admin/Patients/Form', [
-            'patient' => $patient,
+            'patient' => [...$patient->toArray(), 'derived_status' => $patient->derivedStatus()],
             'treatments' => TreatmentResource::collection($patient->treatments),
             'centers' => $this->centerOptions($request),
             'practitioners' => $this->practitionerOptions($request),

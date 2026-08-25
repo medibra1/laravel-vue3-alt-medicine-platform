@@ -80,6 +80,10 @@ class TreatmentController extends Controller
             'treatment' => [
                 ...$treatment->toArray(),
                 'disease_ids' => $treatment->diseases->pluck('id')->all(),
+                'actively_tracked_disease_ids' => $treatment->diseases
+                    ->filter(fn (Disease $disease) => (bool) $disease->pivot->actively_tracked)
+                    ->pluck('id')
+                    ->all(),
                 'locked_disease_ids' => $treatment->latestOutcomePerDisease()->keys()->values(),
             ],
             ...$this->formOptions($request),
@@ -101,14 +105,15 @@ class TreatmentController extends Controller
 
         $validated = $request->validated();
         $diseaseIds = $validated['disease_ids'] ?? [];
-        unset($validated['disease_ids']);
+        $activelyTrackedIds = $validated['actively_tracked_disease_ids'] ?? $diseaseIds;
+        unset($validated['disease_ids'], $validated['actively_tracked_disease_ids']);
 
         $treatment = Treatment::create([
             ...$validated,
             'center_id' => $request->centerId(),
             'created_by' => $request->user()->id,
         ]);
-        $treatment->diseases()->sync($diseaseIds);
+        $this->syncDiseases($treatment, $diseaseIds, $activelyTrackedIds);
         $treatment->setStatus('draft');
 
         return response()->json(['id' => $treatment->id, 'client_uuid' => $treatment->client_uuid], 201);
@@ -119,8 +124,10 @@ class TreatmentController extends Controller
         $validated = $request->validated();
 
         if (array_key_exists('disease_ids', $validated)) {
-            $treatment->diseases()->sync($validated['disease_ids'] ?? []);
-            unset($validated['disease_ids']);
+            $diseaseIds = $validated['disease_ids'] ?? [];
+            $activelyTrackedIds = $validated['actively_tracked_disease_ids'] ?? $diseaseIds;
+            $this->syncDiseases($treatment, $diseaseIds, $activelyTrackedIds);
+            unset($validated['disease_ids'], $validated['actively_tracked_disease_ids']);
         }
 
         $treatment->update($validated);
@@ -131,9 +138,10 @@ class TreatmentController extends Controller
     public function confirm(ConfirmTreatmentRequest $request, Treatment $treatment): RedirectResponse
     {
         $validated = $request->validated();
-        $treatment->diseases()->sync($validated['disease_ids']);
+        $activelyTrackedIds = $validated['actively_tracked_disease_ids'] ?? $validated['disease_ids'];
+        $this->syncDiseases($treatment, $validated['disease_ids'], $activelyTrackedIds);
         $careItemIds = $validated['care_item_ids'] ?? [];
-        unset($validated['disease_ids'], $validated['care_item_ids']);
+        unset($validated['disease_ids'], $validated['actively_tracked_disease_ids'], $validated['care_item_ids']);
 
         $treatment->update($validated);
         $treatment->setStatus('confirmed');
@@ -206,6 +214,27 @@ class TreatmentController extends Controller
         $treatment->delete();
 
         return redirect()->route('admin.treatments.index');
+    }
+
+    /**
+     * Syncs the treatment_diseases pivot with per-disease actively_tracked
+     * attributes rather than a plain id list — used by storeDraft/
+     * updateDraft/confirm alike so the three never drift into syncing the
+     * flag differently. $activelyTrackedIds is expected to already be a
+     * subset of $diseaseIds (enforced in the FormRequests' validation, not
+     * re-checked here) — any id in $diseaseIds not present in
+     * $activelyTrackedIds is synced as actively_tracked=false.
+     *
+     * @param  array<int>  $diseaseIds
+     * @param  array<int>  $activelyTrackedIds
+     */
+    private function syncDiseases(Treatment $treatment, array $diseaseIds, array $activelyTrackedIds): void
+    {
+        $syncData = collect($diseaseIds)->mapWithKeys(fn (int $id) => [
+            $id => ['actively_tracked' => in_array($id, $activelyTrackedIds, true)],
+        ])->all();
+
+        $treatment->diseases()->sync($syncData);
     }
 
     /** @return array<string, mixed> */

@@ -71,6 +71,7 @@ interface Treatment {
     outcome_percentage: number | null;
     notes: string | null;
     disease_ids: number[];
+    actively_tracked_disease_ids: number[];
 }
 
 const props = withDefaults(
@@ -128,6 +129,10 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
             outcome_percentage: props.treatment?.outcome_percentage ?? null,
             notes: props.treatment?.notes ?? null,
             disease_ids: props.treatment?.disease_ids ?? [],
+            // Defaults every selected disease to actively tracked on a
+            // brand-new treatment (nothing to default from yet — every id
+            // added to disease_ids below also lands here via toggleDisease()).
+            actively_tracked_disease_ids: props.treatment?.actively_tracked_disease_ids ?? props.treatment?.disease_ids ?? [],
         },
         {
             create: route('admin.treatments.draft.store'),
@@ -226,6 +231,37 @@ const selectedDiseaseIds = computed<Set<number>>({
     },
 });
 
+// Which of the selected diseases are actively tracked (evaluated at every
+// session) versus merely on record alongside the treatment — see CLAUDE.md
+// "Suivi actif vs maladie secondaire". Kept as its own Set (not derived from
+// selectedDiseaseIds) so toggling it doesn't touch selection at all.
+const activelyTrackedDiseaseIds = computed<Set<number>>({
+    get: () => new Set(form.actively_tracked_disease_ids as number[]),
+    set: (value) => {
+        form.actively_tracked_disease_ids = Array.from(value);
+    },
+});
+
+function isActivelyTracked(diseaseId: number): boolean {
+    return activelyTrackedDiseaseIds.value.has(diseaseId);
+}
+
+// Freely toggleable at any time, including on an already-confirmed
+// treatment (editTreatment()) — unlike removal, deactivating active
+// tracking never orphans a disease's existing progress history, it only
+// exempts it from future sessions' required evaluation.
+function toggleActivelyTracked(diseaseId: number) {
+    const next = new Set(activelyTrackedDiseaseIds.value);
+
+    if (next.has(diseaseId)) {
+        next.delete(diseaseId);
+    } else {
+        next.add(diseaseId);
+    }
+
+    activelyTrackedDiseaseIds.value = next;
+}
+
 const lockedDiseaseIdSet = computed(() => new Set(props.lockedDiseaseIds));
 
 function isDiseaseLocked(diseaseId: number): boolean {
@@ -243,14 +279,20 @@ function toggleDisease(diseaseId: number) {
     }
 
     const next = new Set(selectedDiseaseIds.value);
+    const nextActivelyTracked = new Set(activelyTrackedDiseaseIds.value);
 
     if (next.has(diseaseId)) {
         next.delete(diseaseId);
+        nextActivelyTracked.delete(diseaseId);
     } else {
         next.add(diseaseId);
+        // Active by default on selection — matches the "checked by
+        // default" wizard behavior asked for this toggle.
+        nextActivelyTracked.add(diseaseId);
     }
 
     selectedDiseaseIds.value = next;
+    activelyTrackedDiseaseIds.value = nextActivelyTracked;
 }
 
 const diseasesInActiveCategory = computed(() =>
@@ -431,6 +473,13 @@ function close() {
                                 </span>
                                 <span>{{ disease.code }} — {{ disease.label }}</span>
                                 <v-chip size="small" variant="tonal">{{ disease.category_label }}</v-chip>
+                                <span v-if="selectedDiseaseIds.has(disease.id)">
+                                    <AppCheckbox
+                                        :model-value="isActivelyTracked(disease.id)"
+                                        label="Suivi actif à chaque séance"
+                                        @update:model-value="toggleActivelyTracked(disease.id)"
+                                    />
+                                </span>
                             </div>
                         </div>
 
@@ -468,6 +517,13 @@ function close() {
                                         <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
                                             Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
                                         </v-tooltip>
+                                    </span>
+                                    <span v-if="selectedDiseaseIds.has(disease.id)">
+                                        <AppCheckbox
+                                            :model-value="isActivelyTracked(disease.id)"
+                                            label="Suivi actif à chaque séance"
+                                            @update:model-value="toggleActivelyTracked(disease.id)"
+                                        />
                                     </span>
                                 </div>
                             </div>

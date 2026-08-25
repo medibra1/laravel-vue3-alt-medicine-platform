@@ -37,6 +37,13 @@ class StoreTreatmentDraftRequest extends FormRequest
             'notes' => ['sometimes', 'nullable', 'string'],
             'disease_ids' => ['sometimes', 'nullable', 'array'],
             'disease_ids.*' => ['integer', 'exists:diseases,id'],
+            // Must be a subset of disease_ids — same rule as
+            // ConfirmTreatmentRequest/UpdateTreatmentDraftRequest. A
+            // brand-new treatment has no persisted diseases yet, so unlike
+            // the update request there's no "fall back to what's already
+            // there" case to handle here.
+            'actively_tracked_disease_ids' => ['sometimes', 'nullable', 'array'],
+            'actively_tracked_disease_ids.*' => ['integer', Rule::in($this->input('disease_ids', []))],
         ];
     }
 

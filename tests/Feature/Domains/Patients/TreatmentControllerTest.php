@@ -205,6 +205,40 @@ test('a disease with tracked session progress cannot be removed from disease_ids
         ->toBe(collect([$trackedDisease->id, $untrackedDisease->id, $newDisease->id])->sort()->values()->all());
 });
 
+test('a disease with existing progress cannot be removed, but toggling its actively_tracked flag is allowed', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $disease = Disease::factory()->create();
+    $treatment = Treatment::factory()->for($center, 'center')->create();
+    $treatment->diseases()->sync([$disease->id]);
+    $treatment->setStatus('confirmed');
+    $session = $treatment->sessions()->create(['session_date' => now(), 'created_by' => $superAdmin->id]);
+    $session->diseaseProgress()->create(['disease_id' => $disease->id, 'outcome' => 'ongoing']);
+
+    // Removing the disease outright is still blocked — unchanged behaviour.
+    $removing = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => []],
+    );
+    $removing->assertUnprocessable();
+    $removing->assertJsonValidationErrors('disease_ids');
+
+    // But deactivating active tracking for that same disease — keeping it
+    // in disease_ids, just dropping it from actively_tracked_disease_ids —
+    // is a different operation entirely and must not be blocked.
+    $togglingOff = $this->actingAs($superAdmin)->patchJson(
+        route('admin.treatments.draft.update', $treatment),
+        ['disease_ids' => [$disease->id], 'actively_tracked_disease_ids' => []],
+    );
+    $togglingOff->assertOk();
+
+    $pivot = $treatment->diseases()->wherePivot('disease_id', $disease->id)->first()->pivot;
+    expect((bool) $pivot->actively_tracked)->toBeFalse();
+    // The progress row survives untouched — toggling actively_tracked never
+    // touches treatment_session_disease_progress.
+    expect($session->diseaseProgress()->where('disease_id', $disease->id)->exists())->toBeTrue();
+});
+
 test('disease_ids stays freely editable while the treatment has no sessions yet', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
@@ -405,6 +439,21 @@ test('super admin can manually close an ongoing treatment', function () {
     $fresh = $treatment->fresh();
     expect($fresh->latestStatus()->name)->toBe('closed');
     expect($fresh->closure_reason)->toBe('lost_to_follow_up');
+});
+
+test('super admin can manually close an ongoing treatment with protocol_not_followed', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $treatment->setStatus('ongoing');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.close', $treatment), [
+        'closure_reason' => 'protocol_not_followed',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $fresh = $treatment->fresh();
+    expect($fresh->latestStatus()->name)->toBe('closed');
+    expect($fresh->closure_reason)->toBe('protocol_not_followed');
 });
 
 test('closing a treatment that is not ongoing fails validation', function () {

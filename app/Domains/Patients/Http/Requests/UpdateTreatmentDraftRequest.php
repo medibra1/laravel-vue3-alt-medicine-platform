@@ -37,6 +37,11 @@ class UpdateTreatmentDraftRequest extends FormRequest
             'notes' => ['sometimes', 'nullable', 'string'],
             'disease_ids' => ['sometimes', 'nullable', 'array'],
             'disease_ids.*' => ['integer', 'exists:diseases,id'],
+            // Must be a subset of disease_ids (or of the treatment's already
+            // persisted diseases, when disease_ids itself isn't part of this
+            // particular save) — see ConfirmTreatmentRequest for the same rule.
+            'actively_tracked_disease_ids' => ['sometimes', 'nullable', 'array'],
+            'actively_tracked_disease_ids.*' => ['integer', Rule::in($this->activelyTrackableIds())],
         ];
     }
 
@@ -84,5 +89,27 @@ class UpdateTreatmentDraftRequest extends FormRequest
     protected function lockedDiseaseIds(Treatment $treatment): Collection
     {
         return $treatment->latestOutcomePerDisease()->keys();
+    }
+
+    /**
+     * The set actively_tracked_disease_ids must be a subset of — the
+     * submitted disease_ids when this save also touches the selection
+     * itself, otherwise the treatment's already-persisted diseases (a
+     * standalone actively_tracked toggle, which the wizard always sends
+     * alongside disease_ids anyway, but this stays correct even if that
+     * ever changes).
+     *
+     * @return array<int>
+     */
+    protected function activelyTrackableIds(): array
+    {
+        if ($this->has('disease_ids')) {
+            return $this->input('disease_ids', []);
+        }
+
+        /** @var Treatment $treatment */
+        $treatment = $this->route('treatment');
+
+        return $treatment->diseases()->pluck('diseases.id')->all();
     }
 }
