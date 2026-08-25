@@ -54,6 +54,19 @@ class DiseaseCategorySeeder extends Seeder
      *   seeding, but remains the least directly source-derived of the
      *   four. Revisit first if the end user disagrees with it.
      *
+     * ⚠️ 2026-08-25 — `disease_subcases` is being retired (per user
+     * decision): it was never surfaced anywhere in the wizard/session UI
+     * (only `Disease.description`, shown as an info tooltip, is), so its
+     * content for 801-804 was invisible to practitioners despite being
+     * real data. Merged into each disease's own `description` here —
+     * "Label: detail; Label: detail; ..." (semicolon-separated, 803's
+     * sub-cases have no detail so those are label-only) — so the same
+     * information now surfaces where practitioners actually look. The
+     * $subcasesByDiseaseCode array and DiseaseSubcase::firstOrCreate()
+     * loop below are UNCHANGED for now (still seed disease_subcases) —
+     * only drop them once `disease_subcases` itself is actually removed
+     * (migration + model), not yet done as of this commit.
+     *
      * ⚠️ Disease 416's description originally referenced the practice's
      * religious name verbatim from the source document — neutralized
      * to "during a session" here, consistent with the project's
@@ -72,6 +85,7 @@ class DiseaseCategorySeeder extends Seeder
             1 => [
                 'code' => '1',
                 'label' => ['fr' => 'Maladies digestives', 'en' => 'Digestive diseases'],
+                'icon' => 'mdi-stomach',
                 'type' => $illness,
                 'order' => 3,
                 'diseases' => [
@@ -98,6 +112,7 @@ class DiseaseCategorySeeder extends Seeder
             2 => [
                 'code' => '2',
                 'label' => ['fr' => 'Maladies de la peau', 'en' => 'Skin diseases'],
+                'icon' => 'mdi-bandage',
                 'type' => $illness,
                 'order' => 4,
                 'diseases' => [
@@ -115,6 +130,7 @@ class DiseaseCategorySeeder extends Seeder
             3 => [
                 'code' => '3',
                 'label' => ['fr' => 'Maladies du sexe', 'en' => 'Reproductive and sexual health disorders'],
+                'icon' => 'mdi-gender-male-female',
                 'type' => $illness,
                 'order' => 5,
                 'diseases' => [
@@ -143,6 +159,7 @@ class DiseaseCategorySeeder extends Seeder
             4 => [
                 'code' => '4',
                 'label' => ['fr' => 'Maladies mentales et cérébrales', 'en' => 'Mental and neurological disorders'],
+                'icon' => 'mdi-brain',
                 'type' => $illness,
                 'order' => 6,
                 'diseases' => [
@@ -180,6 +197,7 @@ class DiseaseCategorySeeder extends Seeder
             5 => [
                 'code' => '5',
                 'label' => ['fr' => 'Maladies infectieuses', 'en' => 'Infectious diseases'],
+                'icon' => 'mdi-virus',
                 'type' => $illness,
                 'order' => 7,
                 'diseases' => [
@@ -194,6 +212,7 @@ class DiseaseCategorySeeder extends Seeder
             6 => [
                 'code' => '6',
                 'label' => ['fr' => 'La poitrine et les yeux', 'en' => 'Chest and eyes'],
+                'icon' => 'mdi-eye-outline',
                 'type' => $illness,
                 'order' => 8,
                 'diseases' => [
@@ -211,6 +230,7 @@ class DiseaseCategorySeeder extends Seeder
             7 => [
                 'code' => '7',
                 'label' => ['fr' => 'Maladies héréditaires et cancer', 'en' => 'Hereditary diseases and cancer'],
+                'icon' => 'mdi-dna',
                 'type' => $illness,
                 'order' => 9,
                 'diseases' => [
@@ -227,18 +247,32 @@ class DiseaseCategorySeeder extends Seeder
             8 => [
                 'code' => '8',
                 'label' => ['fr' => 'Blocages', 'en' => 'Blockages'],
+                'icon' => 'mdi-lock-outline',
                 'type' => $blockage,
                 'order' => 1,
                 'diseases' => [
-                    ['code' => '801', 'label' => ['fr' => 'Travail', 'en' => 'Work'], 'default_duration_months' => 3, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
-                    ['code' => '802', 'label' => ['fr' => 'Argent', 'en' => 'Money'], 'default_duration_months' => 3, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
-                    ['code' => '803', 'label' => ['fr' => 'Administratif', 'en' => 'Administrative'], 'default_duration_months' => 6, 'description' => ['fr' => 'Tous les cas', 'en' => 'All cases']],
-                    ['code' => '804', 'label' => ['fr' => 'Mariage', 'en' => 'Marriage'], 'default_duration_months' => 12, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
+                    ['code' => '801', 'label' => ['fr' => 'Travail', 'en' => 'Work'], 'default_duration_months' => 3, 'description' => [
+                        'fr' => 'Pas de travail : le patient ne trouve pas de travail ou le travail ne dure pas; Travail médiocre : le travail est sous la qualification ou le patient est exploité; Stagnation au travail : pas de promotion, les nouveaux le dépassent, le travail ne se développe pas; Problèmes avec les supérieurs : ils bloquent la carrière du patient; Collègues ou employés : ils créent des problèmes au patient; Problèmes au travail : machines, clients, paiements…',
+                        'en' => 'No job: the patient cannot find a job, or a job never lasts; Poor-quality job: the job is below their qualification, or the patient is exploited; Career stagnation: no promotion, newcomers overtake them, the job does not develop; Problems with superiors: they block the patient\'s career; Colleagues or staff: they create problems for the patient; Problems at work: machinery, clients, payments…',
+                    ]],
+                    ['code' => '802', 'label' => ['fr' => 'Argent', 'en' => 'Money'], 'default_duration_months' => 3, 'description' => [
+                        'fr' => 'Argent dépensé inutilement : le patient va tout dépenser dès qu\'il touche l\'argent; Argent pris par les problèmes : des imprévus surgissent dès que l\'argent vient; Argent disparaît : des poches ou de la maison; Revenus instables : quand il a une somme, il ne peut plus rien gagner jusqu\'à la finir',
+                        'en' => 'Money spent needlessly: the patient spends everything as soon as they receive money; Money taken by problems: unexpected expenses arise as soon as money comes in; Money disappears: from pockets or from the house; Unstable income: once they have a sum, they cannot earn anything more until it runs out',
+                    ]],
+                    ['code' => '803', 'label' => ['fr' => 'Administratif', 'en' => 'Administrative'], 'default_duration_months' => 6, 'description' => [
+                        'fr' => 'Papiers; Voyage; Inscription; Démarches',
+                        'en' => 'Paperwork; Travel; Registration; Procedures',
+                    ]],
+                    ['code' => '804', 'label' => ['fr' => 'Mariage', 'en' => 'Marriage'], 'default_duration_months' => 12, 'description' => [
+                        'fr' => 'Désintérêt général : personne ne s\'intéresse au patient; Prétendants inadéquats : seules les personnes inadéquates viennent; Rejet familial : la personne n\'est pas acceptée par la famille; Rupture de la relation : la relation coupe après un temps, après les rapports, quand ils parlent de mariage, ou à l\'approche du mariage; Divorces répétés : le divorce survient chaque fois',
+                        'en' => 'General lack of interest: no one shows interest in the patient; Unsuitable suitors: only unsuitable people come forward; Family rejection: the person is not accepted by the family; Relationship breakdown: the relationship breaks off after a while, after intimacy, when marriage is discussed, or as marriage approaches; Repeated divorces: divorce happens every time',
+                    ]],
                 ],
             ],
             10 => [
                 'code' => '0',
                 'label' => ['fr' => 'Symboles', 'en' => 'Symbols'],
+                'icon' => 'mdi-shape-outline',
                 'type' => $symbol,
                 'order' => 2,
                 // Real content provided by the user (2026-08-24) — a list
@@ -357,11 +391,19 @@ class DiseaseCategorySeeder extends Seeder
                 ['code' => $categoryData['code']],
                 [
                     'label' => $categoryData['label'],
+                    'icon' => $categoryData['icon'],
                     'type_option_id' => $categoryData['type']->id,
                     'order' => $categoryData['order'],
                     'active' => true,
                 ]
             );
+
+            // icon was added after the initial seed of these categories
+            // (2026-08-25) — firstOrCreate() above won't backfill it onto
+            // rows that already existed, so set it explicitly on every run.
+            // Cheap (9 rows), and keeps this seeder safe to re-run without
+            // requiring migrate:fresh just to pick up an icon change.
+            $category->update(['icon' => $categoryData['icon']]);
 
             foreach ($categoryData['diseases'] as $diseaseData) {
                 $disease = Disease::query()->firstOrCreate(
@@ -373,6 +415,20 @@ class DiseaseCategorySeeder extends Seeder
                         'active' => true,
                     ]
                 );
+
+                // Blockage descriptions (801-804) were originally the
+                // placeholder "Tous les cas ci-dessous" pointing at
+                // disease_subcases for the real content — merged into the
+                // disease's own description here (2026-08-25, per user
+                // request, ahead of retiring disease_subcases once nothing
+                // else reads it). firstOrCreate() above won't overwrite an
+                // already-seeded row's description, so backfill explicitly
+                // — scoped to just these 4 codes (not a blanket update of
+                // every disease) to avoid clobbering a description an admin
+                // may have since edited via the CRUD.
+                if (in_array($diseaseData['code'], ['801', '802', '803', '804'], true)) {
+                    $disease->update(['description' => $diseaseData['description']]);
+                }
 
                 foreach ($subcasesByDiseaseCode[$diseaseData['code']] ?? [] as $order => $subcaseData) {
                     DiseaseSubcase::query()->firstOrCreate(

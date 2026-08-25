@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
-import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import CareItemsPicker from '@/Components/Patients/CareItemsPicker.vue';
 import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { outcomeOptions } from '@/utils/diseaseOutcome';
 import { router } from '@inertiajs/vue3';
@@ -170,18 +170,6 @@ function clearPrefilled(diseaseId: number) {
     prefilledDiseaseIds.value = next;
 }
 
-function toggleCareItem(itemId: number) {
-    const next = new Set(selectedCareItemIds.value);
-
-    if (next.has(itemId)) {
-        next.delete(itemId);
-    } else {
-        next.add(itemId);
-    }
-
-    selectedCareItemIds.value = next;
-}
-
 const saving = ref(false);
 const errors = ref<Record<string, string>>({});
 
@@ -244,21 +232,7 @@ function close() {
 
             <AppTabs v-model="activeSessionTab" :tabs="sessionTabs">
                 <template #care>
-                    <div v-if="careCategories.length">
-                        <div v-for="category in careCategories" :key="category.id" class="mb-3">
-                            <p class="text-body-2 text-medium-emphasis">{{ category.label }}</p>
-                            <div class="d-flex flex-wrap ga-3">
-                                <AppCheckbox
-                                    v-for="item in category.items"
-                                    :key="item.id"
-                                    :model-value="selectedCareItemIds.has(item.id)"
-                                    :label="item.label"
-                                    @update:model-value="toggleCareItem(item.id)"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <p v-else class="text-body-2 text-medium-emphasis">Aucun soin disponible.</p>
+                    <CareItemsPicker v-model="selectedCareItemIds" :care-categories="careCategories" />
                 </template>
 
                 <template #diseases>

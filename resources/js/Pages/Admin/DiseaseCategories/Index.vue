@@ -27,6 +27,7 @@ interface DiseaseCategory {
     type_option_id: number;
     code: string;
     label: { fr: string; en: string };
+    icon: string | null;
     order: number;
     active: boolean;
     type?: { id: number; code: string; label: string };
@@ -74,6 +75,7 @@ function onSort(event: AppDataTableSortEvent) {
 const columns: AppDataTableColumn[] = [
     { field: 'code', header: 'Code', sortable: true },
     { field: 'label', header: 'Libellé (FR)' },
+    { field: 'icon', header: 'Icône' },
     { field: 'type', header: 'Type' },
     { field: 'order', header: 'Ordre', sortable: true },
     { field: 'active', header: 'Actif' },
@@ -87,6 +89,7 @@ const createForm = useForm({
     type_option_id: null as number | null,
     code: '',
     label: { fr: '', en: '' },
+    icon: null as string | null,
     order: 0,
     active: true,
 });
@@ -94,6 +97,7 @@ const createForm = useForm({
 function openCreate() {
     createForm.reset();
     createForm.label = { fr: '', en: '' };
+    createForm.icon = null;
     createForm.order = 0;
     createForm.active = true;
     isCreating.value = true;
@@ -111,6 +115,7 @@ const editForm = useForm({
     type_option_id: null as number | null,
     code: '',
     label: { fr: '', en: '' },
+    icon: null as string | null,
     order: 0,
     active: true,
 });
@@ -121,6 +126,7 @@ function openEdit(category: DiseaseCategory) {
     editForm.type_option_id = category.type_option_id;
     editForm.code = category.code;
     editForm.label = { ...category.label };
+    editForm.icon = category.icon;
     editForm.order = category.order;
     editForm.active = category.active;
 }
@@ -180,6 +186,10 @@ function destroy(category: DiseaseCategory) {
                     @sort="onSort"
                 >
                     <template #column-label="{ item }">{{ item.label.fr }}</template>
+                    <template #column-icon="{ item }">
+                        <v-icon v-if="item.icon" :icon="item.icon" />
+                        <span v-else class="text-medium-emphasis">—</span>
+                    </template>
                     <template #column-type="{ item }">{{ item.type?.label }}</template>
                     <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
                     <template #actions="{ item }">
@@ -214,6 +224,12 @@ function destroy(category: DiseaseCategory) {
                     v-model="createForm.label"
                     label="Libellé"
                     :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                />
+
+                <AppInputText
+                    v-model="createForm.icon"
+                    label="Icône (nom mdi, ex. mdi-stomach)"
+                    :error="createForm.errors.icon"
                 />
 
                 <AppSelect
@@ -263,6 +279,12 @@ function destroy(category: DiseaseCategory) {
                     v-model="editForm.label"
                     label="Libellé"
                     :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                />
+
+                <AppInputText
+                    v-model="editForm.icon"
+                    label="Icône (nom mdi, ex. mdi-stomach)"
+                    :error="editForm.errors.icon"
                 />
 
                 <AppSelect

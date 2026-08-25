@@ -43,6 +43,37 @@ test('super admin can create a disease category', function () {
     expect($category->getTranslation('label', 'en'))->toBe('Nightmares');
 });
 
+test('super admin can create a disease category with an icon', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $type = EnumOption::factory()->create(['enum_type' => 'disease_category.type']);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.disease-categories.store'), [
+        'type_option_id' => $type->id,
+        'code' => '9',
+        'label' => ['fr' => 'Cauchemars', 'en' => 'Nightmares'],
+        'icon' => 'mdi-weather-night',
+    ]);
+
+    $response->assertRedirect(route('admin.disease-categories.index'));
+    $category = DiseaseCategory::query()->where('code', '9')->firstOrFail();
+    expect($category->icon)->toBe('mdi-weather-night');
+});
+
+test('icon is optional when creating a disease category', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $type = EnumOption::factory()->create(['enum_type' => 'disease_category.type']);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.disease-categories.store'), [
+        'type_option_id' => $type->id,
+        'code' => '9',
+        'label' => ['fr' => 'Cauchemars', 'en' => 'Nightmares'],
+    ]);
+
+    $response->assertRedirect(route('admin.disease-categories.index'));
+    $category = DiseaseCategory::query()->where('code', '9')->firstOrFail();
+    expect($category->icon)->toBeNull();
+});
+
 test('manager cannot create a disease category', function () {
     $ownCenter = Center::factory()->create();
     $manager = actingAsManagerOf($ownCenter);
