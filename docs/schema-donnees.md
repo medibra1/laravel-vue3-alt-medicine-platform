@@ -196,9 +196,19 @@ perceived_result (texte libre ou énuméré) · attachment_media_id, nullable
 ### `disease_categories`
 Les catégories n'ont pas toutes la même nature (ex. catégories 1-7 =
 type "maladie", généralement traitées par les médecins ; type "blocages" ;
-type "cauchemars", nouvelle) — le `type` est lui-même un `enum_option`
+type "symboles") — le `type` est lui-même un `enum_option`
 (`enum_type = disease_category.type`), donc un nouveau type s'ajoute en
 admin, sans migration.
+
+**Ordre d'affichage (2026-08-24)** : `order` (tri d'affichage uniquement,
+sans lien avec `code`) place désormais Blocages en premier (`order=1`),
+Symboles en second (`order=2`), puis les 7 catégories "maladie"
+(`order=3..9`) — les `code` ne changent pas (Blocages reste `8`,
+Symboles est `0`). Catégorie "Cauchemars" (`code=9`, type `NIGHTMARE`)
+**retirée** le 2026-08-24 : n'avait jamais de contenu source réel (deux
+maladies placeholder 901/902), remplacée par "Symboles" (`code=0`, type
+`SYMBOL`, 69 maladies — une liste de symboles rapportés en séance,
+contenu réel fourni par l'utilisateur, pas un placeholder).
 
 id · type_option_id (fk `enum_options`) · code · label (translatable) ·
 order · active · timestamps
@@ -207,8 +217,8 @@ order · active · timestamps
 (super_admin uniquement), page Inertia `Admin/DiseaseCategories/Index.vue`.
 `type_option_id` choisi via select alimenté par les `enum_options`
 existantes (`enum_type = 'disease_category.type'`) — pas de CRUD dédié
-pour `EnumOption` lui-même, ce set (ILLNESS/BLOCKAGE/NIGHTMARE) est
-fermé dans la pratique actuelle. Resource d'admin séparée
+pour `EnumOption` lui-même, ce set (ILLNESS/BLOCKAGE/SYMBOL, `NIGHTMARE`
+retiré le 2026-08-24) est fermé dans la pratique actuelle. Resource d'admin séparée
 (`DiseaseCategoryAdminResource`, expose `label` en `{fr,en}` via
 `getTranslations()`) de la Resource en lecture seule existante
 (`DiseaseCategoryResource`, string résolue, consommée par le wizard
@@ -414,8 +424,8 @@ Cœur du modèle de suivi de cette session : une ligne par maladie suivie
 voir l'évolution dans le temps (lecture : toutes les lignes pour un
 `disease_id` donné à travers les séances d'un même traitement, triées
 par `session_date`). Couvre aussi les maladies de la catégorie
-Cauchemars (traitées comme n'importe quelle autre catégorie pour
-l'instant — voir note plus bas).
+Symboles, traitées comme n'importe quelle autre catégorie (ancienne
+catégorie Cauchemars retirée le 2026-08-24, voir note plus bas).
 
 id · treatment_session_id (fk `treatment_sessions`, cascade) ·
 disease_id (fk `diseases`, cascade) · outcome (enum:
@@ -455,10 +465,36 @@ Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
 de `disease_categories`/`diseases` (décision : la
 hiérarchie auto-référencée d'`EnumOption` — `parent_id` — n'a jamais
 d'usage réel dans ce projet, voir `CLAUDE.md` "Wizard Treatment..." —
-pas construit dessus). Exemples de catégories : Pommade, Bain, Encens,
-Tisane, Verset — chacune avec sa propre liste d'items concrets.
-Contenu actuellement **placeholder** (`CareCategorySeeder.php`),
-aucune donnée source réelle fournie à ce stade.
+pas construit dessus).
+
+**Catalogue réorganisé le 2026-08-24** — les 4 catégories placeholder
+d'origine (Pommade, Bain, Encens, Tisane, jamais de contenu réel) ont
+été retirées, remplacées par 2 catégories à contenu réel fourni par
+l'utilisateur : **Générale** (8 items — les grands types de soins de la
+pratique : Lecture, Eau/Feuille coranisée à diluer, Huile/pommade,
+Encens, Tisane, Captage, Psychothérapie, Prière de malédiction) et
+**Autres soins et produits** (37 items — catalogue plat de produits/eaux/
+huiles/encens spécifiques). Le contenu source groupait visuellement ce
+second catalogue par sous-thème (eaux, huiles, encens...), mais
+`care_categories`/`care_items` est une hiérarchie fixe à 2 niveaux —
+seedé en une seule catégorie plate plutôt que d'introduire un 3e niveau,
+confirmé avec l'utilisateur avant seeding.
+
+**Dé-doublonnage le 2026-08-25** : 4 items retirés d'"Autres soins et
+produits" car redondants avec "Générale" — "Eau coranisée" (doublon
+d'"Eau / Feuille coranisée à diluer"), "Huile" et "Pommade" (doublons
+d'"Huile / pommade"), "Lecture de groupe sur patient" (retiré sans
+report ailleurs, sur demande explicite). "Lecture individuelle sur
+patient" renommé en "Lecture individuelle". Codes renumérotés en
+continu après retrait (41 → 37 items) — aucun autre consommateur ne
+référence ces codes de façon stable, renumérotation sans risque.
+Catégories restantes après réorganisation : Générale, Autres soins et
+produits, Verset à ajouter
+(46 items — un verset coranique par symbole de la catégorie "Symboles",
+label au format "S<sourate> v<verset(s)> (Symbole)", précision "à partir
+de"/"jusqu'à" gardée avec le mot arabe source quand la citation est
+partielle — détail dans le docblock de `CareCategorySeeder.php`),
+Ventouses (71 items, zones du corps).
 
 ✅ **CRUD admin implémenté (2026-08-21)** — `CareCategoryController`/
 `CareItemController` (super_admin uniquement), pages Inertia
@@ -479,12 +515,12 @@ lecture seule existantes.
 (unique par catégorie) · label (translatable) · description
 (translatable, nullable) · order · active · timestamps
 
-⚠️ **Note "cauchemars"** : la 9e `DiseaseCategory` (`type = NIGHTMARE`)
-est seedée avec 2 maladies placeholder (901/902) et traitée exactement
-comme les 8 autres catégories dans `treatment_session_disease_progress`
-— une distinction spéciale ("pas de suivi de statut pour les
-cauchemars") a été envisagée puis explicitement reportée par
-l'utilisateur, pas implémentée cette session.
+⚠️ **Note "Symboles"** (remplace l'ancienne note "cauchemars", catégorie
+retirée le 2026-08-24) : la `DiseaseCategory` `code=0` (`type = SYMBOL`)
+est seedée avec 69 maladies (contenu réel fourni par l'utilisateur, pas
+un placeholder) et traitée exactement comme les autres catégories dans
+`treatment_session_disease_progress` — aucune distinction spéciale de
+suivi de statut.
 
 ⚠️ **Hors périmètre, explicitement reporté** : lien entre le catalogue
 de soins et le stock (`Catalog.Product` — un item comme "Verset" n'a ni
