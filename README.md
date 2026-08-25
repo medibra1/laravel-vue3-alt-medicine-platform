@@ -75,6 +75,7 @@ temps qu'un usage manuel actif de cette DB.
 | Domaine | État |
 |---|---|
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
+| Auth (comptes utilisateurs, notifications) | **Fait (Phase 1)** — rôles `super_admin`/`admin`/`manager`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (canal database uniquement) |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
 | Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
@@ -316,6 +317,32 @@ client+SSR OK, `vue-tsc --noEmit` clean, test E2E Playwright vert (deux
 runs consécutifs pour confirmer l'idempotence du setup/teardown),
 vérification navigateur manuelle complémentaire (mode clair/sombre,
 zéro erreur console).
+
+**Gestion des comptes utilisateurs Phase 1** (2026-08-25, branche
+`feature/user-management-phase1`) : nouveau domaine `Auth` (jusqu'ici
+seulement le modèle `User` scaffoldé par Breeze) — rôle `admin` (quasi
+super_admin, même contournement team_id-sentinelle que `super_admin`,
+distinction faite au niveau policy plutôt que permissions), CRUD
+`UserController` (création directe avec mot de passe, ou par invitation
+email réutilisant le password broker natif Laravel — pas de mécanisme
+de token custom), blocage de connexion si `is_active = false`
+(`AuthenticatedSessionController`, colonne déjà présente depuis une
+migration antérieure jamais exploitée), notifications applicatives
+(canal `database` uniquement cette phase, cloche `AppNotificationBell`
+dans l'app-bar). Détail complet, décisions techniques (pourquoi le
+password broker plutôt qu'un token maison, le piège de team-scoping sur
+`$user->can()`, le bug de validation `password`/`prohibited` trouvé en
+vérification navigateur) dans `CLAUDE.md` "Gestion des comptes
+utilisateurs Phase 1". Vérifié : 217 tests Pest (1 nouveau test de
+régression sur le bug de validation, zéro régression), `pint --test`
+clean, Larastan niveau 5 clean, build Vite client+SSR OK, `vue-tsc
+--noEmit` clean, golden path navigateur réel (Playwright) : création
+d'un manager par invitation → email (best-effort, échec SMTP local
+toléré et loggé sans bloquer) → lien `password.reset` → définition du
+mot de passe → email auto-vérifié → connexion → notification "Nouveau
+centre géré" visible dans la cloche ; compte désactivé bloqué à la
+connexion avec message clair. Mot de passe seed remis à une valeur
+aléatoire, données de test supprimées en fin de session.
 
 ## Points ouverts connus
 

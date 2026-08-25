@@ -15,7 +15,7 @@ class User extends Authenticatable implements MustVerifyEmail
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'locale'];
+    protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -42,6 +42,41 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('model_has_roles.model_id', $this->getKey())
             ->where('model_has_roles.model_type', static::class)
             ->where('roles.name', 'super_admin')
+            ->exists();
+    }
+
+    /**
+     * 'admin' follows the exact same global-role sentinel pattern as
+     * super_admin — see RolesAndPermissionsSeeder and isSuperAdmin().
+     * Distinct from super_admin at the policy level (an admin can't
+     * target another admin/super_admin), never here.
+     */
+    public function isAdmin(): bool
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_id', $this->getKey())
+            ->where('model_has_roles.model_type', static::class)
+            ->where('roles.name', 'admin')
+            ->exists();
+    }
+
+    /**
+     * Whether this user has the 'manager' role, regardless of which
+     * center (team_id) it was assigned under — a raw, team-unscoped
+     * check like isSuperAdmin()/isAdmin(). Needed because hasRole()
+     * filters by the *currently active* permissions team (the acting
+     * user's own team), not the target model's — evaluating
+     * $target->hasRole('manager') from an admin/super_admin request
+     * (whose active team is null) would always resolve false otherwise.
+     */
+    public function isManager(): bool
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_id', $this->getKey())
+            ->where('model_has_roles.model_type', static::class)
+            ->where('roles.name', 'manager')
             ->exists();
     }
 

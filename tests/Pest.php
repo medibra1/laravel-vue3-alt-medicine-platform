@@ -103,6 +103,34 @@ function grantTreatmentSessionPermissions(): void
 }
 
 /**
+ * Same idea as grantPractitionerPermissions(), for Center.
+ */
+function grantCenterPermissions(): void
+{
+    collect([
+        'centers.viewAny',
+        'centers.view',
+        'centers.create',
+        'centers.update',
+        'centers.delete',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
+ * Same idea as grantPractitionerPermissions(), for User management.
+ */
+function grantUserManagementPermissions(): void
+{
+    collect([
+        'users.viewAny',
+        'users.view',
+        'users.create',
+        'users.update',
+        'users.delete',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
  * A global super_admin, mirroring RolesAndPermissionsSeeder's sentinel
  * team-pivot pattern (see User::isSuperAdmin()).
  */
@@ -112,6 +140,8 @@ function actingAsSuperAdmin(): User
     grantPatientPermissions();
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
+    grantCenterPermissions();
+    grantUserManagementPermissions();
 
     $user = User::factory()->create();
 
@@ -122,6 +152,34 @@ function actingAsSuperAdmin(): User
 
     setPermissionsTeamId(0);
     $user->assignRole('super_admin');
+    setPermissionsTeamId(null);
+
+    return $user;
+}
+
+/**
+ * A global admin — same sentinel team-pivot pattern as super_admin (see
+ * User::isAdmin()), but distinguished from it purely at the policy
+ * level (UserPolicy/CenterPolicy), not by a smaller permission set.
+ */
+function actingAsAdmin(): User
+{
+    grantPractitionerPermissions();
+    grantPatientPermissions();
+    grantTreatmentPermissions();
+    grantTreatmentSessionPermissions();
+    grantCenterPermissions();
+    grantUserManagementPermissions();
+
+    $user = User::factory()->create();
+
+    $role = Role::query()->firstOrCreate(
+        ['name' => 'admin', 'guard_name' => 'web', 'team_id' => null],
+    );
+    $role->syncPermissions(Permission::all());
+
+    setPermissionsTeamId(0);
+    $user->assignRole('admin');
     setPermissionsTeamId(null);
 
     return $user;

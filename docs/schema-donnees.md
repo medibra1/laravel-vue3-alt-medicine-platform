@@ -99,10 +99,54 @@ id · code · label (translatable) · coefficient (décimal, multiplicateur
 
 ### `users`
 id · name · email (unique) · password · locale (préférence UI) ·
-is_active · timestamps
+is_active · email_verified_at · timestamps
 → table pivot `spatie/laravel-permission` en **mode teams**, `team_id` =
-`center_id` (un manager/soignant a un rôle scopé à son centre ; le
-`super_admin` a un rôle sans team, global).
+`center_id` (un manager/soignant a un rôle scopé à son centre ; les
+rôles `super_admin`/`admin` sont sans team réelle, assignés sous la
+team sentinelle `0` — `model_has_roles.team_id` est `NOT NULL`, voir
+`RolesAndPermissionsSeeder`).
+
+✅ **Gestion des comptes (Phase 1, 2026-08-25)** — `is_active` (colonne
+déjà présente depuis une migration antérieure, jamais réellement
+exploitée jusqu'ici) bloque désormais la connexion
+(`AuthenticatedSessionController::store()`, vérifié juste après
+`Auth::attempt()` — pas via un listener sur `Attempting`, qui n'a pas
+encore le `User` résolu à ce stade). Deux modes de création
+(`UserController::store()`) :
+- **Direct** : mot de passe choisi par l'admin, `email_verified_at`
+  posé immédiatement (`now()`) — l'admin vouche pour l'adresse.
+- **Invitation** : mot de passe aléatoire jetable jamais communiqué,
+  `email_verified_at = null`, `WelcomeSetPasswordNotification` envoie
+  un lien vers la route `password.reset` **déjà existante** (générée
+  via `Password::createToken()`) — pas de colonne
+  `invitation_token`/`invited_at` custom, le password broker natif de
+  Laravel est réutilisé tel quel. `MarkEmailVerifiedOnPasswordReset`
+  (listener sur `Illuminate\Auth\Events\PasswordReset`, enregistré
+  manuellement dans `AppServiceProvider::boot()` — l'auto-discovery de
+  Laravel ne scanne que `app/Listeners`, pas les sous-dossiers de
+  domaine) marque l'email vérifié dès que l'utilisateur clique le lien
+  et définit son mot de passe, sans étape de vérification séparée.
+
+⚠️ **Piège de validation trouvé en vérification navigateur** — le
+formulaire frontend envoie toujours `password`/`password_confirmation`
+(chaînes vides en mode invitation, jamais absentes). Empiler
+`'prohibited'` et `Password::defaults()` dans le même tableau de règles
+ne suffit pas : `Password::defaults()` s'exécute quand même contre la
+valeur vide, échec de validation silencieux (redirection 302 vers la
+page précédente avec erreurs en session, aucune exception côté serveur
+— long à diagnostiquer). Fix dans `StoreUserRequest::rules()` : deux
+branches de règles complètement séparées selon `creation_mode`, jamais
+`prohibited` et `Password::defaults()` dans le même tableau.
+
+### `notifications` — **implémenté** (2026-08-25)
+Table standard Laravel (`php artisan notifications:table`), pas
+préfixée par domaine (référentiel `Common`-like, polymorphe
+`notifiable_type`/`notifiable_id`). Canal `database` uniquement à ce
+stade (Phase 1) — pas de mail dupliqué, pas de broadcasting temps réel.
+Un seul type de notification émise pour l'instant :
+`ManagerAssignedNotification` (`app/Domains/Auth/Notifications/`), à la
+création/mise à jour d'un manager. Cloche `AppNotificationBell.vue`
+dans l'app-bar, rafraîchie au clic (pas de polling).
 
 ### `practitioners` (soignants)
 | Colonne | Type | Notes |

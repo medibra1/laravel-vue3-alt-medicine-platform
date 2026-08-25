@@ -35,6 +35,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
                 'is_super_admin' => $request->user()?->isSuperAdmin() ?? false,
+                'is_admin' => $request->user()?->isAdmin() ?? false,
+                'unread_notifications_count' => $request->user()?->unreadNotifications()->count() ?? 0,
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
