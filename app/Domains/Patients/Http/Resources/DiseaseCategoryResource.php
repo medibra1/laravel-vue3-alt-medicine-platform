@@ -22,6 +22,7 @@ class DiseaseCategoryResource extends JsonResource
             // a bare ->get()->toArray() which would serialize the raw
             // translatable JSON column instead of the resolved string.
             'label' => $this->label,
+            'icon' => $this->icon,
         ];
     }
 }

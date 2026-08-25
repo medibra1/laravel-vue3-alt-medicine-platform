@@ -27,6 +27,7 @@ interface DiseaseOption {
     id: number;
     code: string;
     label: string;
+    description: string | null;
     category_id: number;
     category_label: string;
 }
@@ -35,6 +36,7 @@ interface DiseaseCategoryOption {
     id: number;
     code: string;
     label: string;
+    icon: string | null;
 }
 
 interface CareItemOption {

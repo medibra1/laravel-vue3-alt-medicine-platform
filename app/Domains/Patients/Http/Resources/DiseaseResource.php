@@ -18,6 +18,7 @@ class DiseaseResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'label' => $this->label,
+            'description' => $this->description,
             'category_id' => $this->disease_category_id,
             'category_label' => $this->whenLoaded('category', fn () => $this->category->label),
             // Only present when this Disease came off a Treatment's
