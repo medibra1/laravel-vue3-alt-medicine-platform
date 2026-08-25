@@ -13,10 +13,14 @@ class DiseaseCategorySeeder extends Seeder
     /**
      * Categories and diseases extracted from the source document
      * (LISTES_DES_MALADIES.docx, provided by the user). Categories 1-7
-     * = type ILLNESS, category 8 (BLOCKAGES) = type BLOCKAGE. The
-     * "nightmare" category (new, requested separately) does not exist
-     * in the source document — not seeded here, to be added once its
-     * content (diseases/codes) is provided.
+     * (array keys, `code` "1"-"7") = type ILLNESS, category 8
+     * (`code` "8", BLOCKAGES) = type BLOCKAGE.
+     *
+     * `order` (display sort only, unrelated to `code`) is: Blockages=1,
+     * Symbols=2, then illness categories 1-7 at order=3..9 — Blockages
+     * and Symbols were promoted to the top of the list on 2026-08-24
+     * per user request; `code` values were NOT touched (801-804 stay
+     * as-is, illness disease codes keep their 1xx-7xx prefixes).
      *
      * English labels/descriptions are real translations (not
      * duplicated French), done by Claude — a native-speaker review
@@ -24,11 +28,14 @@ class DiseaseCategorySeeder extends Seeder
      * medical terminology accuracy, but this is a genuine
      * translation, not a placeholder.
      *
-     * Category 9 "Nightmares" (2026-08-20): unlike categories 1-8, this
-     * one has NO source document content — its two diseases (901/902)
-     * are explicitly marked placeholders, seeded only to exercise the
-     * treatment wizard / session flow end-to-end. Replace with real
-     * content once the user provides it.
+     * Category "Symboles" (`code` "0", type SYMBOL, 2026-08-24): real
+     * content provided by the user — a list of symbols reported during
+     * sessions — not a placeholder. Replaces the former category 9
+     * "Cauchemars" (type NIGHTMARE), which was removed: it never had
+     * real source content (only two placeholder diseases, 901/902,
+     * seeded solely to exercise the wizard/session flow end-to-end).
+     * The NIGHTMARE EnumOption itself was also removed from
+     * EnumOptionSeeder — nothing else referenced it.
      *
      * Idempotent: firstOrCreate by category code / by disease code (the
      * 3-digit code from the source document, stable and unique per
@@ -58,15 +65,15 @@ class DiseaseCategorySeeder extends Seeder
             ->where('enum_type', 'disease_category.type')->where('code', 'ILLNESS')->firstOrFail();
         $blockage = EnumOption::query()
             ->where('enum_type', 'disease_category.type')->where('code', 'BLOCKAGE')->firstOrFail();
-        $nightmare = EnumOption::query()
-            ->where('enum_type', 'disease_category.type')->where('code', 'NIGHTMARE')->firstOrFail();
+        $symbol = EnumOption::query()
+            ->where('enum_type', 'disease_category.type')->where('code', 'SYMBOL')->firstOrFail();
 
         $categories = [
             1 => [
                 'code' => '1',
                 'label' => ['fr' => 'Maladies digestives', 'en' => 'Digestive diseases'],
                 'type' => $illness,
-                'order' => 1,
+                'order' => 3,
                 'diseases' => [
                     ['code' => '101', 'label' => ['fr' => 'Acidité-brûlure', 'en' => 'Acidity / heartburn'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
                     ['code' => '102', 'label' => ['fr' => 'Ulcère', 'en' => 'Ulcer'], 'default_duration_months' => 3, 'description' => ['fr' => 'Il faut que la médecine ait identifié une plaie dans l’estomac', 'en' => 'Medicine must have identified a wound in the stomach']],
@@ -92,7 +99,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '2',
                 'label' => ['fr' => 'Maladies de la peau', 'en' => 'Skin diseases'],
                 'type' => $illness,
-                'order' => 2,
+                'order' => 4,
                 'diseases' => [
                     ['code' => '201', 'label' => ['fr' => 'Psoriasis', 'en' => 'Psoriasis'], 'default_duration_months' => 6, 'description' => ['fr' => 'Eczéma grave, étendu et non traitable', 'en' => 'Severe, widespread and untreatable eczema']],
                     ['code' => '202', 'label' => ['fr' => 'Eczéma', 'en' => 'Eczema'], 'default_duration_months' => 3, 'description' => ['fr' => 'Y compris démangeaisons, acné, rougeurs, boutons', 'en' => 'Including itching, acne, redness, pimples']],
@@ -109,7 +116,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '3',
                 'label' => ['fr' => 'Maladies du sexe', 'en' => 'Reproductive and sexual health disorders'],
                 'type' => $illness,
-                'order' => 3,
+                'order' => 5,
                 'diseases' => [
                     ['code' => '301', 'label' => ['fr' => 'Kyste', 'en' => 'Cyst'], 'default_duration_months' => 3, 'description' => ['fr' => 'Ou fibrome  dans l’ovaire ou l’utérus', 'en' => 'Or fibroid in the ovary or uterus']],
                     ['code' => '302', 'label' => ['fr' => 'Règles irrégulières', 'en' => 'Irregular periods'], 'default_duration_months' => 6, 'description' => ['fr' => 'Ainsi que saignement en dehors des menstrues', 'en' => 'As well as bleeding outside of menstruation']],
@@ -137,7 +144,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '4',
                 'label' => ['fr' => 'Maladies mentales et cérébrales', 'en' => 'Mental and neurological disorders'],
                 'type' => $illness,
-                'order' => 4,
+                'order' => 6,
                 'diseases' => [
                     ['code' => '401', 'label' => ['fr' => 'Psychose', 'en' => 'Psychosis'], 'default_duration_months' => 3, 'description' => ['fr' => 'Perte de contact avec la réalité (folie), délires, propos absurdes', 'en' => 'Loss of contact with reality, delusions, absurd statements']],
                     ['code' => '402', 'label' => ['fr' => 'Psychose épisodique', 'en' => 'Episodic psychosis'], 'default_duration_months' => 3, 'description' => ['fr' => 'Un moment et le patient revient à la réalité', 'en' => 'A brief episode, then the patient returns to reality']],
@@ -174,7 +181,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '5',
                 'label' => ['fr' => 'Maladies infectieuses', 'en' => 'Infectious diseases'],
                 'type' => $illness,
-                'order' => 5,
+                'order' => 7,
                 'diseases' => [
                     ['code' => '501', 'label' => ['fr' => 'Infection persistante', 'en' => 'Persistent infection'], 'default_duration_months' => 3, 'description' => ['fr' => 'Du sang, des poumons, du foie ou autre', 'en' => 'Of the blood, lungs, liver, or elsewhere']],
                     ['code' => '502', 'label' => ['fr' => 'Tuberculose persistante', 'en' => 'Persistent tuberculosis'], 'default_duration_months' => 3, 'description' => ['fr' => 'Les médecins ont détecté la bactérie, mais la maladie ne part pas malgré le traitement', 'en' => 'Doctors detected the bacteria, but the disease does not go away despite treatment']],
@@ -188,7 +195,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '6',
                 'label' => ['fr' => 'La poitrine et les yeux', 'en' => 'Chest and eyes'],
                 'type' => $illness,
-                'order' => 6,
+                'order' => 8,
                 'diseases' => [
                     ['code' => '601', 'label' => ['fr' => 'Poitrine serrée', 'en' => 'Tight chest'], 'default_duration_months' => 3, 'description' => ['fr' => 'palpitation, difficulté à respirer, douleur au cœur ou à la poitrine', 'en' => 'Palpitations, difficulty breathing, heart or chest pain']],
                     ['code' => '602', 'label' => ['fr' => 'Toux persistante', 'en' => 'Persistent cough'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
@@ -205,7 +212,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '7',
                 'label' => ['fr' => 'Maladies héréditaires et cancer', 'en' => 'Hereditary diseases and cancer'],
                 'type' => $illness,
-                'order' => 7,
+                'order' => 9,
                 'diseases' => [
                     ['code' => '701', 'label' => ['fr' => 'Drépanocytose', 'en' => 'Sickle cell disease'], 'default_duration_months' => 6, 'description' => ['fr' => 'Maladie héréditaire des globules rouges', 'en' => 'Hereditary disease of the red blood cells']],
                     ['code' => '702', 'label' => ['fr' => 'Hémophilie', 'en' => 'Hemophilia'], 'default_duration_months' => 6, 'description' => ['fr' => 'Le sang ne coagule pas, les coupures se cicatrisent très difficilement', 'en' => 'Blood does not clot, cuts heal with great difficulty']],
@@ -221,7 +228,7 @@ class DiseaseCategorySeeder extends Seeder
                 'code' => '8',
                 'label' => ['fr' => 'Blocages', 'en' => 'Blockages'],
                 'type' => $blockage,
-                'order' => 8,
+                'order' => 1,
                 'diseases' => [
                     ['code' => '801', 'label' => ['fr' => 'Travail', 'en' => 'Work'], 'default_duration_months' => 3, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
                     ['code' => '802', 'label' => ['fr' => 'Argent', 'en' => 'Money'], 'default_duration_months' => 3, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
@@ -229,19 +236,86 @@ class DiseaseCategorySeeder extends Seeder
                     ['code' => '804', 'label' => ['fr' => 'Mariage', 'en' => 'Marriage'], 'default_duration_months' => 12, 'description' => ['fr' => 'Tous les cas ci-dessous', 'en' => 'All the cases below']],
                 ],
             ],
-            9 => [
-                'code' => '9',
-                'label' => ['fr' => 'Cauchemars', 'en' => 'Nightmares'],
-                'type' => $nightmare,
-                'order' => 9,
-                // ⚠️ PLACEHOLDER — the source document doesn't cover this
-                // category (see class docblock). These two entries exist
-                // only to exercise the wizard/session flow end-to-end;
-                // replace with real content once provided, do not treat
-                // as clinically meaningful.
+            10 => [
+                'code' => '0',
+                'label' => ['fr' => 'Symboles', 'en' => 'Symbols'],
+                'type' => $symbol,
+                'order' => 2,
+                // Real content provided by the user (2026-08-24) — a list
+                // of symbols seen/reported during sessions, not a
+                // placeholder (unlike the former "Cauchemars" category
+                // this one replaces, which never had real source content
+                // and has been removed).
                 'diseases' => [
-                    ['code' => '901', 'label' => ['fr' => 'Cauchemar récurrent (placeholder)', 'en' => 'Recurring nightmare (placeholder)'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
-                    ['code' => '902', 'label' => ['fr' => 'Cauchemar occasionnel (placeholder)', 'en' => 'Occasional nightmare (placeholder)'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '001', 'label' => ['fr' => 'Cadenas', 'en' => 'Padlock'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '002', 'label' => ['fr' => 'Rivière', 'en' => 'River'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '003', 'label' => ['fr' => 'Arbre', 'en' => 'Tree'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '004', 'label' => ['fr' => 'Trou', 'en' => 'Hole'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '005', 'label' => ['fr' => 'Pont', 'en' => 'Bridge'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '006', 'label' => ['fr' => 'Puits', 'en' => 'Well'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '007', 'label' => ['fr' => 'Cimetière', 'en' => 'Cemetery'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '008', 'label' => ['fr' => 'Chaussure', 'en' => 'Shoe'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '009', 'label' => ['fr' => 'Terre + pas', 'en' => 'Soil + footprint'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '010', 'label' => ['fr' => 'Habit', 'en' => 'Garment'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '011', 'label' => ['fr' => 'Cheveux', 'en' => 'Hair'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '012', 'label' => ['fr' => 'Lettre', 'en' => 'Letter'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '013', 'label' => ['fr' => 'Charbon', 'en' => 'Coal'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '014', 'label' => ['fr' => 'Braise', 'en' => 'Ember'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '015', 'label' => ['fr' => 'Etoile', 'en' => 'Star'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '016', 'label' => ['fr' => 'Trombone', 'en' => 'Paperclip'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '017', 'label' => ['fr' => 'Canari', 'en' => 'Canary'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '018', 'label' => ['fr' => 'Cola coupé', 'en' => 'Cut kola nut'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '019', 'label' => ['fr' => 'Cola', 'en' => 'Kola nut'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '020', 'label' => ['fr' => 'Poupée piqués', 'en' => 'Pierced doll'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '021', 'label' => ['fr' => '3 clous', 'en' => '3 nails'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '022', 'label' => ['fr' => 'Sang des ventouses', 'en' => 'Blood from cupping'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '023', 'label' => ['fr' => 'Sang des règles', 'en' => 'Menstrual blood'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '024', 'label' => ['fr' => 'Cadavres d’animaux', 'en' => 'Animal carcasses'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '025', 'label' => ['fr' => 'Poils de chien', 'en' => 'Dog hair'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '026', 'label' => ['fr' => 'Poisson', 'en' => 'Fish'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '027', 'label' => ['fr' => '3 os', 'en' => '3 bones'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '028', 'label' => ['fr' => 'Excrément', 'en' => 'Excrement'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '029', 'label' => ['fr' => 'Ane', 'en' => 'Donkey'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '030', 'label' => ['fr' => 'Slip', 'en' => 'Underwear'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '031', 'label' => ['fr' => 'Poils de pubis', 'en' => 'Pubic hair'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '032', 'label' => ['fr' => 'Termite', 'en' => 'Termite'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '033', 'label' => ['fr' => 'Piment', 'en' => 'Chili pepper'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '034', 'label' => ['fr' => 'Folie', 'en' => 'Madness'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '035', 'label' => ['fr' => 'Sacrifice', 'en' => 'Sacrifice'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '036', 'label' => ['fr' => 'Statue', 'en' => 'Statue'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '037', 'label' => ['fr' => 'Revivification', 'en' => 'Revivification'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '038', 'label' => ['fr' => 'Peau', 'en' => 'Skin'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '039', 'label' => ['fr' => 'Faiblesse mentale', 'en' => 'Mental weakness'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '040', 'label' => ['fr' => 'Oubli', 'en' => 'Forgetfulness'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '041', 'label' => ['fr' => 'Bruits', 'en' => 'Noises'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '042', 'label' => ['fr' => 'Bourdonnement', 'en' => 'Buzzing'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '043', 'label' => ['fr' => 'Présences dans la maison', 'en' => 'Presences in the house'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '044', 'label' => ['fr' => 'Passions', 'en' => 'Passions'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '045', 'label' => ['fr' => 'Maladie des yeux', 'en' => 'Eye ailment'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '046', 'label' => ['fr' => 'Stérilité', 'en' => 'Sterility'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '047', 'label' => ['fr' => 'Froid', 'en' => 'Cold'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '048', 'label' => ['fr' => 'Peur', 'en' => 'Fear'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '049', 'label' => ['fr' => 'Nœuds', 'en' => 'Knots'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '050', 'label' => ['fr' => 'Fil 11 Nœuds', 'en' => 'Thread with 11 knots'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '051', 'label' => ['fr' => 'Eau', 'en' => 'Water'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '052', 'label' => ['fr' => 'Trace de pas', 'en' => 'Footprint'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '053', 'label' => ['fr' => 'Ecriture', 'en' => 'Writing'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '054', 'label' => ['fr' => 'Goudron', 'en' => 'Tar'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '055', 'label' => ['fr' => 'Feu', 'en' => 'Fire'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '056', 'label' => ['fr' => 'Colère', 'en' => 'Anger'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '057', 'label' => ['fr' => 'Os', 'en' => 'Bone'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '058', 'label' => ['fr' => 'Perte d’argent', 'en' => 'Loss of money'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '059', 'label' => ['fr' => 'Passion', 'en' => 'Passion'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '060', 'label' => ['fr' => 'Présences', 'en' => 'Presences'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '061', 'label' => ['fr' => 'Attaques de djinns', 'en' => 'Jinn attacks'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '062', 'label' => ['fr' => 'Attaques de sorciers', 'en' => 'Sorcerer attacks'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '063', 'label' => ['fr' => 'Araignée', 'en' => 'Spider'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '064', 'label' => ['fr' => 'Insomnie', 'en' => 'Insomnia'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '065', 'label' => ['fr' => 'Vertige', 'en' => 'Dizziness'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '066', 'label' => ['fr' => 'Chien', 'en' => 'Dog'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '067', 'label' => ['fr' => 'Fatigue', 'en' => 'Fatigue'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '068', 'label' => ['fr' => 'Photo', 'en' => 'Photo'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
+                    ['code' => '069', 'label' => ['fr' => 'Autres symboles', 'en' => 'Other symbols'], 'default_duration_months' => 3, 'description' => ['fr' => null, 'en' => null]],
                 ],
             ],
         ];
