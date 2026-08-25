@@ -68,7 +68,7 @@ il tourne contre la DB de dev locale (`database/database.sqlite`), pas
 une DB isolée comme Pest (sqlite `:memory:`), donc à éviter en même
 temps qu'un usage manuel actif de cette DB.
 
-## État d'avancement (2026-08-20)
+## État d'avancement (dernière mise à jour : 2026-08-25)
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
@@ -76,7 +76,7 @@ temps qu'un usage manuel actif de cette DB.
 |---|---|
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`, 9 catégories dont "Symboles" — remplace l'ancienne "Cauchemars", icône + description par catégorie/maladie) et catalogue de soins (`CareCategory`/`CareItem`, "Générale"/"Autres soins et produits"/"Verset à ajouter"/"Ventouses", contenu réel) : **CRUD admin fait** ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3-4 étapes selon création/édition) fait ; `TreatmentSession` (CRUD, catalogue de soins via un picker recherche+accordéon partagé) fait ; dossier patient unifié (onglets) fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -317,18 +317,61 @@ runs consécutifs pour confirmer l'idempotence du setup/teardown),
 vérification navigateur manuelle complémentaire (mode clair/sombre,
 zéro erreur console).
 
+**Suivi des maladies, catalogue de soins réel, statut patient dérivé,
+UX du wizard Treatment** (2026-08-21 → 2026-08-25, branche
+`feature/treatment-disease-tracking-fixes`, nombreuses sessions
+consécutives — détail session par session dans `CLAUDE.md`, résumé
+consolidé ici) : suivi par maladie affiné (`closure_reason` à 4
+valeurs dont `protocol_not_followed`, distinction "suivi actif" vs
+maladie secondaire sur `treatment_diseases.actively_tracked` — un
+tooltip explique désormais que seules les maladies en suivi actif
+comptent dans le calcul du statut de guérison), statut patient dérivé
+du dernier traitement (`Patient::derivedStatus()`, chip cliquable dans
+l'en-tête), timeline verticale des séances avec suppression/édition,
+navigation par onglets du dossier patient (Informations/Traitement en
+cours/Historique), ouverture automatique du wizard après confirmation
+d'un patient, remplacement des rechargements de page complets par de
+vraies navigations Inertia sur les liens de nav/breadcrumb. Catégorie
+"Symboles" (69 maladies réelles, remplace l'ancienne "Cauchemars"
+jamais alimentée) et catalogue de soins réorganisé avec du vrai
+contenu ("Générale", "Autres soins et produits", "Ventouses" — 71
+zones du corps, "Verset à ajouter" — 46 références coraniques). Chaque
+maladie affiche désormais sa propre description en info-bulle
+(y compris le contenu des 19 sous-cas de blocage, fusionné depuis
+`disease_subcases` — cette table reste en place mais n'est plus la
+source affichée nulle part, candidate à suppression future). Cards de
+catégorie de maladie repensées (icône dans un badge circulaire +
+compteur de sélection), liste de maladies en panneau inline avec
+scroll automatique à l'ouverture, sélection des soins via un composant
+partagé recherche+accordéon (`CareItemsPicker`, remplace une liste à
+plat dupliquée dans le wizard et le formulaire de séance). Vérifié à
+chaque étape : suite Pest/Vitest/Pint/Larastan/build/`vue-tsc` clean,
+vérification navigateur réelle systématique (Playwright, y compris
+plusieurs bugs UX trouvés et corrigés uniquement par ce biais — jamais
+par les tests automatisés seuls). Branche poussée, PR vers `develop`
+pas encore ouverte/mergée au moment de la rédaction de cette entrée.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
   voir `database/seeders/CountrySeeder.php`. **Assignable depuis
   l'admin maintenant** (`/admin/countries`), reste à trancher côté
   contenu (quelle zone pour chacun), pas côté outillage.
-- Contenu placeholder à remplacer par du vrai contenu source dès qu'il
-  est fourni : catégorie de maladie "Cauchemars" (2 maladies, codes
-  901/902) et catalogue de soins entier (`CareCategorySeeder.php`).
+- Contenu toujours placeholder (pas de source réelle fournie) : 3
+  catégories de soins mineures conservées dans "Autres soins et
+  produits" pour certains sous-types spécifiques — voir le docblock de
+  `CareCategorySeeder.php` pour le détail exact de ce qui est réel vs.
+  approximatif.
 - Traductions anglaises du contenu métier faites par Claude — relecture
   par un locuteur natif recommandée avant mise en prod (précision
   terminologique médicale).
 - Découpage du blocage "Mariage" (804) en sous-cas fait par
   interprétation (source en prose continue, pas une liste structurée) —
   voir le docblock de `DiseaseCategorySeeder.php`.
+- `disease_subcases` reste en base mais n'est plus affichée nulle part
+  (son contenu pour 801-804 a été fusionné dans `Disease.description`)
+  — candidate à suppression, pas encore retirée (voir `CLAUDE.md`).
+- Seules 2 des 9 catégories de maladies ont eu leur icône réellement
+  validée par l'utilisateur en admin — les 9 icônes actuelles sont un
+  choix initial fait par Claude (`mdi-stomach`, `mdi-brain`, etc.),
+  éditables via `/admin/disease-categories`.
