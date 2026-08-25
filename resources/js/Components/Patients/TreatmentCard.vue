@@ -104,7 +104,7 @@ function diseaseStatusLabel(diseaseId: number): string {
 <template>
     <AppCard variant="outlined">
         <v-card-text>
-            <div class="d-flex justify-space-between align-start mb-2">
+            <div class="d-flex flex-wrap justify-space-between align-start ga-2 mb-2">
                 <div>
                     <div class="d-flex align-center ga-2 mb-1">
                         <p class="text-subtitle-1 mb-0">
@@ -121,7 +121,7 @@ function diseaseStatusLabel(diseaseId: number): string {
                         }}
                     </p>
                 </div>
-                <div class="d-flex ga-2">
+                <div class="d-flex flex-wrap ga-2">
                     <AppButton label="Modifier" severity="secondary" size="small" @click="emit('edit', treatment)" />
                     <AppButton
                         v-if="treatment.status === 'ongoing'"

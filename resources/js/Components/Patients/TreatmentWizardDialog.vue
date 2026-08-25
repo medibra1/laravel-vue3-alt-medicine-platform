@@ -8,10 +8,11 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStepper from '@/Components/App/AppStepper.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
+import CareItemsPicker from '@/Components/Patients/CareItemsPicker.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
 import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { router } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 interface Center {
     id: number;
@@ -36,6 +37,7 @@ interface DiseaseOption {
     id: number;
     code: string;
     label: string;
+    description: string | null;
     category_id: number;
     category_label: string;
 }
@@ -146,18 +148,6 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
 // protocol, only what was given during the session confirmation creates.
 const selectedCareItemIds = ref<Set<number>>(new Set());
 
-function toggleCareItem(itemId: number) {
-    const next = new Set(selectedCareItemIds.value);
-
-    if (next.has(itemId)) {
-        next.delete(itemId);
-    } else {
-        next.add(itemId);
-    }
-
-    selectedCareItemIds.value = next;
-}
-
 watch(
     () => props.visible,
     (visible) => {
@@ -224,6 +214,42 @@ const savedLabel = computed(() => {
 // --- Disease selection (step 2) ---
 const activeCategoryId = ref<number | null>(null);
 const diseaseSearch = ref('');
+
+// Scrolls the disease list into view once it's rendered — the category
+// grid can push it below the fold, and nothing else signals to the user
+// that clicking a card actually did something.
+const diseaseListPanel = ref<HTMLElement | null>(null);
+
+function scrollDiseaseListIntoView() {
+    // 'start' rather than 'center' — the panel's header (category name +
+    // close button) is what confirms to the user this is "their" list, so
+    // it should land at the top of the visible area. Centering a tall
+    // list (e.g. 18 diseases) would scroll the header itself off-screen.
+    diseaseListPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// v-expand-transition's @after-enter only fires when the panel's v-if
+// flips false→true (the very first click, nothing → a category) — it
+// does NOT fire when switching from one already-open category straight
+// to another, since the AppCard element is reused in place (no
+// leave/enter). That left the scroll working once, then silently doing
+// nothing on every subsequent category switch, which is why this watcher
+// exists: it fires on every activeCategoryId change, including
+// category→category. On the very first open, @after-enter (below, in the
+// template) additionally re-scrolls once the expand animation finishes,
+// since a nextTick alone would fire mid-animation and undershoot; on a
+// category→category switch there's no expand animation to wait for
+// (content swaps in place at final height already), so this watcher's
+// own scroll is already correct without needing @after-enter's help.
+watch(activeCategoryId, (categoryId, previousCategoryId) => {
+    if (!categoryId) {
+        return;
+    }
+
+    if (previousCategoryId) {
+        nextTick(scrollDiseaseListIntoView);
+    }
+});
 
 const selectedDiseaseIds = computed<Set<number>>({
     get: () => new Set(form.disease_ids as number[]),
@@ -299,6 +325,18 @@ function toggleDisease(diseaseId: number) {
 const diseasesInActiveCategory = computed(() =>
     props.diseases.filter((disease) => disease.category_id === activeCategoryId.value),
 );
+
+const activeCategory = computed(() =>
+    props.diseaseCategories.find((category) => category.id === activeCategoryId.value) ?? null,
+);
+
+// How many diseases of this category are already selected — shown as a
+// badge on the category card so it's visible without opening it first.
+function selectedCountInCategory(category: DiseaseCategoryOption): number {
+    return props.diseases.filter(
+        (disease) => disease.category_id === category.id && selectedDiseaseIds.value.has(disease.id),
+    ).length;
+}
 
 const searchResults = computed(() => {
     const term = diseaseSearch.value.trim().toLowerCase();
@@ -474,12 +512,21 @@ function close() {
                                 </span>
                                 <span>{{ disease.code }} — {{ disease.label }}</span>
                                 <v-chip size="small" variant="tonal">{{ disease.category_label }}</v-chip>
+                                <span v-if="disease.description">
+                                    <v-icon icon="mdi-information-outline" size="small" color="medium-emphasis" />
+                                    <v-tooltip activator="parent" location="top" max-width="320">
+                                        {{ disease.description }}
+                                    </v-tooltip>
+                                </span>
                                 <span v-if="selectedDiseaseIds.has(disease.id)">
                                     <AppCheckbox
                                         :model-value="isActivelyTracked(disease.id)"
                                         label="Suivi actif à chaque séance"
                                         @update:model-value="toggleActivelyTracked(disease.id)"
                                     />
+                                    <v-tooltip activator="parent" location="top">
+                                        Les maladies en suivi actif comptent dans le calcul du statut de guérison du patient — les autres sont ignorées.
+                                    </v-tooltip>
                                 </span>
                             </div>
                         </div>
@@ -494,40 +541,88 @@ function close() {
                                     md="4"
                                 >
                                     <AppCard
-                                        :title="category.label"
-                                        :icon="category.icon"
                                         clickable
                                         :selected="activeCategoryId === category.id"
+                                        class="disease-category-card"
                                         @click="activeCategoryId = category.id"
-                                    />
+                                    >
+                                        <v-card-text class="d-flex flex-column align-center text-center ga-2 py-6">
+                                            <v-badge
+                                                :model-value="selectedCountInCategory(category) > 0"
+                                                :content="selectedCountInCategory(category)"
+                                                color="primary"
+                                                location="top end"
+                                            >
+                                                <v-avatar :color="activeCategoryId === category.id ? 'primary' : 'surface-variant'" size="56">
+                                                    <v-icon v-if="category.icon" :icon="category.icon" size="28" />
+                                                    <v-icon v-else icon="mdi-shape-outline" size="28" />
+                                                </v-avatar>
+                                            </v-badge>
+
+                                            <span class="text-body-2 font-weight-medium disease-category-label">{{ category.label }}</span>
+                                        </v-card-text>
+                                    </AppCard>
                                 </v-col>
                             </v-row>
 
-                            <div v-if="activeCategoryId" class="d-flex flex-column ga-2 mt-2">
-                                <div
-                                    v-for="disease in diseasesInActiveCategory"
-                                    :key="disease.id"
-                                    class="d-flex align-center ga-2"
-                                >
-                                    <span>
-                                        <AppCheckbox
-                                            :model-value="selectedDiseaseIds.has(disease.id)"
-                                            :label="`${disease.code} — ${disease.label}`"
-                                            :disabled="isDiseaseLocked(disease.id)"
-                                            @update:model-value="toggleDisease(disease.id)"
-                                        />
-                                        <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
-                                            Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
-                                        </v-tooltip>
-                                    </span>
-                                    <span v-if="selectedDiseaseIds.has(disease.id)">
-                                        <AppCheckbox
-                                            :model-value="isActivelyTracked(disease.id)"
-                                            label="Suivi actif à chaque séance"
-                                            @update:model-value="toggleActivelyTracked(disease.id)"
-                                        />
-                                    </span>
-                                </div>
+                            <div ref="diseaseListPanel">
+                                <v-expand-transition @after-enter="scrollDiseaseListIntoView">
+                                    <AppCard v-if="activeCategoryId" variant="tonal" class="mt-2">
+                                        <v-card-text class="d-flex flex-column ga-2">
+                                            <div class="d-flex align-center justify-space-between">
+                                                <div class="d-flex align-center ga-2">
+                                                    <v-icon
+                                                        :icon="activeCategory?.icon ?? 'mdi-shape-outline'"
+                                                        color="primary"
+                                                    />
+                                                    <span class="text-body-1 font-weight-medium">{{ activeCategory?.label }}</span>
+                                                </div>
+                                                <AppButton
+                                                    type="button"
+                                                    icon="mdi-close"
+                                                    severity="secondary"
+                                                    size="small"
+                                                    aria-label="Fermer la liste des maladies"
+                                                    @click="activeCategoryId = null"
+                                                />
+                                            </div>
+
+                                            <div
+                                                v-for="disease in diseasesInActiveCategory"
+                                                :key="disease.id"
+                                                class="d-flex align-center ga-2"
+                                            >
+                                                <span>
+                                                    <AppCheckbox
+                                                        :model-value="selectedDiseaseIds.has(disease.id)"
+                                                        :label="`${disease.code} — ${disease.label}`"
+                                                        :disabled="isDiseaseLocked(disease.id)"
+                                                        @update:model-value="toggleDisease(disease.id)"
+                                                    />
+                                                    <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
+                                                        Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                                    </v-tooltip>
+                                                </span>
+                                                <span v-if="disease.description">
+                                                    <v-icon icon="mdi-information-outline" size="small" color="medium-emphasis" />
+                                                    <v-tooltip activator="parent" location="top" max-width="320">
+                                                        {{ disease.description }}
+                                                    </v-tooltip>
+                                                </span>
+                                                <span v-if="selectedDiseaseIds.has(disease.id)">
+                                                    <AppCheckbox
+                                                        :model-value="isActivelyTracked(disease.id)"
+                                                        label="Suivi actif à chaque séance"
+                                                        @update:model-value="toggleActivelyTracked(disease.id)"
+                                                    />
+                                                    <v-tooltip activator="parent" location="top">
+                                                        Les maladies en suivi actif comptent dans le calcul du statut de guérison du patient — les autres sont ignorées.
+                                                    </v-tooltip>
+                                                </span>
+                                            </div>
+                                        </v-card-text>
+                                    </AppCard>
+                                </v-expand-transition>
                             </div>
                         </template>
 
@@ -542,21 +637,7 @@ function close() {
                             l'ensemble du traitement, seulement ce qui a été fait aujourd'hui.
                         </p>
 
-                        <div v-if="careCategories.length">
-                            <div v-for="category in careCategories" :key="category.id" class="mb-3">
-                                <p class="text-body-2 text-medium-emphasis">{{ category.label }}</p>
-                                <div class="d-flex flex-wrap ga-3">
-                                    <AppCheckbox
-                                        v-for="item in category.items"
-                                        :key="item.id"
-                                        :model-value="selectedCareItemIds.has(item.id)"
-                                        :label="item.label"
-                                        @update:model-value="toggleCareItem(item.id)"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <p v-else class="text-body-2 text-medium-emphasis">Aucun soin disponible.</p>
+                        <CareItemsPicker v-model="selectedCareItemIds" :care-categories="careCategories" />
                     </div>
                 </div>
             </template>
@@ -590,3 +671,16 @@ function close() {
         </div>
     </AppDialog>
 </template>
+
+<style scoped>
+/* Category cards (icon-badge layout) — allow the label to wrap up to 2
+ * lines instead of overflowing/truncating, same clamp already used by
+ * AppCard's own #title slot for the same problem elsewhere. */
+.disease-category-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+</style>

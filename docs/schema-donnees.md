@@ -214,10 +214,28 @@ id · type_option_id (fk `enum_options`) · code · label (translatable) ·
 icon (string, nullable — nom d'icône mdi, ex. "mdi-stomach", **ajouté
 2026-08-25**) · order · active · timestamps
 
-Affiché à côté du titre sur la card de catégorie de l'étape "Maladies"
-du wizard Treatment (`AppCard`'s nouveau slot `#title` + prop `icon` —
-voir plus bas "Note AppCard `title`"), rien n'est affiché si `icon` est
-vide.
+Les 9 catégories ont chacune une icône distincte assignée dans
+`DiseaseCategorySeeder.php` (2026-08-25) : Blocages=`mdi-lock-outline`,
+Symboles=`mdi-shape-outline`, Maladies digestives=`mdi-stomach`,
+Maladies de la peau=`mdi-bandage`, Maladies du sexe=
+`mdi-gender-male-female`, Maladies mentales et cérébrales=`mdi-brain`,
+Maladies infectieuses=`mdi-virus`, La poitrine et les yeux=
+`mdi-eye-outline`, Maladies héréditaires et cancer=`mdi-dna` — le
+seeder `->update(['icon' => ...])` explicitement après le
+`firstOrCreate` (pas seulement dans son bloc `create`) pour que ce
+champ se backfill sur des lignes déjà seedées lors d'un simple
+`php artisan db:seed --class=DiseaseCategorySeeder`, sans exiger un
+`migrate:fresh`.
+
+Affiché sur la card de catégorie de l'étape "Maladies" du wizard
+Treatment — icône dans un badge circulaire (`v-avatar`), libellé en
+dessous, compteur du nombre de maladies déjà sélectionnées dans cette
+catégorie en `v-badge` sur le coin de l'icône. Rendu directement dans
+`TreatmentWizardDialog.vue` (pas via les props `title`/`icon` d'`AppCard`
+— ce layout, plus élaboré qu'un simple titre, utilise `AppCard` comme
+coquille cliquable/sélectionnable mais compose son propre contenu dans
+le slot par défaut). Catégorie sans icône : icône générique
+`mdi-shape-outline` affichée à la place (jamais de badge vide).
 
 ✅ **CRUD admin implémenté (2026-08-21)** — `DiseaseCategoryController`
 (super_admin uniquement), page Inertia `Admin/DiseaseCategories/Index.vue`.
@@ -244,6 +262,17 @@ d'admin séparée (`DiseaseAdminResource`) de la Resource en lecture
 seule existante (`DiseaseResource`) — même raisonnement que
 `DiseaseCategoryAdminResource` ci-dessus.
 
+⚠️ **`description` jamais exposée au wizard Treatment avant le
+2026-08-25** — la colonne existe depuis le tout premier seed (87 des
+172 maladies ont un vrai contenu), mais `DiseaseResource` (celle
+consommée par `TreatmentWizardDialog`) ne la retournait pas. Ajoutée
+au `toArray()` de `DiseaseResource` — affichée en info-bulle (icône
+`mdi-information-outline`, uniquement si non vide) à côté de chaque
+maladie dans le wizard, pour que le praticien sache exactement ce que
+couvre une maladie sans deviner depuis le seul libellé. `DiseaseAdminResource`
+n'a pas eu besoin de ce changement, elle exposait déjà `description`
+(champ éditable du formulaire admin).
+
 ### `disease_subcases`
 Sous-cas d'un blocage (ex. sous "Travail" (801) : "Pas de travail",
 "Travail médiocre"...) — présents uniquement pour la catégorie 8
@@ -265,12 +294,22 @@ pas une refonte.
 seule table du domaine Patients référencée **uniquement** par le
 modèle et le seeder — aucun controller, aucune UI, aucune requête
 métier ne la lit à ce jour (confirmé par grep sur toute la codebase).
-Ce n'est **pas** une table à supprimer : elle porte les 19 vrais
+À cette date, jugée non supprimable : elle portait les 19 vrais
 sous-cas extraits du document source (voir CLAUDE.md "Sous-cas des
-blocages"), donc une vraie donnée métier en attente de son premier
-usage (le lien vers `treatment_diseases`, volontairement pas encore
-construit, voir ci-dessus) — pas une table morte issue d'une erreur de
-conception. Gardée telle quelle.
+blocages"), une vraie donnée métier en attente de son premier usage.
+
+🔄 **Révisé le 2026-08-25** : le contenu des 19 sous-cas (801-804) a été
+fusionné directement dans `diseases.description` de leur maladie parente
+(format "Libellé : détail; Libellé : détail; ..." séparé par
+point-virgule — 803 n'a que des libellés, sans détail source) : c'est
+`description` qui est réellement affichée au praticien (info-bulle dans
+le wizard Treatment, voir plus haut), jamais `disease_subcases`. Cette
+table est donc désormais **candidate à la suppression** (décision
+utilisateur) — le seeder continue de la peupler pour l'instant (pas
+encore retirée du code), mais elle est prévue pour être droppée une
+fois confirmé que rien d'autre n'en dépend. Ne pas réintroduire de
+nouveau contenu dans `disease_subcases` sans repasser par `description`
+en parallèle tant que la table existe encore.
 
 ### `treatments` — **implémenté** (2026-08-20)
 Un traitement = un parcours de soin pour un patient, chez un soignant,
