@@ -44,6 +44,7 @@ interface DiseaseCategoryOption {
     id: number;
     code: string;
     label: string;
+    icon: string | null;
 }
 
 interface CareItemOption {
@@ -489,11 +490,12 @@ function close() {
                                     v-for="category in diseaseCategories"
                                     :key="category.id"
                                     cols="6"
-                                    sm="4"
-                                    md="3"
+                                    sm="6"
+                                    md="4"
                                 >
                                     <AppCard
                                         :title="category.label"
+                                        :icon="category.icon"
                                         clickable
                                         :selected="activeCategoryId === category.id"
                                         @click="activeCategoryId = category.id"

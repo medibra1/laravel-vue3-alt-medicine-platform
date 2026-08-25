@@ -26,6 +26,7 @@ class DiseaseCategoryAdminResource extends JsonResource
             'type_option_id' => $this->type_option_id,
             'code' => $this->code,
             'label' => $this->getTranslations('label'),
+            'icon' => $this->icon,
             'order' => $this->order,
             'active' => $this->active,
             'type' => $this->whenLoaded('type', fn () => [

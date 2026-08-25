@@ -211,7 +211,13 @@ maladies placeholder 901/902), remplacée par "Symboles" (`code=0`, type
 contenu réel fourni par l'utilisateur, pas un placeholder).
 
 id · type_option_id (fk `enum_options`) · code · label (translatable) ·
-order · active · timestamps
+icon (string, nullable — nom d'icône mdi, ex. "mdi-stomach", **ajouté
+2026-08-25**) · order · active · timestamps
+
+Affiché à côté du titre sur la card de catégorie de l'étape "Maladies"
+du wizard Treatment (`AppCard`'s nouveau slot `#title` + prop `icon` —
+voir plus bas "Note AppCard `title`"), rien n'est affiché si `icon` est
+vide.
 
 ✅ **CRUD admin implémenté (2026-08-21)** — `DiseaseCategoryController`
 (super_admin uniquement), page Inertia `Admin/DiseaseCategories/Index.vue`.

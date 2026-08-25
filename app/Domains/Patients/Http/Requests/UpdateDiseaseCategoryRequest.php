@@ -29,6 +29,7 @@ class UpdateDiseaseCategoryRequest extends FormRequest
             'code' => ['required', 'string', 'max:10', Rule::unique('disease_categories', 'code')->ignore($diseaseCategory)],
             'label.fr' => ['required', 'string', 'max:255'],
             'label.en' => ['required', 'string', 'max:255'],
+            'icon' => ['nullable', 'string', 'max:50'],
             'order' => ['sometimes', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
         ];
