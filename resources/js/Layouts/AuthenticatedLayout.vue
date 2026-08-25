@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import AppCenterSwitcher from '@/Components/App/AppCenterSwitcher.vue';
 import AppNotificationBell from '@/Components/App/AppNotificationBell.vue';
 import { useAppDensity, type AppDensity } from '@/lib/useAppDensity';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -26,6 +27,7 @@ const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
 const isAdmin = computed(() => Boolean((usePage().props.auth as { is_admin?: boolean }).is_admin));
+const isManager = computed(() => Boolean((usePage().props.auth as { is_manager?: boolean }).is_manager));
 
 // route().current() reads window.location imperatively — it has no Vue
 // reactivity of its own, so each `active` flag is computed here (reading
@@ -37,12 +39,20 @@ const currentUrl = computed(() => usePage().url);
 const generalNavItems = computed(() => {
     void currentUrl.value;
 
-    return [
+    const items = [
         { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: route('dashboard'), active: route().current('dashboard') },
         { label: 'Patients', icon: 'mdi-account-heart-outline', href: route('admin.patients.index'), active: route().current('admin.patients.*') },
         { label: 'Traitements', icon: 'mdi-medical-bag', href: route('admin.treatments.index'), active: route().current('admin.treatments.*') },
-        { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') },
     ];
+
+    // A pure practitioner account (no manager/admin/super_admin role)
+    // has no practitioners.viewAny permission — the CRUD page would
+    // just 403. Managers/admins/super_admins keep seeing it as before.
+    if (isSuperAdmin.value || isAdmin.value || isManager.value) {
+        items.push({ label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') });
+    }
+
+    return items;
 });
 
 // Visually grouped (v-list-subheader) apart from the business menus
@@ -174,6 +184,8 @@ onBeforeMount(() => {
             </v-app-bar-title>
 
             <v-spacer />
+
+            <AppCenterSwitcher />
 
             <v-menu>
                 <template #activator="{ props: menuProps }">

@@ -35,6 +35,7 @@ const props = defineProps<{
     };
     filters: { filter?: Record<string, string>; sort?: string };
     centers: Center[];
+    canCreate: boolean;
 }>();
 
 const search = reactive({
@@ -97,7 +98,7 @@ function destroy(patient: Patient) {
 
     <AuthenticatedLayout>
         <AppPageHeader title="Patients" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Patients' }]">
-            <template #actions>
+            <template v-if="canCreate" #actions>
                 <Link :href="route('admin.patients.create')">
                     <AppButton label="Nouveau patient" icon="mdi-plus" as="span" />
                 </Link>
@@ -134,13 +135,14 @@ function destroy(patient: Patient) {
                         <div class="d-flex ga-2">
                             <Link :href="route('admin.patients.edit', item.id)">
                                 <AppButton
-                                    label="Modifier"
+                                    :label="canCreate ? 'Modifier' : 'Voir'"
                                     severity="secondary"
                                     size="small"
                                     as="span"
                                 />
                             </Link>
                             <AppButton
+                                v-if="canCreate"
                                 label="Supprimer"
                                 severity="danger"
                                 size="small"

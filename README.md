@@ -75,8 +75,8 @@ temps qu'un usage manuel actif de cette DB.
 | Domaine | État |
 |---|---|
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
-| Auth (comptes utilisateurs, notifications) | **Fait (Phase 1)** — rôles `super_admin`/`admin`/`manager`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (canal database uniquement) |
-| Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
+| Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
+| Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
 | Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
@@ -343,6 +343,39 @@ mot de passe → email auto-vérifié → connexion → notification "Nouveau
 centre géré" visible dans la cloche ; compte désactivé bloqué à la
 connexion avec message clair. Mot de passe seed remis à une valeur
 aléatoire, données de test supprimées en fin de session.
+
+**Gestion des comptes practitioner multi-centres Phase 2** (2026-08-25,
+branche `feature/user-management-phase2`, depuis Phase 1) : rôle
+`practitioner` (lecture seule sur patients/traitements, scopé par
+centre comme `manager` — contrairement à `admin`/`super_admin`), un
+practitioner peut être accessible sur plusieurs centres à la fois
+(`User::accessibleCenterIds()`, plusieurs assignations `practitioner`
+jamais remplacées). Sélecteur de centre actif dans l'app-bar
+(`AppCenterSwitcher.vue`), auto-sélection sans écran de choix
+obligatoire (`EnsureCenterAccess` étendu). Un seul point d'entrée de
+création : le formulaire Praticiens existant gagne un toggle "Donner
+un accès à l'application" avec vérification d'email en direct
+(nouveau/existant/déjà pris) — email déjà lié à un praticien existant
+= auto-jonction au centre courant sans dupliquer sa fiche. Détail
+complet, dont deux bugs réels trouvés en vérification navigateur (un
+`useForm().reset()` d'Inertia qui recalibre ses valeurs par défaut sur
+le dernier submit réussi plutôt que sur l'état vide initial, et un
+piège de validation `prohibited` sur des champs masqués mais toujours
+soumis — le même genre de piège déjà rencontré en Phase 1, cette fois
+sur deux champs distincts) dans `CLAUDE.md` "Gestion des comptes
+practitioner multi-centres Phase 2". Vérifié : 235 tests Pest (1
+nouveau test de régression, zéro régression), `pint --test` clean,
+Larastan niveau 5 clean, build Vite client+SSR OK, `vue-tsc --noEmit`
+clean, golden path navigateur réel (Playwright) : création d'un
+practitioner avec accès sur Centre A → création d'un second praticien
+sur Centre B avec le même email (auto-jonction confirmée en base —
+aucune deuxième fiche `Practitioner` créée, mail + notification database
+reçus) → connexion practitioner → sélecteur de centre visible avec les
+deux centres → bascule Centre A → Centre B → liste patients change bien
+selon le centre actif, reste en lecture seule (formulaire désactivé via
+`<fieldset disabled>`, boutons de création/suppression masqués). Zéro
+erreur console. Données de test supprimées, mot de passe seed remis à
+une valeur aléatoire en fin de session.
 
 ## Points ouverts connus
 

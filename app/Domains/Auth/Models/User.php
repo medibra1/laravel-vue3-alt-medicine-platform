@@ -81,6 +81,22 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Whether this user has a 'practitioner' role assignment on at
+     * least one center — same raw, team-unscoped check family as
+     * isManager(). Doesn't say *which* center(s); see
+     * accessibleCenterIds() for that.
+     */
+    public function isPractitioner(): bool
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_id', $this->getKey())
+            ->where('model_has_roles.model_type', static::class)
+            ->where('roles.name', 'practitioner')
+            ->exists();
+    }
+
+    /**
      * The single center this user manages, if any — the team_id of
      * their 'manager' role assignment. A manager is scoped to one
      * center only (see CLAUDE.md); used by EnsureCenterAccess to set
@@ -96,5 +112,30 @@ class User extends Authenticatable implements MustVerifyEmail
             ->value('model_has_roles.team_id');
 
         return $teamId !== null ? (int) $teamId : null;
+    }
+
+    /**
+     * Every center this user has a 'practitioner' role assignment on —
+     * unlike manager, a practitioner can be granted access to several
+     * centers (one row per center in model_has_roles, never replaced).
+     * Same raw, team-unscoped query family as isSuperAdmin()/
+     * managedCenterId(); used by EnsureCenterAccess to resolve/validate
+     * the request's active center for a practitioner account.
+     *
+     * @return array<int, int>
+     */
+    public function accessibleCenterIds(): array
+    {
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_id', $this->getKey())
+            ->where('model_has_roles.model_type', static::class)
+            ->where('roles.name', 'practitioner')
+            ->orderBy('model_has_roles.team_id')
+            ->pluck('model_has_roles.team_id')
+            ->map(fn ($teamId) => (int) $teamId)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

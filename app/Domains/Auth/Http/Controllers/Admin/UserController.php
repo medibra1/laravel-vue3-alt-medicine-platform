@@ -8,6 +8,7 @@ use App\Domains\Auth\Http\Resources\UserResource;
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Notifications\ManagerAssignedNotification;
 use App\Domains\Auth\Notifications\WelcomeSetPasswordNotification;
+use App\Domains\Auth\Support\RolePermissions;
 use App\Domains\Core\Models\Center;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
@@ -175,6 +176,17 @@ class UserController extends Controller
                 'guard_name' => 'web',
                 'team_id' => $role === 'manager' ? $centerId : null,
             ]);
+
+            // A freshly created role has no permissions until synced —
+            // without this a real manager created through this
+            // controller would pass every hasRole() check but fail
+            // every can() check (patients.view etc. all false), a bug
+            // that testing helpers like actingAsManagerOf() masked by
+            // syncing permissions manually and never going through
+            // this method.
+            if ($role === 'manager') {
+                $roleModel->syncPermissions(RolePermissions::manager());
+            }
         }
 
         $user->assignRole($roleModel);

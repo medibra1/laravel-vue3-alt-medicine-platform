@@ -122,6 +122,7 @@ const props = defineProps<{
     diseases?: DiseaseOption[];
     diseaseCategories?: DiseaseCategoryOption[];
     careCategories?: CareCategoryOption[];
+    canUpdate: boolean;
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -420,6 +421,7 @@ function onStatusChipClick() {
                         :saved-label="savedLabel"
                         :save-errors="saveErrors"
                         :confirming="confirming"
+                        :readonly="!canUpdate"
                         @confirm="confirmPatient"
                         @cancel="router.get(route('admin.patients.index'))"
                     />
@@ -430,7 +432,7 @@ function onStatusChipClick() {
                         <div class="d-flex align-center justify-space-between mb-1">
                             <h2 class="text-h6">Traitement en cours</h2>
                             <AppButton
-                                v-if="!ongoingTreatment"
+                                v-if="!ongoingTreatment && canUpdate"
                                 label="Ajouter un traitement"
                                 icon="mdi-plus"
                                 @click="openNewTreatment"

@@ -18,6 +18,7 @@ class UserResource extends JsonResource
     {
         $role = $this->resolveRole();
         $centerId = $role === 'manager' ? $this->managedCenterId() : null;
+        $centerIds = $role === 'practitioner' ? $this->accessibleCenterIds() : [];
 
         return [
             'id' => $this->id,
@@ -28,6 +29,12 @@ class UserResource extends JsonResource
             'center' => $centerId !== null
                 ? Center::query()->find($centerId, ['id', 'name'])
                 : null,
+            // Only ever populated for a practitioner — a manager stays
+            // on the single 'center' above (unchanged shape, so nothing
+            // consuming that field before this needs to change).
+            'centers' => $centerIds !== []
+                ? Center::query()->whereIn('id', $centerIds)->orderBy('name')->get(['id', 'name'])
+                : [],
             'is_active' => $this->is_active,
             // Direct-mode creation verifies the email immediately (the
             // admin vouches for the address); invite-mode leaves it null
@@ -44,7 +51,10 @@ class UserResource extends JsonResource
      * roles() is team-scoped (filtered to the currently active
      * permissions team, not this row's own) — resolved via the same
      * raw, unscoped lookup already used by isSuperAdmin()/isAdmin()/
-     * isManager() rather than $this->roles.
+     * isManager() rather than $this->roles. A practitioner can hold
+     * several 'practitioner' rows (one per center) but never mixes
+     * roles across centers in this app, so picking any one row's name
+     * here is enough to identify which role this account has.
      */
     private function resolveRole(): ?string
     {

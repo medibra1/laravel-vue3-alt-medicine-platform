@@ -22,9 +22,10 @@ interface UserRow {
     id: number;
     name: string;
     email: string;
-    role: 'super_admin' | 'admin' | 'manager' | null;
+    role: 'super_admin' | 'admin' | 'manager' | 'practitioner' | null;
     center_id: number | null;
     center: Center | null;
+    centers: Center[];
     is_active: boolean;
     invitation_pending: boolean;
     created_at: string;
@@ -56,6 +57,7 @@ const roleLabels: Record<string, string> = {
     super_admin: 'Super admin',
     admin: 'Admin',
     manager: 'Manager',
+    practitioner: 'Praticien',
 };
 
 const search = reactive({
@@ -90,7 +92,7 @@ const columns: AppDataTableColumn[] = [
     { field: 'name', header: 'Nom', sortable: true },
     { field: 'email', header: 'Email', sortable: true },
     { field: 'role', header: 'Rôle' },
-    { field: 'center', header: 'Centre géré' },
+    { field: 'centers', header: 'Centres' },
     { field: 'status', header: 'Statut' },
     { field: 'actions', header: 'Actions' },
 ];
@@ -212,7 +214,16 @@ function destroy(user: UserRow) {
                     <template #column-role="{ item }">
                         <v-chip size="small" variant="tonal">{{ item.role ? roleLabels[item.role] : '—' }}</v-chip>
                     </template>
-                    <template #column-center="{ item }">{{ item.center?.name ?? '—' }}</template>
+                    <template #column-centers="{ item }">
+                        <span v-if="item.role === 'manager'">{{ item.center?.name ?? '—' }}</span>
+                        <div v-else-if="item.role === 'practitioner'" class="d-flex flex-wrap ga-1">
+                            <v-chip v-for="center in item.centers" :key="center.id" size="small" variant="tonal">
+                                {{ center.name }}
+                            </v-chip>
+                            <span v-if="!item.centers.length">—</span>
+                        </div>
+                        <span v-else>—</span>
+                    </template>
                     <template #column-status="{ item }">
                         <v-chip size="small" :color="statusColor(item)" variant="tonal">{{ statusLabel(item) }}</v-chip>
                     </template>
@@ -226,7 +237,7 @@ function destroy(user: UserRow) {
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                v-if="item.role === 'manager' && item.is_active"
+                                v-if="(item.role === 'manager' || item.role === 'practitioner') && item.is_active"
                                 label="Désactiver"
                                 severity="danger"
                                 size="small"

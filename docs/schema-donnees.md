@@ -136,17 +136,59 @@ valeur vide, échec de validation silencieux (redirection 302 vers la
 page précédente avec erreurs en session, aucune exception côté serveur
 — long à diagnostiquer). Fix dans `StoreUserRequest::rules()` : deux
 branches de règles complètement séparées selon `creation_mode`, jamais
-`prohibited` et `Password::defaults()` dans le même tableau.
+`prohibited` et `Password::defaults()` dans le même tableau. **Ce même
+piège s'est reproduit deux fois en Phase 2** (`matricule`/
+`creation_mode` sur `StorePractitionerRequest`, voir section
+`practitioners` — Inertia's `useForm()` soumet toujours tous les
+champs, même masqués par `v-if`, `'prohibited'` n'est fiable que si le
+frontend vide vraiment le champ avant soumission, sinon préférer
+`nullable` quand le contrôleur ignore la valeur de toute façon).
+
+✅ **Rôle `practitioner` et centre actif multi-centre (Phase 2,
+2026-08-25)** — contrairement à `manager` (un seul centre géré,
+`User::managedCenterId()`), un `practitioner` peut être scopé sur
+plusieurs centres à la fois (`User::accessibleCenterIds()`, raw query
+non scopée sur `model_has_roles`/`roles` filtrée sur le rôle
+`practitioner`, même famille que `isSuperAdmin()`/`managedCenterId()`).
+`EnsureCenterAccess` (middleware existant, étendu) résout le centre
+actif de la requête dans cet ordre : `managedCenterId()` (manager,
+inchangé) → sinon `session('active_center_id')` si présent et
+toujours accessible → sinon **auto-sélection du premier centre
+accessible**, posée en session automatiquement. **Pas d'écran de choix
+obligatoire** (décision explicite : plus simple qu'un `SelectCenter.vue`
+bloquant, le practitioner peut changer à tout moment via le sélecteur
+`AppCenterSwitcher.vue` dans l'app-bar, visible seulement si plus d'un
+centre accessible). `POST admin/active-center`
+(`ActiveCenterController`) change la sélection, revalidée contre
+`accessibleCenterIds()` à chaque fois (rejet si le centre demandé n'y
+figure pas).
+
+`PatientPolicy`/`TreatmentPolicy::viewAny()`/`view()` fonctionnent
+nativement pour `practitioner` via `$user->can(...)` (contrairement à
+`admin`/`super_admin`, ce rôle est scopé par team comme `manager` —
+pas de contournement `before()` nécessaire). Seules `patients.view`/
+`treatments.view` sont accordées à ce rôle (`RolePermissions::
+practitioner()`) — jamais `create`/`update`/`delete`, qui restent
+`manager`-only. `PatientController::edit()` autorise désormais `view`
+(pas `update`) pour permettre la consultation lecture-seule, expose
+`can_update` (bool) pour que `Form.vue`/`PatientInfoForm.vue`
+désactivent le formulaire (`<fieldset disabled>`) sans dupliquer la
+page. Même principe côté listes (`can_create` sur `Patients/Index.vue`
+et `Treatments/Index.vue`, masque les boutons de création/édition/
+suppression).
 
 ### `notifications` — **implémenté** (2026-08-25)
 Table standard Laravel (`php artisan notifications:table`), pas
 préfixée par domaine (référentiel `Common`-like, polymorphe
-`notifiable_type`/`notifiable_id`). Canal `database` uniquement à ce
-stade (Phase 1) — pas de mail dupliqué, pas de broadcasting temps réel.
-Un seul type de notification émise pour l'instant :
-`ManagerAssignedNotification` (`app/Domains/Auth/Notifications/`), à la
-création/mise à jour d'un manager. Cloche `AppNotificationBell.vue`
-dans l'app-bar, rafraîchie au clic (pas de polling).
+`notifiable_type`/`notifiable_id`). Canal `database` uniquement en
+Phase 1 (`ManagerAssignedNotification`) — pas de broadcasting temps
+réel. Phase 2 ajoute `PractitionerJoinedCenterNotification`
+(`app/Domains/Practitioners/Notifications/`), mail **et** database
+cette fois (contrairement à `ManagerAssignedNotification`) : un
+practitioner déjà connecté sur un autre centre doit être notifié de
+façon visible d'un changement d'accès qui peut se produire pendant
+qu'il travaille. Cloche `AppNotificationBell.vue` dans l'app-bar,
+rafraîchie au clic (pas de polling).
 
 ### `practitioners` (soignants)
 | Colonne | Type | Notes |
@@ -154,7 +196,7 @@ dans l'app-bar, rafraîchie au clic (pas de polling).
 | id | bigint PK | |
 | first_name | string | **ajouté 2026-08-21** — absent depuis la création du domaine, seul `matricule`/`full_code` identifiaient un praticien jusque-là (repéré par l'utilisateur en voyant "Praticien : 0116694" dans le dossier patient) |
 | last_name | string | **ajouté 2026-08-21**, voir `first_name` |
-| user_id | fk `users`, nullable | un soignant peut ne pas avoir de compte de connexion (juste référencé) |
+| user_id | fk `users`, nullable, **unique (2026-08-25)** | un soignant peut ne pas avoir de compte de connexion (juste référencé) ; unique = un compte `User` ne peut jamais être lié qu'à une seule ligne `Practitioner`, même s'il a accès à plusieurs centres (voir Phase 2 ci-dessous) |
 | center_id | fk `centers` | |
 | grade_id | fk `grades`, nullable | porte le coefficient utilisé dans le calcul de paie |
 | matricule | string(3) | dernier segment du code — **renommé depuis `diploma_number` le 2026-08-20** (le mot "diplôme" prêtait à confusion : un matricule n'est pas toujours un vrai numéro de diplôme) |
@@ -184,6 +226,42 @@ dans le centre, `PractitionerCodeGenerator::suggestNextMatricule()`,
 endpoint `GET admin/practitioners/next-matricule`) mais reste
 éditable : un manager qui a déjà un vrai numéro de diplôme/registre
 peut le saisir directement à la place de la suggestion.
+
+✅ **Comptes practitioner multi-centres (Phase 2, 2026-08-25)** — un
+`Practitioner` (une ligne, un seul centre `center_id` — inchangé) peut
+avoir son `User` lié (`user_id`) accessible sur **plusieurs** centres
+en même temps, via plusieurs assignations `practitioner` dans
+`model_has_roles` (une par centre, jamais remplacées — voir
+`PractitionerController::grantPractitionerAccessToCenter()`, additive
+contrairement à `UserController::assignRole()` qui écrase tout).
+`User::accessibleCenterIds()` liste ces centres. Deux façons d'obtenir
+cet accès depuis le formulaire de création Praticien (toggle "Donner
+un accès à l'application") :
+- **Nouveau compte** : email inconnu → crée `User` + lie
+  `Practitioner.user_id` + assigne `practitioner` sur ce centre
+  (comportement identique à la création manager/admin en Phase 1 :
+  direct ou invitation par email, mot de passe natif Laravel).
+- **Auto-jonction** : email déjà lié à un `Practitioner` existant
+  (peu importe le centre d'origine) → **aucune nouvelle ligne
+  `Practitioner` créée** — juste une assignation `practitioner`
+  supplémentaire sur ce nouveau centre pour le `User` déjà existant.
+  Aucune étape d'acceptation, notification immédiate (mail +
+  database, `PractitionerJoinedCenterNotification`).
+- **Email déjà pris par un compte non-practitioner** (admin/manager) →
+  rejeté, message clair (`PractitionerAccountResolver`).
+
+⚠️ **Piège de validation rencontré deux fois d'affilée en vérification
+navigateur** — `useForm()` d'Inertia soumet toujours tous les champs
+du formulaire, même ceux masqués par `v-if` côté template (ex.
+`matricule`/`creation_mode`/`first_name`/`last_name`, masqués une fois
+l'auto-jonction détectée). `'prohibited'` sur ces champs dans
+`StorePractitionerRequest` rejetait donc la requête avec une valeur
+résiduelle non vide, produisant un 302 de redirection-back qui
+ressemblait exactement à un vrai succès (même URL cible que l'index).
+Fix : ces champs sont `nullable` (acceptés mais jamais lus par
+`store()` dans la branche d'auto-jonction, qui retourne avant de les
+toucher) plutôt que `prohibited` — voir CLAUDE.md "Gestion des comptes
+practitioner multi-centres" pour le détail du diagnostic.
 
 ---
 

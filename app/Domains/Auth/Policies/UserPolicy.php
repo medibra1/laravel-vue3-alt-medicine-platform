@@ -52,6 +52,9 @@ class UserPolicy
 
     public function delete(User $user, User $target): bool
     {
-        return $user->isAdmin() && $target->isManager() && ! $target->isAdmin() && ! $target->isSuperAdmin();
+        // A practitioner account is deactivatable here too (no edit form
+        // for it — see Admin/Users/Index.vue point 12 — but the same
+        // "deactivate, never delete" action applies as for a manager).
+        return $user->isAdmin() && ($target->isManager() || $target->isPractitioner()) && ! $target->isAdmin() && ! $target->isSuperAdmin();
     }
 }

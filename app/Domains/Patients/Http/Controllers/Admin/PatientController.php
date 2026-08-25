@@ -61,6 +61,11 @@ class PatientController extends Controller
             'patients' => $patients,
             'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $this->centerOptions($request),
+            // A read-only practitioner (patients.view but not
+            // patients.create/update) sees the same list — the template
+            // hides create/edit affordances based on this rather than
+            // guessing from a role name client-side.
+            'can_create' => Gate::allows('create', Patient::class),
         ]);
     }
 
@@ -76,7 +81,10 @@ class PatientController extends Controller
 
     public function edit(Request $request, Patient $patient): Response
     {
-        Gate::authorize('update', $patient);
+        // 'view', not 'update' — a read-only practitioner (patients.view
+        // only) can open a patient's file, just not edit it. can_update
+        // below drives what the template actually lets them touch.
+        Gate::authorize('view', $patient);
 
         $patient->load([
             'treatments' => fn ($query) => $query->with([
@@ -92,6 +100,7 @@ class PatientController extends Controller
             'treatments' => TreatmentResource::collection($patient->treatments),
             'centers' => $this->centerOptions($request),
             'practitioners' => $this->practitionerOptions($request),
+            'can_update' => Gate::allows('update', $patient),
             'diseases' => DiseaseResource::collection(
                 Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
             ),

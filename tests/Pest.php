@@ -228,3 +228,33 @@ function actingAsManagerOf(Center $center): User
 
     return $user;
 }
+
+/**
+ * A practitioner accessible on one or more centers — unlike manager,
+ * assigns a separate 'practitioner' role row per center (never
+ * replacing an earlier one), mirroring
+ * PractitionerController::grantPractitionerAccessToCenter().
+ */
+function actingAsPractitionerOf(Center ...$centers): User
+{
+    grantPatientPermissions();
+    grantTreatmentPermissions();
+
+    $user = User::factory()->create();
+
+    foreach ($centers as $center) {
+        setPermissionsTeamId($center->id);
+        $role = Role::findOrCreate('practitioner', 'web');
+        $role->syncPermissions([
+            'patients.viewAny',
+            'patients.view',
+            'treatments.viewAny',
+            'treatments.view',
+        ]);
+        $user->assignRole($role);
+    }
+
+    setPermissionsTeamId(null);
+
+    return $user;
+}

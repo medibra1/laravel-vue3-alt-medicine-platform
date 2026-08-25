@@ -28,14 +28,19 @@ interface PatientForm {
     notes: string | null;
 }
 
-const props = defineProps<{
-    form: PatientForm;
-    centers: Center[];
-    fieldErrors: Record<string, string>;
-    savedLabel: string;
-    saveErrors: Record<string, string[]>;
-    confirming: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        form: PatientForm;
+        centers: Center[];
+        fieldErrors: Record<string, string>;
+        savedLabel: string;
+        saveErrors: Record<string, string[]>;
+        confirming: boolean;
+        /** A read-only practitioner can view but never edit — see CLAUDE.md. */
+        readonly?: boolean;
+    }>(),
+    { readonly: false },
+);
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
@@ -70,6 +75,7 @@ const birthDateBinding = computed<Date | null>({
     <AppCard variant="elevated" elevation="1">
         <v-card-text>
             <form @submit.prevent="emit('confirm')">
+                <fieldset :disabled="readonly" style="border: none; padding: 0; margin: 0">
                 <v-row>
                     <v-col cols="12">
                         <AppSelect
@@ -129,10 +135,11 @@ const birthDateBinding = computed<Date | null>({
                         <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
                     </v-col>
                 </v-row>
+                </fieldset>
 
                 <div class="d-flex justify-end ga-2 mt-2">
                     <AppButton type="button" label="Retour à la liste" severity="secondary" @click="emit('cancel')" />
-                    <AppButton type="submit" label="Confirmer" :loading="confirming" />
+                    <AppButton v-if="!readonly" type="submit" label="Confirmer" :loading="confirming" />
                 </div>
             </form>
         </v-card-text>
