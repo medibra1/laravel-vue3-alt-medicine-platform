@@ -39,16 +39,20 @@ class Treatment extends Model
     }
 
     /**
-     * True while at least one disease attached to this treatment has no
-     * final outcome yet — no progress row at all, or its latest row (across
-     * every session) is still 'ongoing'. Deliberately per-disease rather
-     * than a single treatment-level flag: the source brief has each disease
-     * resolving on its own délai, independently of the others in the same
-     * treatment (see CLAUDE.md "Statut global Treatment").
+     * True while at least one *actively tracked* disease attached to this
+     * treatment has no final outcome yet — no progress row at all, or its
+     * latest row (across every session) is still 'ongoing'. Deliberately
+     * per-disease rather than a single treatment-level flag: the source
+     * brief has each disease resolving on its own délai, independently of
+     * the others in the same treatment (see CLAUDE.md "Statut global
+     * Treatment"). Diseases with actively_tracked=false are excluded from
+     * this check entirely — a disease the treatment merely records but
+     * doesn't actively follow must never block auto-closure (see CLAUDE.md
+     * "Suivi actif vs maladie secondaire").
      */
     public function hasUnresolvedDiseases(): bool
     {
-        $diseaseIds = $this->diseases()->pluck('diseases.id');
+        $diseaseIds = $this->diseases()->wherePivot('actively_tracked', true)->pluck('diseases.id');
 
         if ($diseaseIds->isEmpty()) {
             return true;
@@ -161,10 +165,21 @@ class Treatment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /** @return BelongsToMany<Disease, $this> */
+    /**
+     * `actively_tracked` (pivot, default true) distinguishes a disease this
+     * treatment must evaluate at every session from one the patient merely
+     * has on record alongside it — see CLAUDE.md "Suivi actif vs maladie
+     * secondaire". ->using(TreatmentDiseasePivot::class) gives ->pivot a
+     * known, typed `actively_tracked` property instead of Eloquent's
+     * anonymous default Pivot (which static analysis can't see into).
+     *
+     * @return BelongsToMany<Disease, $this, TreatmentDiseasePivot>
+     */
     public function diseases(): BelongsToMany
     {
-        return $this->belongsToMany(Disease::class, 'treatment_diseases');
+        return $this->belongsToMany(Disease::class, 'treatment_diseases')
+            ->using(TreatmentDiseasePivot::class)
+            ->withPivot('actively_tracked');
     }
 
     /**

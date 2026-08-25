@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('treatment_diseases', function (Blueprint $table) {
             $table->foreignId('treatment_id')->constrained('treatments')->cascadeOnDelete();
             $table->foreignId('disease_id')->constrained('diseases')->cascadeOnDelete();
+            $table->boolean('actively_tracked')->default(true);
             $table->primary(['treatment_id', 'disease_id']);
         });
     }

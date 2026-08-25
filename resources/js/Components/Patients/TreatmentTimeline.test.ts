@@ -60,6 +60,37 @@ describe('TreatmentTimeline', () => {
         expect(wrapper.text()).toContain('Acidity — Guéri');
         expect(wrapper.text()).toContain('Acidity — En cours');
     });
+
+    it('groups care items by category label, one heading per category', () => {
+        const groupedSessions = [
+            {
+                id: 3,
+                session_date: '2026-08-20',
+                duration_minutes: 20,
+                notes: null,
+                care_items: [
+                    { id: 10, label: 'Tête', category_label: 'Ventouses' },
+                    { id: 11, label: 'S21 v30 (Cadenas)', category_label: 'Verset à ajouter' },
+                    { id: 12, label: 'Pied', category_label: 'Ventouses' },
+                ],
+                disease_progress: [],
+            },
+        ];
+
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions: groupedSessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        expect(wrapper.text()).toContain('Ventouses');
+        expect(wrapper.text()).toContain('Verset à ajouter');
+        expect(wrapper.text()).toContain('Tête');
+        expect(wrapper.text()).toContain('Pied');
+        expect(wrapper.text()).toContain('S21 v30 (Cadenas)');
+
+        const chips = wrapper.findAllComponents({ name: 'VChip' });
+        expect(chips).toHaveLength(3);
+    });
 });
 
 describe('TreatmentTimeline — delete session', () => {

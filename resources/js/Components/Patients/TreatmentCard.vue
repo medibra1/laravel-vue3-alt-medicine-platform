@@ -9,6 +9,7 @@ interface TreatmentDisease {
     code: string;
     label: string;
     category_label: string;
+    actively_tracked: boolean;
 }
 
 interface TreatmentSessionSummary {
@@ -61,7 +62,8 @@ const treatmentStatusLabels: Record<string, string> = {
 
 const closureReasonLabels: Record<string, string> = {
     resolved: 'toutes les maladies résolues',
-    lost_to_follow_up: 'perdu de vue',
+    lost_to_follow_up: 'injoignable',
+    protocol_not_followed: 'protocole non suivi',
     closed_manually: 'clôture manuelle',
 };
 
@@ -145,15 +147,17 @@ function diseaseStatusLabel(diseaseId: number): string {
             </div>
 
             <div class="d-flex flex-wrap ga-2 mb-3">
-                <v-chip
-                    v-for="disease in treatment.diseases"
-                    :key="disease.id"
-                    size="small"
-                    variant="tonal"
-                    :color="diseaseStatusColor(disease.id)"
-                >
-                    {{ disease.code }} — {{ disease.label }} · {{ diseaseStatusLabel(disease.id) }}
-                </v-chip>
+                <span v-for="disease in treatment.diseases" :key="disease.id">
+                    <v-chip v-if="disease.actively_tracked" size="small" variant="tonal" :color="diseaseStatusColor(disease.id)">
+                        {{ disease.code }} — {{ disease.label }} · {{ diseaseStatusLabel(disease.id) }}
+                    </v-chip>
+                    <v-chip v-else size="small" variant="outlined" color="default" prepend-icon="mdi-eye-off-outline">
+                        {{ disease.code }} — {{ disease.label }} · non suivie
+                        <v-tooltip activator="parent" location="top">
+                            Maladie connue mais non suivie activement — pas d'évaluation attendue à chaque séance.
+                        </v-tooltip>
+                    </v-chip>
+                </span>
             </div>
 
             <div v-if="treatment.sessions.length">

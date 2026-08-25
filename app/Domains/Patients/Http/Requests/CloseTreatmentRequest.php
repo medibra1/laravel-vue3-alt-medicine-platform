@@ -21,7 +21,7 @@ class CloseTreatmentRequest extends FormRequest
      * 'resolved' (all diseases reached a final outcome) is deliberately
      * excluded here — that value is only ever set by
      * Treatment::refreshClosureStatus(), never chosen by a person, so a
-     * manual closure can only be one of the two reasons a treatment ends
+     * manual closure can only be one of the three reasons a treatment ends
      * *without* every disease being resolved.
      *
      * @return array<string, mixed>
@@ -29,7 +29,7 @@ class CloseTreatmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'closure_reason' => ['required', Rule::in(['lost_to_follow_up', 'closed_manually'])],
+            'closure_reason' => ['required', Rule::in(['lost_to_follow_up', 'protocol_not_followed', 'closed_manually'])],
             'notes' => ['nullable', 'string'],
         ];
     }

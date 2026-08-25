@@ -20,8 +20,8 @@ function buildTreatment(overrides: Partial<Record<string, unknown>> = {}) {
         closure_reason: null,
         practitioner: null,
         diseases: [
-            { id: 1, code: '101', label: 'Anxiety', category_label: 'Mental' },
-            { id: 2, code: '201', label: 'Eczema', category_label: 'Skin' },
+            { id: 1, code: '101', label: 'Anxiety', category_label: 'Mental', actively_tracked: true },
+            { id: 2, code: '201', label: 'Eczema', category_label: 'Skin', actively_tracked: true },
         ],
         sessions: [],
         locked_disease_ids: [],
@@ -57,5 +57,32 @@ describe('TreatmentCard', () => {
         const chips = wrapper.findAllComponents({ name: 'VChip' });
         const diseaseChip = chips.find((chip) => chip.text().includes('Eczema'));
         expect(diseaseChip?.props('color')).toBe('secondary');
+    });
+
+    it('shows a muted, status-less chip for a disease that is not actively tracked', () => {
+        const wrapper = mount(TreatmentCard, {
+            props: {
+                treatment: buildTreatment({
+                    diseases: [
+                        { id: 1, code: '101', label: 'Anxiety', category_label: 'Mental', actively_tracked: true },
+                        { id: 2, code: '201', label: 'Eczema', category_label: 'Skin', actively_tracked: false },
+                    ],
+                }),
+            },
+            global: { plugins: [vuetify] },
+        });
+
+        expect(wrapper.text()).toContain('201 — Eczema · non suivie');
+        expect(wrapper.text()).not.toContain('201 — Eczema · Pas encore de suivi');
+
+        const chips = wrapper.findAllComponents({ name: 'VChip' });
+        const untrackedChip = chips.find((chip) => chip.text().includes('Eczema'));
+        expect(untrackedChip?.props('variant')).toBe('outlined');
+        expect(untrackedChip?.props('color')).toBe('default');
+
+        // The actively tracked disease keeps its normal status chip.
+        const trackedChip = chips.find((chip) => chip.text().includes('Anxiety'));
+        expect(trackedChip?.props('variant')).toBe('tonal');
+        expect(trackedChip?.props('color')).toBe('success');
     });
 });

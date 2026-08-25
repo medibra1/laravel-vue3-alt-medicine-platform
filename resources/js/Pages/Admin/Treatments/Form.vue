@@ -62,6 +62,7 @@ interface Treatment {
     outcome_percentage: number | null;
     notes: string | null;
     disease_ids: number[];
+    actively_tracked_disease_ids: number[];
     locked_disease_ids: number[];
 }
 

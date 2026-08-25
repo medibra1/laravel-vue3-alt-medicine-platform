@@ -14,12 +14,14 @@ class EnumOptionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Disease category types: illness (categories 1-7, generally
-        // treated by doctors), blockage, nightmare (new).
+        // Disease category types: illness (categories 3-9, generally
+        // treated by doctors), blockage, symbol. The "nightmare" type
+        // (NIGHTMARE) was removed 2026-08-24 along with its category —
+        // never had real source content, replaced by "Symboles".
         $categoryTypes = [
             ['code' => 'ILLNESS', 'label' => ['fr' => 'Maladie', 'en' => 'Illness'], 'order' => 1],
             ['code' => 'BLOCKAGE', 'label' => ['fr' => 'Blocage', 'en' => 'Blockage'], 'order' => 2],
-            ['code' => 'NIGHTMARE', 'label' => ['fr' => 'Cauchemars', 'en' => 'Nightmares'], 'order' => 3],
+            ['code' => 'SYMBOL', 'label' => ['fr' => 'Symboles', 'en' => 'Symbols'], 'order' => 3],
         ];
 
         foreach ($categoryTypes as $type) {

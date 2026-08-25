@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
 
+/**
+ * @property-read TreatmentDiseasePivot|null $pivot Only set when loaded off
+ *   Treatment::diseases() (see that relation's ->using()) — null on every
+ *   other way of loading a Disease (the plain catalog, DiseaseCategory::diseases()...).
+ */
 class Disease extends Model
 {
     use HasFactory, HasTranslations;

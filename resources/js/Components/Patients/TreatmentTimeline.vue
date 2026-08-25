@@ -55,6 +55,29 @@ function statusColor(session: TreatmentSessionSummary): string {
 function formatSessionDate(session: TreatmentSessionSummary): string {
     return session.session_date ? new Date(session.session_date).toLocaleDateString() : '—';
 }
+
+interface CareItemGroup {
+    categoryLabel: string;
+    items: TreatmentSessionSummary['care_items'];
+}
+
+// Grouped by category_label (not a fixed list of categories) so any
+// current or future care category — not just Ventouses/Verset — shows
+// under its own heading instead of one undifferentiated chip row.
+function careItemGroups(session: TreatmentSessionSummary): CareItemGroup[] {
+    const groups = new Map<string, TreatmentSessionSummary['care_items']>();
+
+    for (const item of session.care_items) {
+        const existing = groups.get(item.category_label);
+        if (existing) {
+            existing.push(item);
+        } else {
+            groups.set(item.category_label, [item]);
+        }
+    }
+
+    return Array.from(groups, ([categoryLabel, items]) => ({ categoryLabel, items }));
+}
 </script>
 
 <template>
@@ -91,10 +114,15 @@ function formatSessionDate(session: TreatmentSessionSummary): string {
                         </div>
                     </div>
 
-                    <div v-if="session.care_items.length" class="d-flex flex-wrap ga-2 mb-2">
-                        <v-chip v-for="item in session.care_items" :key="item.id" size="small" variant="tonal">
-                            {{ item.label }}
-                        </v-chip>
+                    <div v-if="session.care_items.length" class="d-flex flex-column ga-1 mb-2">
+                        <div v-for="group in careItemGroups(session)" :key="group.categoryLabel">
+                            <p class="text-caption text-medium-emphasis font-weight-medium mb-1">{{ group.categoryLabel }}</p>
+                            <div class="d-flex flex-wrap ga-2">
+                                <v-chip v-for="item in group.items" :key="item.id" size="small" variant="tonal">
+                                    {{ item.label }}
+                                </v-chip>
+                            </div>
+                        </div>
                     </div>
 
                     <div v-if="session.disease_progress.length" class="d-flex flex-column ga-1">
