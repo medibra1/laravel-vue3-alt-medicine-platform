@@ -396,6 +396,48 @@ clean, build Vite client+SSR OK, `vue-tsc --noEmit` clean. Vérification
 navigateur réelle non exécutée cette session (portée resserrée, voir
 `CLAUDE.md`).
 
+**Consentement patient** (2026-08-28, branche `feature/patient-consent`,
+depuis `develop` à jour) : un nouvel onglet "Consentement" dans le
+dossier patient permet de recueillir la signature d'un patient
+(nom + trait de signature optionnel) sur un texte versionné par type
+(traitement, RGPD, droit à l'image), avec génération automatique d'un
+PDF horodaté et figé (`barryvdh/laravel-dompdf`, pas `spatie/browsershot`
+— demande explicite de l'utilisateur ; `browsershot` reste en dépendance
+inutilisée). Contrairement aux "documents patient" (Media Library seule),
+`Consent` est un vrai modèle Eloquent avec relations interrogeables
+(qui a consenti, à quelle version, quand) — le PDF lui-même reste
+attaché via `HasMedia`, même mécanisme que `Patient`. Un admin gère les
+modèles de consentement depuis une nouvelle page `/admin/consent-templates`
+(non prévue explicitement dans la consigne initiale mais nécessaire :
+sans elle, aucun consentement n'est jamais recueillable) — éditer un
+modèle crée toujours une nouvelle version plutôt que de modifier la
+ligne existante, pour qu'un texte déjà signé par un patient ne change
+jamais rétroactivement. Détail complet dans `CLAUDE.md` "Consentement
+patient". Vérifié : 297 tests Pest (18 nouveaux, zéro régression),
+`pint --test` clean, Larastan niveau 5 clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean, golden path navigateur réel (Playwright) :
+recueil d'un consentement (signature dessinée, PDF généré et
+téléchargeable, contenu du PDF inspecté — texte, signataire, date,
+trait de signature tous corrects), création d'un nouveau modèle en
+admin, édition d'un modèle existant (nouvelle version créée, ancienne
+archivée), badge "À renouveler" affiché correctement sur le patient
+après la bascule de version. Mode sombre vérifié. Zéro erreur console.
+Données de test et mot de passe seed nettoyés en fin de session.
+
+**Addendum consentement — deux sources** (2026-08-29, même branche) :
+un consentement peut désormais être recueilli par signature électronique
+(`digital`, comportement ci-dessus, inchangé) ou par import d'un document
+papier déjà signé (`uploaded` — photo/scan, plusieurs photos fusionnées
+en un seul PDF via le même service que les documents patient, aucune
+génération PDF dans ce cas). `Consent.type` déplacé depuis le template
+vers `Consent` lui-même (toujours requis), `consent_template_id`/
+`version`/`content_snapshot` nullables. Choix libre à chaque recueil, pas
+de config par centre. Détail complet dans `CLAUDE.md` "Consentement —
+deux sources". Vérifié : 302 tests Pest (5 nouveaux, zéro régression),
+`pint`/Larastan/build/`vue-tsc` clean, golden path navigateur réel sur
+les deux sources (PDF fusionné inspecté directement, 2 pages
+correspondant aux 2 photos importées). Données de test nettoyées.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —

@@ -80,7 +80,10 @@ const adminNavItems = computed(() => {
     }
 
     if (isSuperAdmin.value || isAdmin.value) {
-        items.push({ label: 'Utilisateurs', icon: 'mdi-account-cog-outline', href: route('admin.users.index'), active: route().current('admin.users.*') });
+        items.push(
+            { label: 'Utilisateurs', icon: 'mdi-account-cog-outline', href: route('admin.users.index'), active: route().current('admin.users.*') },
+            { label: 'Modèles de consentement', icon: 'mdi-file-sign', href: route('admin.consent-templates.index'), active: route().current('admin.consent-templates.*') },
+        );
     }
 
     return items;

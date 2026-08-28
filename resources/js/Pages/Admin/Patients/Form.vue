@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import PatientConsentsTab from '@/Components/Patients/PatientConsentsTab.vue';
 import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
 import PatientStatusChip from '@/Components/Patients/PatientStatusChip.vue';
@@ -151,6 +152,28 @@ interface PatientDocuments {
     other: PatientDocument[];
 }
 
+type ConsentType = 'treatment' | 'data_privacy' | 'image_rights';
+type ConsentSource = 'digital' | 'uploaded';
+
+interface ConsentTemplate {
+    type: ConsentType;
+    title: string;
+    content: string;
+    version: number;
+}
+
+interface Consent {
+    id: number;
+    type: ConsentType;
+    source: ConsentSource;
+    version: number | null;
+    template_version: number | null;
+    signer_name: string;
+    accepted_at: string;
+    accepted_by: string;
+    download_url: string;
+}
+
 const props = defineProps<{
     patient: Patient | null;
     centers: Center[];
@@ -163,6 +186,8 @@ const props = defineProps<{
     measurementTypes?: MeasurementTypeOption[];
     can_update: boolean;
     documents?: PatientDocuments;
+    consents?: Consent[];
+    consentTemplates?: ConsentTemplate[];
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -291,6 +316,7 @@ const tabs: AppTabItem[] = [
     { title: 'Informations', value: 'informations' },
     { title: 'Traitement en cours', value: 'ongoing' },
     { title: 'Documents', value: 'documents' },
+    { title: 'Consentement', value: 'consent' },
     { title: 'Historique', value: 'history' },
 ];
 
@@ -342,7 +368,7 @@ function editTreatment(treatment: TreatmentSummary) {
 }
 
 function reloadPatient() {
-    router.reload({ only: ['patient', 'treatments', 'documents'] });
+    router.reload({ only: ['patient', 'treatments', 'documents', 'consents'] });
 }
 
 // Only ever set by PatientController::confirm()'s redirect, right after a
@@ -534,6 +560,17 @@ function onStatusChipClick() {
                         :identity="documents?.identity ?? null"
                         :medical="documents?.medical ?? []"
                         :other="documents?.other ?? []"
+                        :readonly="!can_update"
+                        @saved="reloadPatient"
+                    />
+                </template>
+
+                <template #consent>
+                    <PatientConsentsTab
+                        :patient-id="effectivePatientId"
+                        :patient-full-name="pageTitle"
+                        :consents="consents ?? []"
+                        :consent-templates="consentTemplates ?? []"
                         :readonly="!can_update"
                         @saved="reloadPatient"
                     />
