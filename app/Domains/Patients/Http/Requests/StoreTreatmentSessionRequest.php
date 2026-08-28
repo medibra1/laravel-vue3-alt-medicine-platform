@@ -44,6 +44,11 @@ class StoreTreatmentSessionRequest extends FormRequest
             'disease_progress.*.outcome' => ['nullable', Rule::in(['cured', 'not_cured', 'percentage', 'ongoing'])],
             'disease_progress.*.outcome_percentage' => ['nullable', 'integer', 'min:1', 'max:99'],
             'disease_progress.*.notes' => ['nullable', 'string'],
+            'measurements' => ['nullable', 'array'],
+            'measurements.*.measurement_type_option_id' => ['required', 'integer', 'exists:enum_options,id'],
+            'measurements.*.value' => ['required', 'string', 'max:50'],
+            'measurements.*.unit' => ['nullable', 'string', 'max:20'],
+            'measurements.*.notes' => ['nullable', 'string'],
         ];
     }
 

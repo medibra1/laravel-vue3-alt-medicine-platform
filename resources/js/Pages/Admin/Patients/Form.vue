@@ -67,6 +67,15 @@ interface TreatmentSessionSummary {
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
+    measurements: { measurement_type_option_id: number; measurement_type_code: string; measurement_type_label: string; value: string; unit: string | null; notes: string | null }[];
+}
+
+interface MeasurementTypeOption {
+    id: number;
+    code: string;
+    label: string;
+    unit: string | null;
+    placeholder: string | null;
 }
 
 interface TreatmentSummary {
@@ -151,6 +160,7 @@ const props = defineProps<{
     diseaseCategories?: DiseaseCategoryOption[];
     careCategories?: CareCategoryOption[];
     religionOptions?: ReligionOption[];
+    measurementTypes?: MeasurementTypeOption[];
     can_update: boolean;
     documents?: PatientDocuments;
 }>();
@@ -594,6 +604,7 @@ function onStatusChipClick() {
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
+            :measurement-types="measurementTypes ?? []"
             :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
             :medical-documents="editingSession ? medicalDocumentsForSession(editingSession.id) : []"
             @saved="reloadPatient"
