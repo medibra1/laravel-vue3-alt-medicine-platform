@@ -2,6 +2,7 @@
 
 namespace App\Domains\Patients\Http\Controllers\Admin;
 
+use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Http\Requests\ConfirmPatientRequest;
@@ -76,6 +77,14 @@ class PatientController extends Controller
         return Inertia::render('Admin/Patients/Form', [
             'patient' => null,
             'centers' => $this->centerOptions($request),
+            'religionOptions' => $this->religionOptions(),
+            // Form.vue declares can_update as a required prop (it drives
+            // PatientInfoForm's readonly state) — create() never sent it,
+            // producing a "Missing required prop" console warning on
+            // every visit to this page. Always true here: reaching this
+            // action already passed the 'create' gate, and creating
+            // implies being able to edit what was just created.
+            'can_update' => true,
         ]);
     }
 
@@ -100,6 +109,7 @@ class PatientController extends Controller
             'treatments' => TreatmentResource::collection($patient->treatments),
             'centers' => $this->centerOptions($request),
             'practitioners' => $this->practitionerOptions($request),
+            'religionOptions' => $this->religionOptions(),
             'can_update' => Gate::allows('update', $patient),
             'diseases' => DiseaseResource::collection(
                 Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
@@ -173,5 +183,19 @@ class PatientController extends Controller
         $patient->delete();
 
         return redirect()->route('admin.patients.index');
+    }
+
+    /**
+     * @return array<int, array{id: int, code: string, label: string}>
+     */
+    private function religionOptions(): array
+    {
+        return EnumOption::cachedByType('patient.religion')
+            ->map(fn (EnumOption $option) => [
+                'id' => $option->id,
+                'code' => $option->code,
+                'label' => $option->label['fr'] ?? $option->code,
+            ])
+            ->all();
     }
 }

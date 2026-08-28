@@ -58,5 +58,26 @@ class EnumOptionSeeder extends Seeder
                 ]
             );
         }
+
+        // Patient religion — open list, extend/correct from the admin
+        // EnumOptions CRUD rather than editing this seeder later.
+        $religions = [
+            ['code' => 'MUSLIM', 'label' => ['fr' => 'Musulmane', 'en' => 'Muslim'], 'order' => 1],
+            ['code' => 'CHRISTIAN', 'label' => ['fr' => 'Chrétienne', 'en' => 'Christian'], 'order' => 2],
+            ['code' => 'JEWISH', 'label' => ['fr' => 'Juive', 'en' => 'Jewish'], 'order' => 3],
+            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other'], 'order' => 4],
+            ['code' => 'NONE', 'label' => ['fr' => 'Aucune / non renseignée', 'en' => 'None / undisclosed'], 'order' => 5],
+        ];
+
+        foreach ($religions as $religion) {
+            EnumOption::query()->firstOrCreate(
+                ['enum_type' => 'patient.religion', 'code' => $religion['code']],
+                [
+                    'label' => $religion['label'],
+                    'order' => $religion['order'],
+                    'active' => true,
+                ]
+            );
+        }
     }
 }

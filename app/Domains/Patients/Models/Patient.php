@@ -3,6 +3,7 @@
 namespace App\Domains\Patients\Models;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,6 +43,12 @@ class Patient extends Model
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    /** @return BelongsTo<EnumOption, $this> */
+    public function religion(): BelongsTo
+    {
+        return $this->belongsTo(EnumOption::class, 'religion_option_id');
     }
 
     /** @return BelongsTo<User, $this> */

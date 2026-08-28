@@ -1,5 +1,7 @@
 <?php
 
+use App\Domains\Common\Models\EnumOption;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 return [
@@ -129,8 +131,20 @@ return [
     | storage. By default, no PHP classes will be unserialized from your
     | cache to prevent gadget chain attacks if your APP_KEY is leaked.
     |
+    | EnumOption::cachedByType() (see app/Domains/Common/Models/EnumOption.php)
+    | is this project's only Cache::rememberForever() call that stores an
+    | Eloquent object — `false` here silently turns every read of it back
+    | into __PHP_Incomplete_Class in a fresh PHP process (any real HTTP
+    | request), a class-not-found-looking failure with no exception at
+    | write time, only at the next read. Allow-listing the two concrete
+    | classes it actually stores keeps the "no classes by default" gadget
+    | -chain protection intact for everything else.
+    |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => [
+        Collection::class,
+        EnumOption::class,
+    ],
 
 ];

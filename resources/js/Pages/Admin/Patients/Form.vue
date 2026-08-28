@@ -31,6 +31,9 @@ interface Patient {
     first_name: string | null;
     last_name: string | null;
     gender: string | null;
+    marital_status: string | null;
+    children_count: number | null;
+    religion_option_id: number | null;
     birth_date: string | null;
     phone: string | null;
     email: string | null;
@@ -40,6 +43,12 @@ interface Patient {
     emergency_contact_phone: string | null;
     notes: string | null;
     derived_status?: DerivedStatus;
+}
+
+interface ReligionOption {
+    id: number;
+    code: string;
+    label: string;
 }
 
 interface TreatmentDisease {
@@ -122,7 +131,8 @@ const props = defineProps<{
     diseases?: DiseaseOption[];
     diseaseCategories?: DiseaseCategoryOption[];
     careCategories?: CareCategoryOption[];
-    canUpdate: boolean;
+    religionOptions?: ReligionOption[];
+    can_update: boolean;
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -134,6 +144,9 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
             first_name: props.patient?.first_name ?? null,
             last_name: props.patient?.last_name ?? null,
             gender: props.patient?.gender ?? null,
+            marital_status: props.patient?.marital_status ?? null,
+            children_count: props.patient?.children_count ?? null,
+            religion_option_id: props.patient?.religion_option_id ?? null,
             birth_date: props.patient?.birth_date ?? null,
             phone: props.patient?.phone ?? null,
             email: props.patient?.email ?? null,
@@ -417,11 +430,12 @@ function onStatusChipClick() {
                     <PatientInfoForm
                         :form="form"
                         :centers="centers"
+                        :religion-options="religionOptions ?? []"
                         :field-errors="fieldErrors"
                         :saved-label="savedLabel"
                         :save-errors="saveErrors"
                         :confirming="confirming"
-                        :readonly="!canUpdate"
+                        :readonly="!can_update"
                         @confirm="confirmPatient"
                         @cancel="router.get(route('admin.patients.index'))"
                     />
@@ -432,7 +446,7 @@ function onStatusChipClick() {
                         <div class="d-flex align-center justify-space-between mb-1">
                             <h2 class="text-h6">Traitement en cours</h2>
                             <AppButton
-                                v-if="!ongoingTreatment && canUpdate"
+                                v-if="!ongoingTreatment && can_update"
                                 label="Ajouter un traitement"
                                 icon="mdi-plus"
                                 @click="openNewTreatment"
@@ -484,6 +498,7 @@ function onStatusChipClick() {
                 v-else
                 :form="form"
                 :centers="centers"
+                :religion-options="religionOptions ?? []"
                 :field-errors="fieldErrors"
                 :saved-label="savedLabel"
                 :save-errors="saveErrors"

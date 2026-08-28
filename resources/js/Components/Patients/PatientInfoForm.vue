@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
+import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
@@ -14,11 +15,20 @@ interface Center {
     code: string;
 }
 
+interface ReligionOption {
+    id: number;
+    code: string;
+    label: string;
+}
+
 interface PatientForm {
     intake_center_id: number | null;
     first_name: string | null;
     last_name: string | null;
     gender: string | null;
+    marital_status: string | null;
+    children_count: number | null;
+    religion_option_id: number | null;
     birth_date: string | null;
     phone: string | null;
     email: string | null;
@@ -32,6 +42,7 @@ const props = withDefaults(
     defineProps<{
         form: PatientForm;
         centers: Center[];
+        religionOptions?: ReligionOption[];
         fieldErrors: Record<string, string>;
         savedLabel: string;
         saveErrors: Record<string, string[]>;
@@ -39,7 +50,7 @@ const props = withDefaults(
         /** A read-only practitioner can view but never edit — see CLAUDE.md. */
         readonly?: boolean;
     }>(),
-    { readonly: false },
+    { readonly: false, religionOptions: () => [] },
 );
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
@@ -47,6 +58,13 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
 const genderOptions = [
     { label: 'Homme', value: 'male' },
     { label: 'Femme', value: 'female' },
+];
+
+const maritalStatusOptions = [
+    { label: 'Célibataire', value: 'single' },
+    { label: 'Marié(e)', value: 'married' },
+    { label: 'Divorcé(e)', value: 'divorced' },
+    { label: 'Veuf/Veuve', value: 'widowed' },
 ];
 
 const birthDateBinding = computed<Date | null>({
@@ -111,6 +129,40 @@ const birthDateBinding = computed<Date | null>({
                     </v-col>
                     <v-col cols="12" md="6">
                         <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
+                    </v-col>
+
+                    <v-col cols="12" md="6">
+                        <AppSelect
+                            v-model="form.marital_status"
+                            :options="maritalStatusOptions"
+                            option-label="label"
+                            option-value="value"
+                            label="Situation matrimoniale"
+                            show-clear
+                            placeholder="Non renseignée"
+                            :error="fieldErrors.marital_status"
+                        />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                        <AppInputNumber
+                            v-model="form.children_count"
+                            label="Nombre d'enfants"
+                            :min="0"
+                            :error="fieldErrors.children_count"
+                        />
+                    </v-col>
+
+                    <v-col cols="12">
+                        <AppSelect
+                            v-model="form.religion_option_id"
+                            :options="religionOptions"
+                            option-label="label"
+                            option-value="id"
+                            label="Religion"
+                            show-clear
+                            placeholder="Non renseignée"
+                            :error="fieldErrors.religion_option_id"
+                        />
                     </v-col>
 
                     <v-col cols="12" md="6">
