@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
+import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppDataTable, {
     type AppDataTableColumn,
     type AppDataTableSortEvent,
@@ -50,6 +51,7 @@ interface Practitioner {
     phone: string | null;
     address: string | null;
     email: string | null;
+    user_id: number | null;
     center?: { id: number; name: string };
     grade?: { id: number; label: string } | null;
 }
@@ -100,6 +102,7 @@ const columns: AppDataTableColumn[] = [
     { field: 'matricule', header: 'Matricule', sortable: true },
     { field: 'center', header: 'Centre' },
     { field: 'grade', header: 'Grade' },
+    { field: 'access', header: 'Accès' },
     { field: 'phone', header: 'Téléphone' },
     { field: 'hired_at', header: 'Embauché le', sortable: true },
     { field: 'actions', header: 'Actions' },
@@ -119,40 +122,153 @@ const createForm = useForm({
     phone: '',
     address: '',
     email: '',
+    grant_access: false,
+    creation_mode: 'invite' as 'direct' | 'invite',
+    password: '',
+    password_confirmation: '',
 });
 const createHiredAt = dateBinding(createForm);
 
-function openCreate() {
-    createForm.reset();
-    isCreating.value = true;
-}
+// --- "grant access" email check (debounced), drives the rest of the
+// create dialog once grant_access is toggled on. Mirrors what
+// StorePractitionerRequest re-validates authoritatively on submit —
+// this is only a live preview so the manager isn't surprised at submit.
+type AccountStatus = 'idle' | 'checking' | 'new' | 'existing' | 'taken';
+const accountStatus = ref<AccountStatus>('idle');
+const accountPractitionerName = ref<string | null>(null);
+const accountCurrentCenters = ref<string[]>([]);
+let checkAccountTimeout: ReturnType<typeof setTimeout> | undefined;
 
-// Auto-suggested next matricule for the selected center — the field
-// stays editable, this only pre-fills it (see PractitionerCodeGenerator
-// ::suggestNextMatricule()).
-watch(
-    () => createForm.center_id,
-    async (centerId) => {
-        if (!centerId || createForm.matricule) {
-            return;
-        }
+function scheduleAccountCheck() {
+    clearTimeout(checkAccountTimeout);
 
+    if (!createForm.grant_access || !createForm.email) {
+        accountStatus.value = 'idle';
+        return;
+    }
+
+    accountStatus.value = 'checking';
+    checkAccountTimeout = setTimeout(async () => {
         const response = await fetch(
-            route('admin.practitioners.next-matricule', { center_id: centerId }),
+            route('admin.practitioners.check-account', { email: createForm.email }),
             { headers: { Accept: 'application/json' } },
         );
 
-        if (response.ok) {
-            const data = await response.json();
-            createForm.matricule = data.matricule;
+        if (!response.ok) {
+            accountStatus.value = 'idle';
+            return;
         }
-    },
-);
+
+        const data = await response.json();
+        accountStatus.value = data.status;
+        accountPractitionerName.value = data.practitioner_name;
+        accountCurrentCenters.value = data.current_centers ?? [];
+    }, 400);
+}
+
+watch(() => [createForm.grant_access, createForm.email], scheduleAccountCheck);
+
+const isJoiningExisting = computed(() => createForm.grant_access && accountStatus.value === 'existing');
+
+// Inertia's useForm() always submits every field, even ones hidden
+// behind v-if — masking these fields visually was not enough,
+// StorePractitionerRequest's 'prohibited' rule on matricule/
+// creation_mode/etc. rejected the leftover values from whatever was
+// last typed, and the resulting redirect-back looked like a false
+// success (302 to the same index URL as a real create) rather than a
+// visible error. Clearing them here keeps what's actually submitted in
+// sync with what's actually shown.
+watch(isJoiningExisting, (joining) => {
+    if (!joining) {
+        return;
+    }
+
+    createForm.first_name = '';
+    createForm.last_name = '';
+    createForm.matricule = '';
+    createForm.grade_id = null;
+    createForm.level = null;
+    createForm.hired_at = null;
+    createForm.phone = '';
+    createForm.address = '';
+    createForm.creation_mode = 'invite';
+    createForm.password = '';
+    createForm.password_confirmation = '';
+});
+
+// AppDialog's underlying v-dialog keeps its content mounted between
+// opens (no real unmount) — createForm.reset() alone can leave Vuetify
+// fields (in particular AppCheckbox's v-checkbox) visually out of sync
+// with the reset state on a second open. Bumped on every openCreate()
+// to force a real remount, same fix already used for
+// TreatmentWizardDialog (see CLAUDE.md).
+const createDialogKey = ref(0);
+
+// Auto-suggested next matricule for the target center — the field
+// stays editable, this only pre-fills it (see PractitionerCodeGenerator
+// ::suggestNextMatricule()). Never applies when auto-joining an
+// existing practitioner to this center — no new Practitioner row is
+// created there, so a matricule is meaningless (and StorePractitionerRequest
+// rejects it outright — see the isJoiningExisting watch above).
+// center_id is omitted from the query for a manager (no center select
+// to read it from) — the endpoint already falls back to
+// managedCenterId() server-side for a non-super_admin, see
+// PractitionerController::nextMatricule().
+async function suggestMatricule(centerId?: number | null) {
+    if (createForm.matricule || isJoiningExisting.value) {
+        return;
+    }
+
+    if (props.centers.length && !centerId) {
+        return;
+    }
+
+    const response = await fetch(
+        route('admin.practitioners.next-matricule', centerId ? { center_id: centerId } : {}),
+        { headers: { Accept: 'application/json' } },
+    );
+
+    if (response.ok) {
+        const data = await response.json();
+        createForm.matricule = data.matricule;
+    }
+}
+
+function openCreate() {
+    createForm.reset();
+    accountStatus.value = 'idle';
+    createDialogKey.value++;
+    isCreating.value = true;
+
+    // A super_admin picks the center from a select (triggers the watch
+    // below once they do). A manager never sees that select at all —
+    // their center is forced server-side — so createForm.center_id
+    // stays null forever and the watch alone would never fire, leaving
+    // matricule empty and 'required' silently failing validation (a 302
+    // redirect-back that looks identical to a real success, no visible
+    // error, found via manual testing after this feature shipped).
+    // Suggest it directly for a manager instead of waiting on a
+    // center_id change that will never happen.
+    if (!props.centers.length) {
+        suggestMatricule();
+    }
+}
+
+watch(() => createForm.center_id, (centerId) => suggestMatricule(centerId));
 
 function submitCreate() {
     createForm.post(route('admin.practitioners.store'), {
         onSuccess: () => {
             isCreating.value = false;
+            // Inertia recalibrates form.reset()'s target onto whatever
+            // was just successfully submitted (unless defaults() is
+            // called during onSuccess) — without this, reopening the
+            // dialog for a second practitioner would start pre-filled
+            // with the previous one's data instead of blank fields.
+            // Calling reset() here (before Inertia's own post-success
+            // setDefaults() runs) captures a blank state as the new
+            // baseline instead.
+            createForm.reset();
         },
     });
 }
@@ -241,6 +357,11 @@ function destroy(practitioner: Practitioner) {
                     <template #column-name="{ item }">{{ item.first_name }} {{ item.last_name }}</template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #column-grade="{ item }">{{ item.grade?.label ?? '—' }}</template>
+                    <template #column-access="{ item }">
+                        <v-chip size="small" :color="item.user_id ? 'success' : undefined" variant="tonal">
+                            {{ item.user_id ? 'Avec accès' : 'Sans accès' }}
+                        </v-chip>
+                    </template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
@@ -261,46 +382,118 @@ function destroy(practitioner: Practitioner) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouveau praticien">
+        <AppDialog :key="createDialogKey" v-model:visible="isCreating" header="Nouveau praticien">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
-                <AppInputText v-model="createForm.first_name" label="Prénom" :error="createForm.errors.first_name" />
-                <AppInputText v-model="createForm.last_name" label="Nom" :error="createForm.errors.last_name" />
-
-                <AppSelect
-                    v-if="centers.length"
-                    v-model="createForm.center_id"
-                    :options="centers"
-                    option-label="name"
-                    option-value="id"
-                    label="Centre"
-                    placeholder="Choisir un centre"
-                    :error="createForm.errors.center_id"
+                <AppCheckbox
+                    v-model="createForm.grant_access"
+                    label="Donner un accès à l'application"
                 />
 
-                <AppInputText
-                    v-model="createForm.matricule"
-                    label="Matricule (3 chiffres, suggéré automatiquement)"
-                    :maxlength="3"
-                    :error="createForm.errors.matricule"
-                />
+                <template v-if="createForm.grant_access">
+                    <AppInputText
+                        v-model="createForm.email"
+                        label="Email"
+                        type="email"
+                        :error="createForm.errors.email"
+                    />
 
-                <AppSelect
-                    v-model="createForm.grade_id"
-                    :options="grades"
-                    option-label="label"
-                    option-value="id"
-                    label="Grade"
-                    show-clear
-                    placeholder="Aucun"
-                />
+                    <v-alert v-if="accountStatus === 'checking'" type="info" variant="tonal" density="compact">
+                        Vérification…
+                    </v-alert>
 
-                <AppInputNumber v-model="createForm.level" label="Niveau" :min="0" />
+                    <v-alert v-else-if="accountStatus === 'existing'" type="info" variant="tonal" density="compact">
+                        {{ accountPractitionerName }} a déjà un compte praticien
+                        (centre{{ accountCurrentCenters.length > 1 ? 's' : '' }} :
+                        {{ accountCurrentCenters.join(', ') }}). Il/elle sera simplement ajouté·e à ce centre —
+                        aucun nouveau compte ni fiche praticien ne sera créé.
+                    </v-alert>
 
-                <AppDatePicker v-model="createHiredAt" label="Date d'embauche" />
+                    <v-alert v-else-if="accountStatus === 'taken'" type="error" variant="tonal" density="compact">
+                        Cet email est déjà utilisé par un autre compte (non praticien).
+                    </v-alert>
+                </template>
 
-                <AppInputText v-model="createForm.phone" label="Téléphone" :error="createForm.errors.phone" />
-                <AppInputText v-model="createForm.address" label="Adresse" :error="createForm.errors.address" />
-                <AppInputText v-model="createForm.email" label="Email" :error="createForm.errors.email" />
+                <template v-if="!isJoiningExisting">
+                    <AppInputText v-model="createForm.first_name" label="Prénom" :error="createForm.errors.first_name" />
+                    <AppInputText v-model="createForm.last_name" label="Nom" :error="createForm.errors.last_name" />
+
+                    <AppSelect
+                        v-if="centers.length"
+                        v-model="createForm.center_id"
+                        :options="centers"
+                        option-label="name"
+                        option-value="id"
+                        label="Centre"
+                        placeholder="Choisir un centre"
+                        :error="createForm.errors.center_id"
+                    />
+
+                    <AppInputText
+                        v-model="createForm.matricule"
+                        label="Matricule (3 chiffres, suggéré automatiquement)"
+                        :maxlength="3"
+                        :error="createForm.errors.matricule"
+                    />
+
+                    <AppSelect
+                        v-model="createForm.grade_id"
+                        :options="grades"
+                        option-label="label"
+                        option-value="id"
+                        label="Grade"
+                        show-clear
+                        placeholder="Aucun"
+                    />
+
+                    <AppInputNumber v-model="createForm.level" label="Niveau" :min="0" />
+
+                    <AppDatePicker v-model="createHiredAt" label="Date d'embauche" />
+
+                    <AppInputText v-model="createForm.phone" label="Téléphone" :error="createForm.errors.phone" />
+                    <AppInputText v-model="createForm.address" label="Adresse" :error="createForm.errors.address" />
+                </template>
+
+                <template v-else>
+                    <!-- Auto-join: center comes from context (the manager's
+                         active center), no new Practitioner fields needed. -->
+                    <AppSelect
+                        v-if="centers.length"
+                        v-model="createForm.center_id"
+                        :options="centers"
+                        option-label="name"
+                        option-value="id"
+                        label="Centre"
+                        placeholder="Choisir un centre"
+                        :error="createForm.errors.center_id"
+                    />
+                </template>
+
+                <template v-if="createForm.grant_access && !isJoiningExisting && accountStatus !== 'taken'">
+                    <AppSelect
+                        v-model="createForm.creation_mode"
+                        :options="[
+                            { value: 'invite', label: 'Envoyer une invitation par email' },
+                            { value: 'direct', label: 'Définir un mot de passe directement' },
+                        ]"
+                        option-label="label"
+                        option-value="value"
+                        label="Mode de création du compte"
+                    />
+
+                    <template v-if="createForm.creation_mode === 'direct'">
+                        <AppInputText
+                            v-model="createForm.password"
+                            label="Mot de passe"
+                            type="password"
+                            :error="createForm.errors.password"
+                        />
+                        <AppInputText
+                            v-model="createForm.password_confirmation"
+                            label="Confirmer le mot de passe"
+                            type="password"
+                        />
+                    </template>
+                </template>
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
@@ -309,7 +502,12 @@ function destroy(practitioner: Practitioner) {
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton
+                        type="submit"
+                        label="Créer"
+                        :loading="createForm.processing"
+                        :disabled="accountStatus === 'taken'"
+                    />
                 </div>
             </form>
         </AppDialog>

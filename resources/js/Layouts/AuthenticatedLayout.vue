@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import AppCenterSwitcher from '@/Components/App/AppCenterSwitcher.vue';
+import AppNotificationBell from '@/Components/App/AppNotificationBell.vue';
 import { useAppDensity, type AppDensity } from '@/lib/useAppDensity';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { handleNavClick } from '@/utils/inertiaNavClick';
@@ -24,6 +26,8 @@ const densityOptions: { value: AppDensity; label: string; icon: string }[] = [
 ];
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
+const isAdmin = computed(() => Boolean((usePage().props.auth as { is_admin?: boolean }).is_admin));
+const isManager = computed(() => Boolean((usePage().props.auth as { is_manager?: boolean }).is_manager));
 
 // route().current() reads window.location imperatively — it has no Vue
 // reactivity of its own, so each `active` flag is computed here (reading
@@ -35,32 +39,51 @@ const currentUrl = computed(() => usePage().url);
 const generalNavItems = computed(() => {
     void currentUrl.value;
 
-    return [
+    const items = [
         { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: route('dashboard'), active: route().current('dashboard') },
         { label: 'Patients', icon: 'mdi-account-heart-outline', href: route('admin.patients.index'), active: route().current('admin.patients.*') },
         { label: 'Traitements', icon: 'mdi-medical-bag', href: route('admin.treatments.index'), active: route().current('admin.treatments.*') },
-        { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') },
     ];
+
+    // A pure practitioner account (no manager/admin/super_admin role)
+    // has no practitioners.viewAny permission — the CRUD page would
+    // just 403. Managers/admins/super_admins keep seeing it as before.
+    if (isSuperAdmin.value || isAdmin.value || isManager.value) {
+        items.push({ label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') });
+    }
+
+    return items;
 });
 
 // Visually grouped (v-list-subheader) apart from the business menus
 // above — not collapsible for now; a real collapsible group is a
 // possible future improvement if the shell's nav list keeps growing.
+// 'Utilisateurs' is visible to admin too (not just super_admin, unlike
+// the rest of this group) — UserPolicy/CenterPolicy already confine
+// what an admin can actually do once there, this only gates the link.
 const adminNavItems = computed(() => {
     void currentUrl.value;
 
-    return isSuperAdmin.value
-        ? [
-              { label: 'Centres', icon: 'mdi-domain', href: route('admin.centers.index'), active: route().current('admin.centers.*') },
-              { label: 'Zones', icon: 'mdi-earth', href: route('admin.zones.index'), active: route().current('admin.zones.*') },
-              { label: 'Pays', icon: 'mdi-flag-outline', href: route('admin.countries.index'), active: route().current('admin.countries.*') },
-              { label: 'Catégories de maladies', icon: 'mdi-shape-outline', href: route('admin.disease-categories.index'), active: route().current('admin.disease-categories.*') },
-              { label: 'Maladies', icon: 'mdi-virus-outline', href: route('admin.diseases.index'), active: route().current('admin.diseases.*') },
-              { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: route('admin.care-categories.index'), active: route().current('admin.care-categories.*') },
-              { label: 'Soins', icon: 'mdi-leaf', href: route('admin.care-items.index'), active: route().current('admin.care-items.*') },
-              { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: route('admin.enum-options.index'), active: route().current('admin.enum-options.*') },
-          ]
-        : [];
+    const items = [];
+
+    if (isSuperAdmin.value) {
+        items.push(
+            { label: 'Centres', icon: 'mdi-domain', href: route('admin.centers.index'), active: route().current('admin.centers.*') },
+            { label: 'Zones', icon: 'mdi-earth', href: route('admin.zones.index'), active: route().current('admin.zones.*') },
+            { label: 'Pays', icon: 'mdi-flag-outline', href: route('admin.countries.index'), active: route().current('admin.countries.*') },
+            { label: 'Catégories de maladies', icon: 'mdi-shape-outline', href: route('admin.disease-categories.index'), active: route().current('admin.disease-categories.*') },
+            { label: 'Maladies', icon: 'mdi-virus-outline', href: route('admin.diseases.index'), active: route().current('admin.diseases.*') },
+            { label: 'Catégories de soins', icon: 'mdi-shape-plus-outline', href: route('admin.care-categories.index'), active: route().current('admin.care-categories.*') },
+            { label: 'Soins', icon: 'mdi-leaf', href: route('admin.care-items.index'), active: route().current('admin.care-items.*') },
+            { label: 'Options dynamiques', icon: 'mdi-tune-variant', href: route('admin.enum-options.index'), active: route().current('admin.enum-options.*') },
+        );
+    }
+
+    if (isSuperAdmin.value || isAdmin.value) {
+        items.push({ label: 'Utilisateurs', icon: 'mdi-account-cog-outline', href: route('admin.users.index'), active: route().current('admin.users.*') });
+    }
+
+    return items;
 });
 
 function toggleRail() {
@@ -162,6 +185,8 @@ onBeforeMount(() => {
 
             <v-spacer />
 
+            <AppCenterSwitcher />
+
             <v-menu>
                 <template #activator="{ props: menuProps }">
                     <v-btn
@@ -188,6 +213,8 @@ onBeforeMount(() => {
                 variant="text"
                 @click="toggleTheme"
             />
+
+            <AppNotificationBell />
 
             <v-menu>
                 <template #activator="{ props: menuProps }">

@@ -41,6 +41,16 @@ class RolesAndPermissionsSeeder extends Seeder
             'treatment_sessions.create',
             'treatment_sessions.update',
             'treatment_sessions.delete',
+            'centers.viewAny',
+            'centers.view',
+            'centers.create',
+            'centers.update',
+            'centers.delete',
+            'users.viewAny',
+            'users.view',
+            'users.create',
+            'users.update',
+            'users.delete',
         ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
 
         // Role::create()/findOrCreate() auto-stamp team_id from the
@@ -50,5 +60,16 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'super_admin', 'guard_name' => 'web', 'team_id' => null],
         );
         $superAdmin->syncPermissions(Permission::all());
+
+        // 'admin' is a second global (team_id null) role, same sentinel
+        // pattern as super_admin — see User::isAdmin(). Gets every
+        // permission too; the distinction from super_admin is enforced
+        // at the policy level (UserPolicy/CenterPolicy), not here: an
+        // admin can manage centers/users but never target another
+        // admin/super_admin.
+        $admin = Role::query()->firstOrCreate(
+            ['name' => 'admin', 'guard_name' => 'web', 'team_id' => null],
+        );
+        $admin->syncPermissions(Permission::all());
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Domains\Auth\Listeners\MarkEmailVerifiedOnPasswordReset;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +28,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // Laravel's listener auto-discovery only scans app/Listeners,
+        // not domain subdirectories — registered explicitly here, same
+        // reasoning as the guessers below for factories/policies.
+        Event::listen(PasswordReset::class, MarkEmailVerifiedOnPasswordReset::class);
 
         // This is an Inertia SPA backend, not a JSON:API — no consumer
         // expects the `{"data": [...]}` envelope Resource::collection()

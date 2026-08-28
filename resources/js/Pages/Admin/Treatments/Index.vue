@@ -35,6 +35,7 @@ const props = defineProps<{
     };
     filters: { filter?: Record<string, string>; sort?: string };
     centers: Center[];
+    can_create: boolean;
 }>();
 
 const currentSort = ref(props.filters.sort ?? '-created_at');
@@ -83,7 +84,7 @@ function destroy(treatment: Treatment) {
 
     <AuthenticatedLayout>
         <AppPageHeader title="Traitements" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Traitements' }]">
-            <template #actions>
+            <template v-if="can_create" #actions>
                 <Link :href="route('admin.treatments.create')">
                     <AppButton label="Nouveau traitement" icon="mdi-plus" as="span" />
                 </Link>
@@ -112,7 +113,7 @@ function destroy(treatment: Treatment) {
                     </template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #actions="{ item }">
-                        <div class="d-flex ga-2">
+                        <div v-if="can_create" class="d-flex ga-2">
                             <Link :href="route('admin.treatments.edit', item.id)">
                                 <AppButton
                                     label="Modifier"
@@ -128,6 +129,7 @@ function destroy(treatment: Treatment) {
                                 @click="destroy(item)"
                             />
                         </div>
+                        <span v-else class="text-medium-emphasis">—</span>
                     </template>
                 </AppDataTable>
             </AppCard>

@@ -22,9 +22,9 @@ export class HttpError extends Error {
 }
 
 async function request<TResponse>(
-    method: 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH',
     url: string,
-    body: Record<string, unknown>,
+    body?: Record<string, unknown>,
 ): Promise<TResponse> {
     const response = await fetch(url, {
         method,
@@ -34,7 +34,7 @@ async function request<TResponse>(
             Accept: 'application/json',
             'X-CSRF-TOKEN': csrfToken(),
         },
-        body: JSON.stringify(body),
+        body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
     });
 
     if (!response.ok) {
@@ -50,7 +50,8 @@ async function request<TResponse>(
 }
 
 export const http = {
-    post: <TResponse>(url: string, body: Record<string, unknown>) =>
+    get: <TResponse>(url: string) => request<TResponse>('GET', url),
+    post: <TResponse>(url: string, body: Record<string, unknown> = {}) =>
         request<TResponse>('POST', url, body),
     patch: <TResponse>(url: string, body: Record<string, unknown>) =>
         request<TResponse>('PATCH', url, body),

@@ -104,6 +104,30 @@ test('manager can create a draft without sending intake_center_id', function () 
     expect($patient->intake_center_id)->toBe($ownCenter->id);
 });
 
+test('a non-super_admin can create a draft when intake_center_id is explicitly null in the payload', function () {
+    // Regression: the real Vue form (useForm()) always submits every
+    // field it knows about, even ones with no matching UI control for
+    // this role — intake_center_id arrives as an explicit null, not an
+    // omitted key. 'intake_center_id' => ['prohibited', 'integer',
+    // 'exists:centers,id'] stacked in one array failed 'integer' against
+    // that null before 'prohibited' was ever meaningfully evaluated — a
+    // 422 that the previous test (which omits the key entirely, so
+    // Laravel treats it as genuinely absent) never exercised. Found via
+    // real browser testing as a practitioner, who has no center field on
+    // this form at all (same as manager).
+    $ownCenter = Center::factory()->create();
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->postJson(route('admin.patients.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'intake_center_id' => null,
+    ]);
+
+    $response->assertCreated();
+    $patient = Patient::query()->findOrFail($response->json('id'));
+    expect($patient->intake_center_id)->toBe($ownCenter->id);
+});
+
 test('replaying storeDraft with the same client_uuid is idempotent', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
@@ -191,6 +215,36 @@ test('confirming with complete data transitions the patient to confirmed', funct
         'tab' => 'ongoing',
         'open' => 'treatment',
     ]));
+    expect($patient->fresh()->latestStatus()->name)->toBe('confirmed');
+});
+
+test('confirming succeeds when the payload sends every field explicitly, including null intake_center_id', function () {
+    // Regression: useResilientForm spreads the whole reactive `form` on
+    // every submit — a manager/practitioner never sees an "Centre
+    // d'accueil" field on PatientInfoForm.vue at all (only rendered
+    // when centers.length), so confirmPatient() always sends an
+    // explicit intake_center_id: null. prepareForValidation() used
+    // $this->input($key, $fallback) inside array_filter(), whose default
+    // only applies when the key is missing entirely — an explicit null
+    // survived the merge and failed 'required' below, redirecting back
+    // to the same create page with no visible error (found via real
+    // browser testing as a manager: confirming looked like nothing
+    // happened at all).
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->for($center, 'center')->create();
+    $patient->setStatus('draft');
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.patients.confirm', $patient), [
+        'first_name' => null,
+        'last_name' => null,
+        'gender' => null,
+        'phone' => null,
+        'city' => null,
+        'intake_center_id' => null,
+    ]);
+
+    $response->assertSessionHasNoErrors();
     expect($patient->fresh()->latestStatus()->name)->toBe('confirmed');
 });
 

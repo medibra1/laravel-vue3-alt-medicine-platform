@@ -28,7 +28,12 @@ class StoreTreatmentDraftRequest extends FormRequest
         return [
             'client_uuid' => ['required', 'uuid'],
             'patient_id' => ['required', 'integer', 'exists:patients,id'],
-            'center_id' => [$this->user()->isSuperAdmin() ? 'required' : 'prohibited', 'integer', 'exists:centers,id'],
+            // Separate branches, not 'prohibited' stacked with
+            // 'integer'/'exists' — see the identical fix/reasoning on
+            // StorePatientDraftRequest::rules() for center_id.
+            'center_id' => $this->user()->isSuperAdmin()
+                ? ['required', 'integer', 'exists:centers,id']
+                : ['prohibited'],
             'practitioner_id' => ['sometimes', 'nullable', 'integer', 'exists:practitioners,id'],
             'started_at' => ['sometimes', 'nullable', 'date'],
             'ended_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:started_at'],
@@ -47,11 +52,18 @@ class StoreTreatmentDraftRequest extends FormRequest
         ];
     }
 
+    /**
+     * getPermissionsTeamId(), not User::managedCenterId() — see the same
+     * fix/reasoning on StorePatientDraftRequest::centerId(). Equivalent
+     * for a manager (EnsureCenterAccess sets the active team to exactly
+     * managedCenterId() for them), but also correct if this is ever
+     * reached by a role other than manager.
+     */
     public function centerId(): ?int
     {
         return $this->user()->isSuperAdmin()
             ? $this->integer('center_id')
-            : $this->user()->managedCenterId();
+            : getPermissionsTeamId();
     }
 
     /**

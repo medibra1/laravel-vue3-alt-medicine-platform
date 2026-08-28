@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
 use App\Domains\Practitioners\Models\Practitioner;
@@ -35,6 +36,32 @@ test('manager only sees practitioners from their own center', function () {
     $data = $response->inertiaPage()['props']['practitioners']['data'];
     expect($data)->toHaveCount(1);
     expect($data[0]['center_id'])->toBe($ownCenter->id);
+});
+
+test('a manager managing several centers sees practitioners on whichever center is active, including themselves', function () {
+    // Regression: index() used to filter on Practitioner.center_id
+    // directly — a manager whose Practitioner row was created on
+    // centerA (their first managed center) was invisible in this list
+    // while switched to centerB, even though they manage/practice
+    // there too via a 'practitioner' role grant. See
+    // Practitioner::scopeVisibleOnCenter().
+    $centerA = Center::factory()->create();
+    $centerB = Center::factory()->create();
+    $manager = actingAsManagerOf($centerA);
+    $roleAssigner = app(CenterScopedRoleAssigner::class);
+    $roleAssigner->grant($manager, 'manager', $centerB->id);
+    $roleAssigner->grant($manager, 'practitioner', $centerA->id);
+    $roleAssigner->grant($manager, 'practitioner', $centerB->id);
+    Practitioner::factory()->for($centerA)->create(['user_id' => $manager->id]);
+
+    $response = $this->withSession(['active_center_id' => $centerB->id])
+        ->actingAs($manager)
+        ->get(route('admin.practitioners.index'));
+
+    $response->assertOk();
+    $data = $response->inertiaPage()['props']['practitioners']['data'];
+    $userIds = collect($data)->pluck('user_id')->filter()->all();
+    expect($userIds)->toContain($manager->id);
 });
 
 test('super admin can create a practitioner and full_code is generated correctly', function () {
@@ -87,6 +114,44 @@ test('manager can create a practitioner without sending a center_id', function (
     $response->assertRedirect(route('admin.practitioners.index'));
     $practitioner = Practitioner::query()->firstOrFail();
     expect($practitioner->center_id)->toBe($ownCenter->id);
+});
+
+test('manager can create a practitioner with the full payload the frontend actually sends', function () {
+    // Regression: the real Vue form always submits center_id=null and
+    // creation_mode="invite" (its default, never cleared just because
+    // grant_access is off) for a manager, who has no center select at
+    // all — 'center_id' => ['prohibited', 'integer', ...] failed
+    // 'integer' against null before 'prohibited' meaningfully applied,
+    // and 'creation_mode' => 'prohibited' rejected the leftover
+    // default value. Both silently redirected back with errors (a 302
+    // to the same index URL a real success also uses), found only via
+    // manual browser testing — every existing test omitted these keys
+    // instead of sending the real values.
+    $ownCenter = Center::factory()->create();
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->post(route('admin.practitioners.store'), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Ben Ali',
+        'center_id' => null,
+        'matricule' => '012',
+        'grade_id' => null,
+        'level' => null,
+        'hired_at' => null,
+        'phone' => '',
+        'address' => '',
+        'email' => '',
+        'grant_access' => false,
+        'creation_mode' => 'invite',
+        'password' => '',
+        'password_confirmation' => '',
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('admin.practitioners.index'));
+    $practitioner = Practitioner::query()->where('matricule', '012')->firstOrFail();
+    expect($practitioner->center_id)->toBe($ownCenter->id);
+    expect($practitioner->user_id)->toBeNull();
 });
 
 test('matricule must be exactly three digits', function () {
