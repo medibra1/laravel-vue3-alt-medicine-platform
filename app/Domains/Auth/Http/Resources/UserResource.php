@@ -17,21 +17,28 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $role = $this->resolveRole();
-        $centerId = $role === 'manager' ? $this->managedCenterId() : null;
-        $centerIds = $role === 'practitioner' ? $this->accessibleCenterIds() : [];
+        // A manager can now manage several centers (extended
+        // 2026-08-26 from the original single-center design) — same
+        // shape practitioner already had.
+        $centerIds = match ($role) {
+            'manager' => $this->managedCenterIds(),
+            'practitioner' => $this->accessibleCenterIds(),
+            default => [],
+        };
+        $firstCenterId = $centerIds[0] ?? null;
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
             'role' => $role,
-            'center_id' => $centerId,
-            'center' => $centerId !== null
-                ? Center::query()->find($centerId, ['id', 'name'])
+            // Kept for anything still reading the old singular shape —
+            // the first (lowest id) managed/accessible center.
+            'center_id' => $firstCenterId,
+            'center' => $firstCenterId !== null
+                ? Center::query()->find($firstCenterId, ['id', 'name'])
                 : null,
-            // Only ever populated for a practitioner — a manager stays
-            // on the single 'center' above (unchanged shape, so nothing
-            // consuming that field before this needs to change).
+            'center_ids' => $centerIds,
             'centers' => $centerIds !== []
                 ? Center::query()->whereIn('id', $centerIds)->orderBy('name')->get(['id', 'name'])
                 : [],

@@ -42,10 +42,13 @@ class HandleInertiaRequests extends Middleware
                 'is_admin' => $user?->isAdmin() ?? false,
                 'is_manager' => $user?->isManager() ?? false,
                 'unread_notifications_count' => $user?->unreadNotifications()->count() ?? 0,
-                // Only meaningful for a multi-center practitioner —
-                // AppCenterSwitcher only renders once there's more than
-                // one center to switch between (see EnsureCenterAccess
-                // for how the active one is resolved/auto-selected).
+                // Only meaningful for someone with more than one
+                // accessible center (a multi-center practitioner, or —
+                // extended 2026-08-26 — a manager managing several
+                // centers) — AppCenterSwitcher only renders once
+                // there's more than one to switch between (see
+                // EnsureCenterAccess for how the active one is
+                // resolved/auto-selected).
                 'accessible_centers' => $accessibleCenterIds !== []
                     ? Center::query()->whereIn('id', $accessibleCenterIds)->orderBy('name')->get(['id', 'name'])
                     : [],

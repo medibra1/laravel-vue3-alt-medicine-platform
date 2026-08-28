@@ -97,40 +97,82 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * The single center this user manages, if any — the team_id of
-     * their 'manager' role assignment. A manager is scoped to one
-     * center only (see CLAUDE.md); used by EnsureCenterAccess to set
-     * the active permissions team for the request.
+     * The first (lowest id) center this user manages, if any — a
+     * manager can now manage several centers (see managedCenterIds()),
+     * accumulated the same way a practitioner accumulates centers.
+     * Kept as a single value for the few call sites that genuinely need
+     * just one — the Practitioner record auto-created for a manager
+     * (its own center_id column is not itself multi-center, see
+     * UserController::createPractitionerRecord()) and UserResource's
+     * `center`/`center_id` fields, kept for backward compatibility with
+     * anything still reading the singular shape. Never used to resolve
+     * the request's *active* center any more — see EnsureCenterAccess,
+     * which now treats manager exactly like practitioner
+     * (accessibleCenterIds() + session('active_center_id')).
      */
     public function managedCenterId(): ?int
     {
-        $teamId = DB::table('model_has_roles')
-            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-            ->where('model_has_roles.model_id', $this->getKey())
-            ->where('model_has_roles.model_type', static::class)
-            ->where('roles.name', 'manager')
-            ->value('model_has_roles.team_id');
+        return $this->managedCenterIds()[0] ?? null;
+    }
 
-        return $teamId !== null ? (int) $teamId : null;
+    /**
+     * Every center this user manages — team_id of each 'manager' role
+     * assignment. Extended 2026-08-26 from a single center to several,
+     * the same accumulate-don't-replace shape practitioner already had
+     * (see UserController::assignRoleToCenters()).
+     *
+     * @return array<int, int>
+     */
+    public function managedCenterIds(): array
+    {
+        return $this->centerIdsForRole('manager');
     }
 
     /**
      * Every center this user has a 'practitioner' role assignment on —
-     * unlike manager, a practitioner can be granted access to several
-     * centers (one row per center in model_has_roles, never replaced).
-     * Same raw, team-unscoped query family as isSuperAdmin()/
-     * managedCenterId(); used by EnsureCenterAccess to resolve/validate
-     * the request's active center for a practitioner account.
+     * unlike manager used to be, a practitioner can be granted access to
+     * several centers (one row per center in model_has_roles, never
+     * replaced). Same raw, team-unscoped query family as isSuperAdmin()/
+     * managedCenterId().
+     *
+     * @return array<int, int>
+     */
+    public function practitionerCenterIds(): array
+    {
+        return $this->centerIdsForRole('practitioner');
+    }
+
+    /**
+     * Every center this user can act on for center-scoped work — the
+     * union of centers managed and centers granted practitioner access
+     * to (a manager is very often also a practitioner on their own
+     * center(s), see RolePermissions::manager()'s docblock). Used by
+     * EnsureCenterAccess to resolve/validate the request's active
+     * center, and by AppCenterSwitcher/HandleInertiaRequests to decide
+     * whether a switcher is shown at all.
      *
      * @return array<int, int>
      */
     public function accessibleCenterIds(): array
     {
+        return collect($this->managedCenterIds())
+            ->merge($this->practitionerCenterIds())
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function centerIdsForRole(string $role): array
+    {
         return DB::table('model_has_roles')
             ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
             ->where('model_has_roles.model_id', $this->getKey())
             ->where('model_has_roles.model_type', static::class)
-            ->where('roles.name', 'practitioner')
+            ->where('roles.name', $role)
             ->orderBy('model_has_roles.team_id')
             ->pluck('model_has_roles.team_id')
             ->map(fn ($teamId) => (int) $teamId)

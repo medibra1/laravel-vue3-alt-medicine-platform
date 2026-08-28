@@ -34,29 +34,40 @@ class UpdateUserRequest extends FormRequest
             // (no admin-created-by-admin escalation path, no manager ->
             // admin promotion either, both out of Phase 1 scope).
             'role' => ['required', Rule::in(['manager'])],
-            'center_id' => ['required', 'integer', 'exists:centers,id'],
+            // A manager can now manage several centers at once
+            // (extended 2026-08-26) — center_ids[], not center_id.
+            'center_ids' => ['required', 'array', 'min:1'],
+            'center_ids.*' => ['integer', 'exists:centers,id'],
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if (! $this->filled('center_id')) {
+            $centerIds = $this->input('center_ids', []);
+
+            if ($centerIds === []) {
                 return;
             }
 
             /** @var User $target */
             $target = $this->route('user');
 
-            $alreadyManaged = DB::table('model_has_roles')
+            // Same per-center check as StoreUserRequest — a center can
+            // have at most one manager, checked against every other
+            // user's assignments (this target's own rows are excluded,
+            // otherwise re-submitting their existing centers would
+            // always "conflict" with themselves).
+            $alreadyManagedCenterIds = DB::table('model_has_roles')
                 ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
                 ->where('roles.name', 'manager')
-                ->where('model_has_roles.team_id', $this->integer('center_id'))
+                ->whereIn('model_has_roles.team_id', $centerIds)
                 ->where('model_has_roles.model_id', '!=', $target->getKey())
-                ->exists();
+                ->pluck('model_has_roles.team_id')
+                ->all();
 
-            if ($alreadyManaged) {
-                $validator->errors()->add('center_id', __('Ce centre a déjà un manager.'));
+            if ($alreadyManagedCenterIds !== []) {
+                $validator->errors()->add('center_ids', __('Ce centre a déjà un manager.'));
             }
         });
     }

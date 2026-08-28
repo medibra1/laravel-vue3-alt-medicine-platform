@@ -8,8 +8,10 @@ use App\Domains\Auth\Http\Resources\UserResource;
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Notifications\ManagerAssignedNotification;
 use App\Domains\Auth\Notifications\WelcomeSetPasswordNotification;
-use App\Domains\Auth\Support\RolePermissions;
+use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Core\Models\Center;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Practitioners\Services\PractitionerCodeGenerator;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +27,11 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly PractitionerCodeGenerator $codeGenerator,
+        private readonly CenterScopedRoleAssigner $roleAssigner,
+    ) {}
+
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', User::class);
@@ -60,9 +67,13 @@ class UserController extends Controller
     {
         $creationMode = $request->string('creation_mode')->value();
         $role = $request->string('role')->value();
-        $centerId = $role === 'manager' ? $request->integer('center_id') : null;
+        // A manager can now manage several centers at once (extended
+        // 2026-08-26 from the original single-center design) — the
+        // form submits center_ids[], center_id (kept for admin/global
+        // roles, which have none) stays null for a manager.
+        $centerIds = $role === 'manager' ? $request->input('center_ids', []) : [];
 
-        $user = DB::transaction(function () use ($request, $creationMode, $role, $centerId) {
+        $user = DB::transaction(function () use ($request, $creationMode, $role, $centerIds) {
             $user = User::create([
                 'name' => $request->string('name')->value(),
                 'email' => $request->string('email')->value(),
@@ -77,7 +88,11 @@ class UserController extends Controller
                 'is_active' => true,
             ]);
 
-            $this->assignRole($user, $role, $centerId);
+            if ($role === 'manager') {
+                $this->syncManagerCenters($user, $centerIds);
+            } else {
+                $this->assignGlobalRole($user, $role);
+            }
 
             return $user;
         });
@@ -98,7 +113,7 @@ class UserController extends Controller
             }
         }
 
-        if ($centerId !== null) {
+        foreach ($centerIds as $centerId) {
             try {
                 $center = Center::query()->findOrFail($centerId);
                 $user->notify(new ManagerAssignedNotification($center));
@@ -112,16 +127,30 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $centerId = $request->integer('center_id');
+        $newCenterIds = $request->input('center_ids', []);
+        $previousCenterIds = $user->managedCenterIds();
 
-        DB::transaction(function () use ($request, $user, $centerId) {
+        DB::transaction(function () use ($request, $user, $newCenterIds) {
             $user->update([
                 'name' => $request->string('name')->value(),
                 'email' => $request->string('email')->value(),
             ]);
 
-            $this->assignRole($user, 'manager', $centerId);
+            $this->syncManagerCenters($user, $newCenterIds);
         });
+
+        // Only notify for genuinely new centers on this edit — a center
+        // already managed before this request stays silent, same
+        // reasoning as store() only notifying once per center at
+        // creation time.
+        foreach (array_diff($newCenterIds, $previousCenterIds) as $centerId) {
+            try {
+                $center = Center::query()->findOrFail($centerId);
+                $user->notify(new ManagerAssignedNotification($center));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return redirect()->route('admin.users.index');
     }
@@ -139,22 +168,101 @@ class UserController extends Controller
     }
 
     /**
-     * Assigns a global (admin) or center-scoped (manager) role,
-     * switching the active permissions team just long enough for the
-     * assignment — same sentinel-team pattern already used by
-     * RolesAndPermissionsSeeder. Restores the acting request's own
-     * active team afterwards so nothing about the current request's
-     * authorization context leaks past this call.
+     * A manager very often also treats patients themselves, but the
+     * "Praticien" select on the Treatment wizard reads from the real
+     * `practitioners` table (treatments.practitioner_id is a genuine FK,
+     * not just a permission check) — a manager with no Practitioner row
+     * of their own could never appear there. Gives every newly created
+     * manager one automatically, using the exact same auto-generation
+     * the standalone Practitioner form already relies on
+     * (PractitionerCodeGenerator via PractitionerObserver::saving() —
+     * full_code is computed there, not here).
+     *
+     * The Practitioner row itself has a single center_id (its
+     * matricule/full_code are scoped to that one center) — created on
+     * the first center this manager is ever assigned, skipped
+     * afterwards (practitioners.user_id is unique at the DB level;
+     * also reachable if this person already had a Practitioner row from
+     * the ordinary Practitioner "join an existing account" flow). What
+     * makes a manager actually *selectable* as "Praticien" on each of
+     * their other managed centers is a separate 'practitioner' role
+     * grant per center (see ResolvesPractitionerOptions, which reads
+     * that role, not just Practitioner.center_id) — granted here for
+     * every center passed in, independent of whether the row itself was
+     * just created or already existed.
+     *
+     * @param  array<int, int>  $centerIds
      */
-    private function assignRole(User $user, string $role, ?int $centerId): void
+    private function ensurePractitionerAccess(User $user, array $centerIds): void
+    {
+        if (! Practitioner::query()->where('user_id', $user->id)->exists()) {
+            $firstCenterId = $centerIds[0] ?? null;
+
+            if ($firstCenterId !== null) {
+                $center = Center::query()->findOrFail($firstCenterId);
+                [$firstName, $lastName] = $this->splitName($user->name);
+
+                $practitioner = new Practitioner([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'user_id' => $user->id,
+                    'center_id' => $firstCenterId,
+                    'matricule' => $this->codeGenerator->suggestNextMatricule($center),
+                    'email' => $user->email,
+                ]);
+                $practitioner->save();
+            }
+        }
+
+        foreach ($centerIds as $centerId) {
+            $this->roleAssigner->grant($user, 'practitioner', $centerId);
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function splitName(string $name): array
+    {
+        $parts = explode(' ', trim($name), 2);
+
+        return [$parts[0], $parts[1] ?? $parts[0]];
+    }
+
+    /**
+     * A manager can manage several centers at once (extended
+     * 2026-08-26 from the original single-center design) — additions
+     * and removals in one call via CenterScopedRoleAssigner::
+     * syncCenters(), the same accumulate-or-revoke shape practitioner
+     * already had. Also keeps this manager's automatic practitioner
+     * access in step (see ensurePractitionerAccess()) — every managed
+     * center is also a center they can be picked as "Praticien" on.
+     *
+     * @param  array<int, int>  $centerIds
+     */
+    private function syncManagerCenters(User $user, array $centerIds): void
+    {
+        $this->roleAssigner->syncCenters($user, 'manager', $centerIds);
+
+        if ($centerIds !== []) {
+            $this->ensurePractitionerAccess($user, $centerIds);
+        }
+    }
+
+    /**
+     * Assigns a global role (admin/super_admin) — these hold exactly
+     * one role, so unlike syncManagerCenters() this stays destructive
+     * (detaches every existing assignment first). Switches the active
+     * permissions team just long enough for the assignment — same
+     * sentinel-team pattern already used by RolesAndPermissionsSeeder.
+     * Restores the acting request's own active team afterwards so
+     * nothing about the current request's authorization context leaks
+     * past this call.
+     */
+    private function assignGlobalRole(User $user, string $role): void
     {
         $requestTeamId = getPermissionsTeamId();
 
-        // roles()->detach() is team-scoped to whatever team is active
-        // *right now* — it would silently miss the user's existing
-        // assignment under a different team_id (e.g. reassigning a
-        // manager to a new center). Deleted unscoped instead, same
-        // reasoning as every other raw model_has_roles query on User.
         DB::table('model_has_roles')
             ->where('model_id', $user->getKey())
             ->where('model_type', User::class)
@@ -163,30 +271,18 @@ class UserController extends Controller
         // model_has_roles.team_id is NOT NULL at the DB level — global
         // roles use the sentinel team 0 (never a real center id), same
         // convention as RolesAndPermissionsSeeder/actingAsSuperAdmin().
-        setPermissionsTeamId($role === 'manager' ? $centerId : 0);
+        setPermissionsTeamId(0);
 
         $roleModel = Role::query()->where('name', $role)->where('guard_name', 'web')
-            ->when($role !== 'manager', fn ($query) => $query->whereNull('team_id'))
-            ->when($role === 'manager', fn ($query) => $query->where('team_id', $centerId))
+            ->whereNull('team_id')
             ->first();
 
         if (! $roleModel) {
             $roleModel = Role::query()->create([
                 'name' => $role,
                 'guard_name' => 'web',
-                'team_id' => $role === 'manager' ? $centerId : null,
+                'team_id' => null,
             ]);
-
-            // A freshly created role has no permissions until synced —
-            // without this a real manager created through this
-            // controller would pass every hasRole() check but fail
-            // every can() check (patients.view etc. all false), a bug
-            // that testing helpers like actingAsManagerOf() masked by
-            // syncing permissions manually and never going through
-            // this method.
-            if ($role === 'manager') {
-                $roleModel->syncPermissions(RolePermissions::manager());
-            }
         }
 
         $user->assignRole($roleModel);

@@ -4,7 +4,7 @@ namespace App\Domains\Practitioners\Http\Controllers\Admin;
 
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Notifications\WelcomeSetPasswordNotification;
-use App\Domains\Auth\Support\RolePermissions;
+use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Grade;
 use App\Domains\Practitioners\Http\Requests\StorePractitionerRequest;
@@ -23,12 +23,13 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 class PractitionerController extends Controller
 {
+    public function __construct(private readonly CenterScopedRoleAssigner $roleAssigner) {}
+
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Practitioner::class);
@@ -36,7 +37,14 @@ class PractitionerController extends Controller
         $query = Practitioner::query()->with(['center.country', 'grade', 'user']);
 
         if (! $request->user()->isSuperAdmin()) {
-            $query->where('center_id', getPermissionsTeamId());
+            // visibleOnCenter(), not a plain center_id filter — a
+            // manager/practitioner who has access to this center only
+            // via a 'practitioner' role grant (not their Practitioner
+            // row's own center_id) was previously invisible here even
+            // though they could act on this center's patients, found
+            // via real usage once a manager started managing more than
+            // one center. See Practitioner::scopeVisibleOnCenter().
+            $query->visibleOnCenter(getPermissionsTeamId());
         }
 
         $practitioners = QueryBuilder::for($query)
@@ -75,7 +83,7 @@ class PractitionerController extends Controller
 
         $centerId = $request->user()->isSuperAdmin()
             ? $request->integer('center_id')
-            : $request->user()->managedCenterId();
+            : getPermissionsTeamId();
 
         $center = Center::query()->findOrFail($centerId);
 
@@ -126,7 +134,7 @@ class PractitionerController extends Controller
             // same person, just extend their access to this center too.
             $center = Center::query()->findOrFail($centerId);
 
-            $this->grantPractitionerAccessToCenter($resolution['user'], $centerId);
+            $this->roleAssigner->grant($resolution['user'], 'practitioner', $centerId);
 
             try {
                 $resolution['user']->notify(new PractitionerJoinedCenterNotification($center));
@@ -156,7 +164,7 @@ class PractitionerController extends Controller
 
                 $practitioner->update(['user_id' => $user->id]);
 
-                $this->grantPractitionerAccessToCenter($user, $centerId);
+                $this->roleAssigner->grant($user, 'practitioner', $centerId);
 
                 if ($creationMode === 'invite') {
                     try {
@@ -185,50 +193,5 @@ class PractitionerController extends Controller
         $practitioner->delete();
 
         return redirect()->route('admin.practitioners.index');
-    }
-
-    /**
-     * Additive only — unlike UserController::assignRole() (which
-     * detaches every existing role before assigning the new one, fine
-     * for admin/manager who only ever hold one role), a practitioner
-     * must be able to accumulate 'practitioner' assignments across
-     * several centers without ever losing the earlier ones.
-     */
-    private function grantPractitionerAccessToCenter(User $user, int $centerId): void
-    {
-        $requestTeamId = getPermissionsTeamId();
-
-        $alreadyGranted = DB::table('model_has_roles')
-            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-            ->where('model_has_roles.model_id', $user->getKey())
-            ->where('model_has_roles.model_type', User::class)
-            ->where('roles.name', 'practitioner')
-            ->where('model_has_roles.team_id', $centerId)
-            ->exists();
-
-        if ($alreadyGranted) {
-            return;
-        }
-
-        setPermissionsTeamId($centerId);
-
-        $roleModel = Role::query()
-            ->where('name', 'practitioner')
-            ->where('guard_name', 'web')
-            ->where('team_id', $centerId)
-            ->first();
-
-        if (! $roleModel) {
-            $roleModel = Role::query()->create([
-                'name' => 'practitioner',
-                'guard_name' => 'web',
-                'team_id' => $centerId,
-            ]);
-            $roleModel->syncPermissions(RolePermissions::practitioner());
-        }
-
-        $user->assignRole($roleModel);
-
-        setPermissionsTeamId($requestTeamId);
     }
 }

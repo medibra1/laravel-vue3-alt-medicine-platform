@@ -25,6 +25,7 @@ interface UserRow {
     role: 'super_admin' | 'admin' | 'manager' | 'practitioner' | null;
     center_id: number | null;
     center: Center | null;
+    center_ids: number[];
     centers: Center[];
     is_active: boolean;
     invitation_pending: boolean;
@@ -120,7 +121,9 @@ const createForm = useForm({
     name: '',
     email: '',
     role: 'manager' as 'manager' | 'admin',
-    center_id: null as number | null,
+    // A manager can manage several centers at once (extended
+    // 2026-08-26 from the original single-center design).
+    center_ids: [] as number[],
     creation_mode: 'invite' as 'direct' | 'invite',
     password: '',
     password_confirmation: '',
@@ -145,7 +148,7 @@ const editForm = useForm({
     name: '',
     email: '',
     role: 'manager' as 'manager',
-    center_id: null as number | null,
+    center_ids: [] as number[],
 });
 
 function openEdit(user: UserRow) {
@@ -154,7 +157,7 @@ function openEdit(user: UserRow) {
     editForm.name = user.name;
     editForm.email = user.email;
     editForm.role = 'manager';
-    editForm.center_id = user.center_id;
+    editForm.center_ids = [...user.center_ids];
 }
 
 function submitEdit() {
@@ -215,8 +218,7 @@ function destroy(user: UserRow) {
                         <v-chip size="small" variant="tonal">{{ item.role ? roleLabels[item.role] : '—' }}</v-chip>
                     </template>
                     <template #column-centers="{ item }">
-                        <span v-if="item.role === 'manager'">{{ item.center?.name ?? '—' }}</span>
-                        <div v-else-if="item.role === 'practitioner'" class="d-flex flex-wrap ga-1">
+                        <div v-if="item.role === 'manager' || item.role === 'practitioner'" class="d-flex flex-wrap ga-1">
                             <v-chip v-for="center in item.centers" :key="center.id" size="small" variant="tonal">
                                 {{ center.name }}
                             </v-chip>
@@ -275,13 +277,14 @@ function destroy(user: UserRow) {
 
                 <AppSelect
                     v-if="createForm.role === 'manager'"
-                    v-model="createForm.center_id"
+                    v-model="createForm.center_ids"
                     :options="centers"
                     option-label="name"
                     option-value="id"
-                    label="Centre géré"
-                    placeholder="Choisir un centre"
-                    :error="createForm.errors.center_id"
+                    label="Centres gérés"
+                    placeholder="Choisir un ou plusieurs centres"
+                    multiple
+                    :error="createForm.errors.center_ids"
                 />
 
                 <AppSelect
@@ -341,12 +344,13 @@ function destroy(user: UserRow) {
                 />
 
                 <AppSelect
-                    v-model="editForm.center_id"
+                    v-model="editForm.center_ids"
                     :options="centers"
                     option-label="name"
                     option-value="id"
-                    label="Centre géré"
-                    :error="editForm.errors.center_id"
+                    label="Centres gérés"
+                    multiple
+                    :error="editForm.errors.center_ids"
                 />
 
                 <div class="d-flex justify-end ga-2">

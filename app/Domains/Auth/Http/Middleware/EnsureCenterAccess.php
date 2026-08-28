@@ -10,12 +10,14 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Sets spatie/laravel-permission's active team for the request.
  * super_admin/admin ignore team scoping entirely (see
- * User::isSuperAdmin()/isAdmin()). A manager is scoped to their single
- * managed center. A practitioner may be scoped to several centers —
- * the active one is resolved from session('active_center_id') (see
- * ActiveCenterController), auto-selecting the first accessible center
- * the first time (or if the session value is no longer valid) rather
- * than blocking on an explicit choice screen.
+ * User::isSuperAdmin()/isAdmin()). A manager or practitioner may now
+ * both be scoped to several centers (a manager managing several
+ * centers, extended 2026-08-26 from the original single-center
+ * design — see User::managedCenterIds()) — the active one is resolved
+ * from session('active_center_id') (see ActiveCenterController),
+ * auto-selecting the first accessible center the first time (or if the
+ * session value is no longer valid) rather than blocking on an
+ * explicit choice screen.
  */
 class EnsureCenterAccess
 {
@@ -33,10 +35,6 @@ class EnsureCenterAccess
 
     private function resolveTeamId(Request $request, User $user): ?int
     {
-        if ($managedCenterId = $user->managedCenterId()) {
-            return $managedCenterId;
-        }
-
         $accessibleCenterIds = $user->accessibleCenterIds();
 
         if ($accessibleCenterIds === []) {
@@ -50,8 +48,8 @@ class EnsureCenterAccess
         }
 
         // No valid selection yet — auto-select rather than force an
-        // interstitial "choose your center" screen; the practitioner
-        // can switch centers at any time via AppCenterSwitcher.
+        // interstitial "choose your center" screen; the user can switch
+        // centers at any time via AppCenterSwitcher.
         $defaultCenterId = $accessibleCenterIds[0];
         $request->session()->put('active_center_id', $defaultCenterId);
 

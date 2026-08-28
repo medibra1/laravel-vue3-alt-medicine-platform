@@ -10,16 +10,18 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 trait ResolvesPractitionerOptions
 {
     /**
-     * A super_admin sees every practitioner (no center filter); a manager
-     * only sees their own center's, regardless of the center picked
-     * elsewhere in the same form.
+     * A super_admin sees every practitioner (no center filter); anyone
+     * else sees who can actually be picked as "Praticien" on their
+     * currently active center — see Practitioner::scopeVisibleOnCenter()
+     * for what "eligible on a center" means (not just Practitioner.
+     * center_id).
      */
     protected function practitionerOptions(Request $request): AnonymousResourceCollection
     {
-        $centerId = $request->user()->isSuperAdmin() ? null : $request->user()->managedCenterId();
+        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
 
         $practitioners = Practitioner::query()
-            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->when($centerId, fn ($query) => $query->visibleOnCenter($centerId))
             ->orderBy('full_code')
             ->get();
 

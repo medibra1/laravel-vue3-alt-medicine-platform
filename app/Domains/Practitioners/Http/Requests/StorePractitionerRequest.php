@@ -117,7 +117,7 @@ class StorePractitionerRequest extends FormRequest
     {
         return $this->user()->isSuperAdmin()
             ? $this->integer('center_id')
-            : $this->user()->managedCenterId();
+            : getPermissionsTeamId();
     }
 
     /**

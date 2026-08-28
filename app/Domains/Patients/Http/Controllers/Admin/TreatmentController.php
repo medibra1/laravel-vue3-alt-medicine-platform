@@ -244,7 +244,7 @@ class TreatmentController extends Controller
     /** @return array<string, mixed> */
     protected function formOptions(Request $request): array
     {
-        $centerId = $request->user()->isSuperAdmin() ? null : $request->user()->managedCenterId();
+        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
 
         return [
             'centers' => $this->centerOptions($request),

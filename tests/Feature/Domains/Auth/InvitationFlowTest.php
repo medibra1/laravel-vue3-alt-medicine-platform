@@ -15,7 +15,7 @@ test('invited user can follow the emailed link, set a password, log in, email ge
         'name' => 'Invité Bout En Bout',
         'email' => 'e2e@example.com',
         'role' => 'manager',
-        'center_id' => $center->id,
+        'center_ids' => [$center->id],
         'creation_mode' => 'invite',
     ])->assertRedirect(route('admin.users.index'));
 

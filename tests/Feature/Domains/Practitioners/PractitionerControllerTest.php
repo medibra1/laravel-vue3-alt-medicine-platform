@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
 use App\Domains\Practitioners\Models\Practitioner;
@@ -35,6 +36,32 @@ test('manager only sees practitioners from their own center', function () {
     $data = $response->inertiaPage()['props']['practitioners']['data'];
     expect($data)->toHaveCount(1);
     expect($data[0]['center_id'])->toBe($ownCenter->id);
+});
+
+test('a manager managing several centers sees practitioners on whichever center is active, including themselves', function () {
+    // Regression: index() used to filter on Practitioner.center_id
+    // directly — a manager whose Practitioner row was created on
+    // centerA (their first managed center) was invisible in this list
+    // while switched to centerB, even though they manage/practice
+    // there too via a 'practitioner' role grant. See
+    // Practitioner::scopeVisibleOnCenter().
+    $centerA = Center::factory()->create();
+    $centerB = Center::factory()->create();
+    $manager = actingAsManagerOf($centerA);
+    $roleAssigner = app(CenterScopedRoleAssigner::class);
+    $roleAssigner->grant($manager, 'manager', $centerB->id);
+    $roleAssigner->grant($manager, 'practitioner', $centerA->id);
+    $roleAssigner->grant($manager, 'practitioner', $centerB->id);
+    Practitioner::factory()->for($centerA)->create(['user_id' => $manager->id]);
+
+    $response = $this->withSession(['active_center_id' => $centerB->id])
+        ->actingAs($manager)
+        ->get(route('admin.practitioners.index'));
+
+    $response->assertOk();
+    $data = $response->inertiaPage()['props']['practitioners']['data'];
+    $userIds = collect($data)->pluck('user_id')->filter()->all();
+    expect($userIds)->toContain($manager->id);
 });
 
 test('super admin can create a practitioner and full_code is generated correctly', function () {

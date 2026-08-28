@@ -91,6 +91,28 @@ test('manager can create a draft without sending center_id', function () {
     expect($treatment->center_id)->toBe($ownCenter->id);
 });
 
+test('a non-super_admin can create a draft when center_id is explicitly null in the payload', function () {
+    // Regression: same shape as the identical fix on
+    // StorePatientDraftRequest — the real Vue form always submits
+    // center_id, explicitly null for a role with no center field on
+    // this form, not omitted. 'prohibited' stacked with 'integer' in one
+    // array failed on that null before 'prohibited' was meaningfully
+    // evaluated.
+    $ownCenter = Center::factory()->create();
+    $manager = actingAsManagerOf($ownCenter);
+    $patient = Patient::factory()->create();
+
+    $response = $this->actingAs($manager)->postJson(route('admin.treatments.draft.store'), [
+        'client_uuid' => (string) Str::uuid(),
+        'patient_id' => $patient->id,
+        'center_id' => null,
+    ]);
+
+    $response->assertCreated();
+    $treatment = Treatment::query()->findOrFail($response->json('id'));
+    expect($treatment->center_id)->toBe($ownCenter->id);
+});
+
 test('creating a draft without a patient_id fails validation', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
@@ -283,6 +305,38 @@ test('confirming with complete data transitions the treatment to ongoing', funct
     $response->assertRedirect(route('admin.patients.edit', ['patient' => $treatment->patient_id, 'tab' => 'ongoing']));
     // Confirming starts real-world follow-up immediately — no separate
     // manual step to reach `ongoing` (see Treatment::refreshClosureStatus()).
+    expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
+});
+
+test('confirming succeeds when the payload sends every field explicitly, including null practitioner_id/started_at', function () {
+    // Regression: same shape as the identical fix on
+    // PatientControllerTest — the wizard's useResilientForm spreads the
+    // whole reactive form on submit; if the "Date de début"/"Praticien"
+    // fields haven't actually synced their typed/picked value into the
+    // form yet (e.g. Vuetify's v-date-input silently failing to parse a
+    // date typed in the wrong locale format — see the 'fr' locale fix
+    // on resources/js/lib/vuetify.ts), the request still carries
+    // explicit nulls for them. prepareForValidation()'s old
+    // array_filter()+$this->input($key, $fallback) let that null
+    // survive past the persisted-value fallback and fail 'required' —
+    // a 302 redirect-back with no visible error on the wizard's later
+    // steps, since the failing field lives on step 1.
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center)->create();
+    $treatment = Treatment::factory()->for($center, 'center')->for($practitioner, 'practitioner')->create();
+    $treatment->setStatus('draft');
+    $disease = Disease::factory()->create();
+    $treatment->diseases()->sync([$disease->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.confirm', $treatment), [
+        'practitioner_id' => null,
+        'started_at' => null,
+        'outcome' => null,
+        'disease_ids' => [$disease->id],
+    ]);
+
+    $response->assertSessionHasNoErrors();
     expect($treatment->fresh()->latestStatus()->name)->toBe('ongoing');
 });
 

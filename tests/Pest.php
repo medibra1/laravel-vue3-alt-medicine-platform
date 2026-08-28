@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Auth\Support\RolePermissions;
 use App\Domains\Core\Models\Center;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -239,18 +240,14 @@ function actingAsPractitionerOf(Center ...$centers): User
 {
     grantPatientPermissions();
     grantTreatmentPermissions();
+    grantTreatmentSessionPermissions();
 
     $user = User::factory()->create();
 
     foreach ($centers as $center) {
         setPermissionsTeamId($center->id);
         $role = Role::findOrCreate('practitioner', 'web');
-        $role->syncPermissions([
-            'patients.viewAny',
-            'patients.view',
-            'treatments.viewAny',
-            'treatments.view',
-        ]);
+        $role->syncPermissions(RolePermissions::practitioner());
         $user->assignRole($role);
     }
 

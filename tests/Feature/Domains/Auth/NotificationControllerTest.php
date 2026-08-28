@@ -16,7 +16,7 @@ test('a real manager-assigned notification lands in the database and can be list
         'name' => 'Manager Notifié',
         'email' => 'notified@example.com',
         'role' => 'manager',
-        'center_id' => $center->id,
+        'center_ids' => [$center->id],
         'creation_mode' => 'direct',
         'password' => 'Password123!',
         'password_confirmation' => 'Password123!',
