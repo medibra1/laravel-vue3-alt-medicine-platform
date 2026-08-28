@@ -766,6 +766,61 @@ fusion multi-image doivent donc passer une taille réaliste
 uploadée depuis un téléphone n'est jamais 10×10, donc ce n'est pas un
 vrai défaut à corriger côté production.
 
+#### Addendum (2026-08-28, suite immédiate) — lien séance, disponibilité précoce
+
+Trois ajustements demandés juste après la première implémentation
+ci-dessus :
+
+**Documents médicaux liés à une séance via `custom_properties`, pas une
+nouvelle collection ni un pivot** — `medical` reste une seule
+collection globale sur `Patient` (un seul endroit de vérité, jamais
+dupliquée par séance). `PatientDocumentController::store()` accepte un
+`treatment_session_id` optionnel (`StorePatientDocumentRequest`, validé
+comme appartenant à une séance d'un traitement de **ce** patient —
+`Rule::exists('treatment_sessions', 'id')->where(fn ($q) => $q->whereIn('treatment_id', $patient->treatments()->select('id')))`,
+sinon un id de séance forgé appartenant à un autre patient pourrait
+autrement taguer un document sur la mauvaise séance). Stocké via
+`FileAdder::withCustomProperties(['treatment_session_id' => ...])`,
+exposé par `PatientDocumentResource.treatment_session_id`. Uploadable
+depuis deux points d'entrée vers le même endpoint : l'onglet Documents
+du dossier patient (`PatientDocumentsTab.vue`, jamais de
+`treatment_session_id`) et un nouvel onglet "Documents" dans
+`TreatmentSessionDialog.vue` (toujours avec `treatment_session_id`,
+voir plus bas). Le document reste consultable uniquement depuis
+l'onglet Documents du dossier patient — `TreatmentSessionDialog` ne
+liste pas les documents déjà liés à la séance (décision explicite,
+scope resserré au strict "upload" pour cette session).
+
+**`TreatmentSessionDialog.vue` — upload désactivé pour une séance pas
+encore enregistrée** — contrairement à `Patient`/`Treatment`
+(wizard résilient avec autosave), une `TreatmentSession` est un CRUD
+simple en un seul submit, sans id avant le premier `save()` réussi. Le
+nouvel onglet "Documents" du dialog affiche l'uploader seulement si
+`props.session !== null` (édition d'une séance existante) ; pour une
+nouvelle séance, un message ("Enregistrez la séance pour pouvoir y
+attacher un document médical.") remplace l'uploader — décision
+explicite (alternative écartée : auto-save silencieux de la séance au
+premier fichier choisi, jugée trop surprenante).
+
+**Onglet Documents disponible dès le premier `storeDraft()`, pas
+seulement après confirmation du patient** — jusqu'ici, `Patients/Form.vue`
+n'affichait `AppTabs` (et donc tous les onglets) que si `props.patient`
+était chargé, ce qui n'arrive **jamais** pendant toute la session
+`/admin/patients/create` (Inertia ne recharge pas cette page après
+`storeDraft()` — seul `serverId`, interne à `useResilientForm`, connaît
+l'id du patient fraîchement créé). Nouveau `computed effectivePatientId`
+(`patient?.id ?? serverId.value`) pilote maintenant l'affichage de
+`AppTabs` — dès que le tout premier `storeDraft()` réussit (~50ms après
+la première frappe), les 4 onglets apparaissent, et `PatientDocumentsTab`
+reçoit `effectivePatientId` plutôt que `patient.id`. "Traitement en
+cours"/"Historique" restent inchangés dans leur fonctionnement (décision
+explicite : pas de masquage supplémentaire tant que le patient n'est pas
+confirmé) mais gagnent un garde `v-if="patient"` avec un message
+("Confirmez d'abord les informations du patient...") plutôt qu'un crash
+sur `props.patient!.id` — ces deux onglets n'avaient jamais été exercés
+sans un `patient` réellement chargé avant ce changement, l'assertion de
+non-nullité y était jusqu'ici toujours vraie en pratique.
+
 ---
 
 ## 4. Scheduling

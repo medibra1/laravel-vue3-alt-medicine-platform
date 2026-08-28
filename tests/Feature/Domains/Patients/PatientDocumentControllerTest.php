@@ -2,6 +2,8 @@
 
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\Patient;
+use App\Domains\Patients\Models\Treatment;
+use App\Domains\Patients\Models\TreatmentSession;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -201,4 +203,66 @@ test('a manager from another center cannot view or download a document', functio
     $this->actingAs($manager)
         ->get(route('admin.patients.documents.show', [$patient, $media]))
         ->assertForbidden();
+});
+
+test('uploading a medical document with a treatment_session_id tags it via custom_properties', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->for($center, 'center')->create();
+    $treatment = Treatment::factory()->for($patient)->for($center, 'center')->create();
+    $session = TreatmentSession::factory()->for($treatment)->create();
+
+    $this->actingAs($manager)->post(route('admin.patients.documents.store', $patient), [
+        'collection' => 'medical',
+        'files' => [UploadedFile::fake()->image('doc.jpg')],
+        'treatment_session_id' => $session->id,
+    ])->assertRedirect();
+
+    $media = $patient->getFirstMedia('medical');
+    expect($media->getCustomProperty('treatment_session_id'))->toBe($session->id);
+});
+
+test('a medical document without a treatment_session_id has no session tag', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->for($center, 'center')->create();
+
+    $this->actingAs($manager)->post(route('admin.patients.documents.store', $patient), [
+        'collection' => 'medical',
+        'files' => [UploadedFile::fake()->image('doc.jpg')],
+    ])->assertRedirect();
+
+    $media = $patient->getFirstMedia('medical');
+    expect($media->getCustomProperty('treatment_session_id'))->toBeNull();
+});
+
+test('a document can be uploaded to a patient still in draft status, before confirmation', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->for($center, 'center')->create();
+    $patient->setStatus('draft');
+
+    $this->actingAs($manager)->post(route('admin.patients.documents.store', $patient), [
+        'collection' => 'other',
+        'files' => [UploadedFile::fake()->image('doc.jpg')],
+    ])->assertRedirect();
+
+    expect($patient->getMedia('other'))->toHaveCount(1);
+});
+
+test('a treatment_session_id belonging to another patient is rejected', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->for($center, 'center')->create();
+    $otherPatient = Patient::factory()->for($center, 'center')->create();
+    $otherTreatment = Treatment::factory()->for($otherPatient)->for($center, 'center')->create();
+    $otherSession = TreatmentSession::factory()->for($otherTreatment)->create();
+
+    $this->actingAs($manager)->post(route('admin.patients.documents.store', $patient), [
+        'collection' => 'medical',
+        'files' => [UploadedFile::fake()->image('doc.jpg')],
+        'treatment_session_id' => $otherSession->id,
+    ])->assertSessionHasErrors('treatment_session_id');
+
+    expect($patient->getMedia('medical'))->toHaveCount(0);
 });

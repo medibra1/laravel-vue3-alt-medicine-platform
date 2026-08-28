@@ -29,6 +29,7 @@ class PatientDocumentResource extends JsonResource
             'thumb_url' => $this->hasGeneratedConversion('thumb')
                 ? route('admin.patients.documents.thumb', [$this->model_id, $this->id])
                 : null,
+            'treatment_session_id' => $this->getCustomProperty('treatment_session_id'),
             'created_at' => $this->created_at,
         ];
     }

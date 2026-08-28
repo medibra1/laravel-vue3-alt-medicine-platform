@@ -19,11 +19,19 @@ class PatientDocumentController extends Controller
      * document should produce one attachment, not one per photo) — 'other'
      * never merges, and neither does a single-file upload into any
      * collection, since there's nothing to combine.
+     *
+     * Medical documents stay on this single global 'medical' collection
+     * even when uploaded from a specific session (TreatmentSessionDialog.vue
+     * posts to this same endpoint) — treatment_session_id, when present,
+     * is stored as a custom property to link the document to the session
+     * it was captured during, without a separate collection or pivot
+     * table (one source of truth for "this patient's medical documents").
      */
     public function store(StorePatientDocumentRequest $request, Patient $patient, MergeImagesIntoPdfAction $mergeImages): RedirectResponse
     {
         $collection = $request->string('collection')->toString();
         $files = $request->file('files');
+        $treatmentSessionId = $request->integer('treatment_session_id') ?: null;
 
         $shouldMerge = count($files) > 1 && in_array($collection, ['identity', 'medical'], true);
 
@@ -32,10 +40,13 @@ class PatientDocumentController extends Controller
 
             $patient->addMedia($mergedPath)
                 ->usingFileName('merged-'.now()->format('Y-m-d-His').'.pdf')
+                ->withCustomProperties(array_filter(['treatment_session_id' => $treatmentSessionId]))
                 ->toMediaCollection($collection);
         } else {
             foreach ($files as $file) {
-                $patient->addMedia($file)->toMediaCollection($collection);
+                $patient->addMedia($file)
+                    ->withCustomProperties(array_filter(['treatment_session_id' => $treatmentSessionId]))
+                    ->toMediaCollection($collection);
             }
         }
 
