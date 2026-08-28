@@ -875,6 +875,24 @@ identifié et nettoyé au passage ; le patient "Bech Kadr" (id 5)
 repéré lors de l'addendum précédent reste volontairement intact
 (toujours pas de certitude que ce soit une donnée de test).
 
+#### Addendum (2026-08-28, troisième suite) — retrait temporaire de l'onglet Documents côté séance
+
+Retour utilisateur : trop tôt pour exposer l'upload/la liste de
+documents médicaux directement depuis `TreatmentSessionDialog.vue` —
+pas encore clair comment bien l'organiser vis-à-vis du reste du
+dossier patient. Demande explicite : retirer l'affichage sans retirer
+l'implémentation.
+
+**`sessionTabs` ne liste plus l'entrée Documents** — `AppTabs` (qui
+génère ses `v-window-item` en bouclant sur le tableau `tabs` qu'on lui
+passe) ne monte donc plus jamais le `<template #documents>` du dialog.
+Tout le reste (template, refs, `uploadMedicalDocuments()`, prop
+`medicalDocuments`, `Form.vue`'s `medicalDocumentsForSession()`) reste
+en place à l'identique — un simple ré-ajout de l'entrée à `sessionTabs`
+suffira à réactiver, dès qu'une approche d'organisation sera tranchée.
+Comportement observable : upload de document médical redevient
+exclusivement depuis l'onglet Documents du dossier patient.
+
 ---
 
 ## 4. Scheduling

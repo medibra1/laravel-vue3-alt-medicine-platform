@@ -92,12 +92,20 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 // Care checklist and disease-outcome tracking are two independent facets of
 // the same session — not a step-by-step sequence like the treatment wizard
 // — so this uses Tabs rather than a Stepper, same choice already made for
-// the patient file's own tabs (see AuthenticatedLayout/Form.vue). Documents
-// is a third independent facet, added the same way.
+// the patient file's own tabs (see AuthenticatedLayout/Form.vue).
+//
+// A "Documents" tab (upload + review of medical documents tagged to this
+// session) was added and then pulled back out on 2026-08-28 — not deleted:
+// the <template #documents> below, medicalDocuments prop, and
+// uploadMedicalDocuments() all still exist, just no longer reachable
+// because AppTabs only renders tabs listed here. Decision was to keep
+// document management solely on the patient file's Documents tab for now,
+// "as it was at the start" — how a session-level entry point should really
+// fit in is still to be worked out. Add { title: 'Documents', value:
+// 'documents' } back to re-enable once that's settled.
 const sessionTabs: AppTabItem[] = [
     { title: 'Soins', value: 'care' },
     { title: 'Suivi des maladies', value: 'diseases' },
-    { title: 'Documents', value: 'documents' },
 ];
 const activeSessionTab = ref<string>('care');
 
