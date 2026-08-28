@@ -66,6 +66,12 @@ class Patient extends Model implements HasMedia
         return $this->hasMany(Treatment::class);
     }
 
+    /** @return HasMany<Consent, $this> */
+    public function consents(): HasMany
+    {
+        return $this->hasMany(Consent::class);
+    }
+
     /**
      * Same tiebreak rule already applied to Treatment::sessions() (most
      * recent first, `id` desc to disambiguate two treatments started the

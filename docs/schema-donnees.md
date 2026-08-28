@@ -920,6 +920,115 @@ suffira à réactiver, dès qu'une approche d'organisation sera tranchée.
 Comportement observable : upload de document médical redevient
 exclusivement depuis l'onglet Documents du dossier patient.
 
+### Consentement patient (2026-08-28, `consent_templates` / `consents`)
+
+Contrairement aux "documents patient" ci-dessus (Media Library seule,
+aucun modèle dédié — `Patient` porte directement `HasMedia`),
+le consentement a besoin de données relationnelles interrogeables (qui
+a consenti, à quelle version, quand) — d'où deux vraies tables/modèles
+Eloquent plutôt qu'une simple collection média de plus.
+
+**`consent_templates`** : `type` (`treatment`/`data_privacy`/
+`image_rights`, string libre pas un enum PHP — trois valeurs connues
+mais pas de raison de figer un type PHP pour ça), `version`
+(`unsignedInteger`), `title`, `content` (`longText`, le texte présenté
+au patient), `is_active` (bool). Unique sur `(type, version)`. **Un
+seul `is_active = true` par `type` à la fois, appliqué en code
+(`ConsentTemplateController`), pas par contrainte SQL** — décision
+actée avec l'utilisateur (option choisie explicitement) : `store()` ne
+crée jamais que la toute première version d'un type (rejeté par
+validation si ce type a déjà une version active) ; `update()` est le
+seul chemin qui fait évoluer un type existant — il ne modifie **jamais**
+la ligne en place, il désactive l'ancienne et crée
+`version = ancienne + 1, is_active = true` dans une transaction DB (les
+deux écritures ensemble, pour qu'un type ne soit jamais brièvement sans
+version active).
+
+**`consents`** : `patient_id` (cascade delete), `consent_template_id`
+(`restrictOnDelete` — un template déjà référencé par un consentement ne
+peut pas être supprimé, cohérent avec le fait qu'aucune route
+`destroy()` n'existe d'ailleurs sur `ConsentTemplateController`),
+`version` (copie de `consent_templates.version` au moment du recueil),
+`content_snapshot` (`longText`, copie figée du texte accepté —
+**indépendante** d'une édition ultérieure du template, c'est le point
+central de cette table : un texte déjà signé ne doit jamais changer
+rétroactivement même si `update()` crée une nouvelle version), `signer_name`,
+`signature_svg` (`longText` nullable — en pratique une data URL PNG du
+tracé canvas, pas du SVG vectoriel malgré le nom de colonne repris tel
+quel du prompt initial), `accepted_at`, `accepted_by` (FK `users`),
+`ip_address` (nullable). Un seul point d'écriture :
+`RecordPatientConsentAction` (`app/Domains/Patients/Services/`) — charge
+le template actif du type demandé (abort 422 si aucun), crée la ligne
+`Consent`, génère le PDF (`resources/views/pdf/consent.blade.php` via
+`Barryvdh\DomPDF\Facade\Pdf`) et l'attache via `HasMedia` en une seule
+opération, pour que la ligne DB et le PDF ne puissent jamais diverger.
+
+**`Consent implements HasMedia`** — collection unique `document`
+(`singleFile()`, disque `local` privé, même raisonnement que
+`Patient`'s collections : un consentement signé est au moins aussi
+sensible qu'une pièce d'identité). Téléchargement via une route
+authentifiée dédiée (`admin.patients.consents.show`), jamais d'URL
+publique directe — même pattern que `PatientDocumentController`,
+y compris le garde-fou `abort_unless($consent->patient_id ===
+$patient->id, 404)` puisque `{consent}` n'est pas un scoped route-model
+binding.
+
+**dompdf, pas `spatie/browsershot`** — demande explicite de
+l'utilisateur en cours de session (le prompt initial supposait
+`browsershot` "déjà installé et utilisé", ce qui s'est révélé faux à la
+vérification : présent dans `composer.json` mais aucun code de
+génération PDF n'existait nulle part dans le projet avant cette
+session). `barryvdh/laravel-dompdf` `^3.1` (v3.1.2, dernière stable)
+ajouté ; `spatie/browsershot` reste dans `composer.json`, non retiré
+(décision explicite de l'utilisateur — hors périmètre de cette
+session), toujours inutilisé par aucun code. **Premier template Blade
+PDF du projet** (`resources/views/pdf/`, dossier qui n'existait pas
+avant) — pas de config `dompdf` publiée (les valeurs par défaut du
+package suffisent, rien de spécifique au projet à surcharger pour
+l'instant).
+
+⚠️ **Piège d'environnement rencontré, pas un bug de code** : après
+`composer require`, le cache `bootstrap/cache/packages.php` (généré
+lors d'une session précédente, avant l'installation de dompdf) ne
+listait pas le nouveau package — `Target class [dompdf.wrapper] does
+not exist` au premier test, jusqu'à `php artisan package:discover`. À
+revérifier après tout `composer require` d'un package Laravel dans cet
+environnement si un service fraîchement installé n'est "pas trouvé"
+alors qu'il est bien dans `vendor/`.
+
+**Page admin `/admin/consent-templates` construite en plus de ce que le
+prompt initial listait explicitement** — le prompt ne décrivait que le
+contrôleur backend (`ConsentTemplateController`), pas de page Vue.
+Sans elle, la route pointait vers une 404 et aucun consentement n'aurait
+jamais pu être recueilli, faute de template actif configurable —
+question posée et tranchée avec l'utilisateur avant de construire.
+Suit le pattern déjà en place pour les CRUD référentiels
+(`EnumOptions`/`Centers` : liste + dialog de création + dialog
+d'édition), `ConsentTemplatePolicy` calquée sur `CenterPolicy`
+(`super_admin` **et** `admin`, pas `super_admin` seul comme
+`EnumOptionPolicy` — pattern le plus récent du projet pour une
+référence globale, voir "Domaine Auth" plus haut). Lien de nav dans le
+même groupe `isSuperAdmin || isAdmin` que "Utilisateurs"/"Centres".
+
+**Onglet "Consentement" dans le dossier patient** — 4e onglet, entre
+"Documents" et "Historique" (ordre non spécifié explicitement par le
+prompt, choisi par cohérence avec la convention déjà en place de
+toujours faire précéder "Historique", l'onglet terminal). Nouveau
+composant `Components/Patients/PatientConsentsTab.vue` : une `AppCard`
+par type, badge "À jour"/"À renouveler" (comparaison
+`consent.template_version === template.version` — pas
+`consent.version`, qui reste la version au moment du recueil,
+immuable), dialog de recueil (texte du template, nom du signataire
+pré-rempli avec le nom du patient, `AppSignaturePad`, case à cocher
+obligatoire côté serveur comme côté client).
+
+**`AppSignaturePad.vue` (nouveau wrapper `Components/App/`)** — canvas
+HTML natif (`pointerdown`/`pointermove`/`pointerup`, pas de librairie
+tierce), `v-model` en data URL PNG (`canvas.toDataURL()`), bouton
+"Effacer". Premier wrapper de signature du projet, pas de précédent à
+suivre au-delà des conventions générales `App*` (props/emits typés,
+pas de logique métier).
+
 ---
 
 ## 4. Scheduling

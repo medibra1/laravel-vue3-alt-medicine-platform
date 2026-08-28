@@ -2,8 +2,10 @@
 
 use App\Domains\Patients\Http\Controllers\Admin\CareCategoryController;
 use App\Domains\Patients\Http\Controllers\Admin\CareItemController;
+use App\Domains\Patients\Http\Controllers\Admin\ConsentTemplateController;
 use App\Domains\Patients\Http\Controllers\Admin\DiseaseCategoryController;
 use App\Domains\Patients\Http\Controllers\Admin\DiseaseController;
+use App\Domains\Patients\Http\Controllers\Admin\PatientConsentController;
 use App\Domains\Patients\Http\Controllers\Admin\PatientController;
 use App\Domains\Patients\Http\Controllers\Admin\PatientDocumentController;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +23,12 @@ Route::middleware(['auth', 'verified', 'center.access'])
         Route::delete('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'destroy'])->name('patients.documents.destroy');
         Route::get('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'show'])->name('patients.documents.show');
         Route::get('patients/{patient}/documents/{media}/thumb', [PatientDocumentController::class, 'thumb'])->name('patients.documents.thumb');
+
+        Route::post('patients/{patient}/consents', [PatientConsentController::class, 'store'])->name('patients.consents.store');
+        Route::get('patients/{patient}/consents/{consent}', [PatientConsentController::class, 'show'])->name('patients.consents.show');
+
+        Route::resource('consent-templates', ConsentTemplateController::class)
+            ->only(['index', 'store', 'update']);
 
         Route::resource('disease-categories', DiseaseCategoryController::class)
             ->only(['index', 'store', 'update', 'destroy']);

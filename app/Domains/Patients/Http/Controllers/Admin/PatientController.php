@@ -9,11 +9,13 @@ use App\Domains\Patients\Http\Requests\ConfirmPatientRequest;
 use App\Domains\Patients\Http\Requests\StorePatientDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
+use App\Domains\Patients\Http\Resources\ConsentResource;
 use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseResource;
 use App\Domains\Patients\Http\Resources\PatientDocumentResource;
 use App\Domains\Patients\Http\Resources\TreatmentResource;
 use App\Domains\Patients\Models\CareCategory;
+use App\Domains\Patients\Models\ConsentTemplate;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
@@ -130,6 +132,12 @@ class PatientController extends Controller
                 CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get(),
             ),
             'measurementTypes' => $this->measurementTypeOptions(),
+            'consents' => ConsentResource::collection(
+                $patient->consents()->with('template', 'acceptedBy')->latest()->get(),
+            ),
+            'consentTemplates' => ConsentTemplate::query()
+                ->where('is_active', true)
+                ->get(['type', 'title', 'content', 'version']),
         ]);
     }
 
