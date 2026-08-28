@@ -4,6 +4,8 @@
 /public/build
 /public/hot
 /storage/*.key
+/storage/media-library
+/storage/app/private
 .env
 .env.backup
 .phpunit.result.cache

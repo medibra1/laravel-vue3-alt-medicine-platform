@@ -77,7 +77,7 @@ temps qu'un usage manuel actif de cette DB.
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
 | Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
-| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -392,3 +392,9 @@ une valeur aléatoire en fin de session.
 - Découpage du blocage "Mariage" (804) en sous-cas fait par
   interprétation (source en prose continue, pas une liste structurée) —
   voir le docblock de `DiseaseCategorySeeder.php`.
+- Documents patient : HEIC (format photo iPhone par défaut) pas encore
+  accepté à l'upload — reporté, voir `CLAUDE.md` "Documents patient".
+  Requiert sur l'hôte : extension PHP `imagick`, ImageMagick, et
+  Ghostscript (pour les miniatures PDF) — voir
+  `docs/schema-donnees.md` "Documents patient" pour le détail
+  d'installation.

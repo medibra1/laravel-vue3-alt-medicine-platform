@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
 import PatientStatusChip from '@/Components/Patients/PatientStatusChip.vue';
 import TreatmentCard from '@/Components/Patients/TreatmentCard.vue';
@@ -123,6 +124,23 @@ interface CareCategoryOption {
     items: CareItemOption[];
 }
 
+interface PatientDocument {
+    id: number;
+    name: string;
+    file_name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+    created_at: string;
+}
+
+interface PatientDocuments {
+    identity: PatientDocument | null;
+    medical: PatientDocument[];
+    other: PatientDocument[];
+}
+
 const props = defineProps<{
     patient: Patient | null;
     centers: Center[];
@@ -133,6 +151,7 @@ const props = defineProps<{
     careCategories?: CareCategoryOption[];
     religionOptions?: ReligionOption[];
     can_update: boolean;
+    documents?: PatientDocuments;
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -249,6 +268,7 @@ const tabs: AppTabItem[] = [
     { title: 'Informations', value: 'informations' },
     { title: 'Traitement en cours', value: 'ongoing' },
     { title: 'Historique', value: 'history' },
+    { title: 'Documents', value: 'documents' },
 ];
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -299,7 +319,7 @@ function editTreatment(treatment: TreatmentSummary) {
 }
 
 function reloadPatient() {
-    router.reload({ only: ['patient', 'treatments'] });
+    router.reload({ only: ['patient', 'treatments', 'documents'] });
 }
 
 // Only ever set by PatientController::confirm()'s redirect, right after a
@@ -491,6 +511,17 @@ function onStatusChipClick() {
                             @delete-session="deleteSession"
                         />
                     </div>
+                </template>
+
+                <template #documents>
+                    <PatientDocumentsTab
+                        :patient-id="patient.id"
+                        :identity="documents?.identity ?? null"
+                        :medical="documents?.medical ?? []"
+                        :other="documents?.other ?? []"
+                        :readonly="!can_update"
+                        @saved="reloadPatient"
+                    />
                 </template>
             </AppTabs>
 

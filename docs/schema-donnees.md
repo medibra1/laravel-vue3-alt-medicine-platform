@@ -695,6 +695,77 @@ stock ni prix, contrairement à une pommade, donc ce lien ne concernera
 qu'une partie des catégories le jour où il sera construit) ; lien vers
 la facturation/paiement patient (`Billing`).
 
+### Documents patient (2026-08-28, `spatie/laravel-medialibrary`)
+
+Premier usage réel du package dans ce projet (déjà en dépendance,
+migration `media` déjà présente, mais aucun modèle ne portait
+`HasMedia` avant cette session). `Patient` (`app/Domains/Patients/Models/Patient.php`)
+implémente `HasMedia`/`InteractsWithMedia`, trois collections :
+`identity` (pièce d'identité, `singleFile()` — un nouvel upload
+remplace l'ancien plutôt que de s'accumuler), `medical` (documents
+médicaux, multiples), `other` (documents libres, multiples). Mimes
+acceptés : `image/jpeg`, `image/png`, `application/pdf` — **HEIC pas
+encore accepté**, reporté (Imagick sur cet environnement lit HEIC de
+façon non fiable sans `libheif`, jamais vérifié réellement).
+
+**Disque `local` (privé), jamais `public`** — ce sont des documents
+sensibles (identité, dossier médical). Aucune URL directe ne les sert :
+téléchargement et miniature passent par deux routes authentifiées
+dédiées (`admin.patients.documents.show`/`admin.patients.documents.thumb`),
+gate `PatientPolicy::view`/`update` selon l'action — mêmes règles de
+scoping centre que le reste du dossier patient, pas de mécanisme
+spécifique aux documents.
+
+**Fusion automatique en PDF dès 2+ fichiers uploadés d'un coup sur
+`identity`/`medical`** — un praticien qui photographie plusieurs pages
+d'un même document avec son téléphone obtient un seul fichier attaché,
+pas un par photo. `MergeImagesIntoPdfAction`
+(`app/Domains/Patients/Services/`) : chaque fichier du lot est lu par
+Imagick, un PDF déjà présent dans le lot voit ses pages insérées
+telles quelles (pas re-rasterisées). `other` ne fusionne jamais (tous
+les items n'y sont pas forcément liés les uns aux autres), et un
+upload d'un seul fichier ne fusionne jamais non plus (rien à
+combiner), quelle que soit la collection.
+
+**Miniature (`thumb`, 240×240) générée pour les trois collections**,
+y compris sur un PDF (`Pdf` est déjà dans les `image_generators` par
+défaut du package) — nécessite deux prérequis non actifs par défaut
+sur cet environnement, vérifiés et corrigés en session, pas supposés :
+- `IMAGE_DRIVER=imagick` dans `.env`/`phpunit.xml` (défaut du package :
+  `gd`, qui ne sait pas lire un PDF — sans ce réglage, la conversion
+  `thumb` échoue silencieusement sur `identity`/`medical` fusionnés).
+- `spatie/pdf-to-image` ajouté explicitement à `composer.json` (le
+  package le liste en dépendance *suggérée*, pas installée par défaut —
+  sans lui, `requirementsAreInstalled()` du générateur PDF de Media
+  Library retourne `false` et saute la conversion sans erreur visible).
+
+Requiert aussi, sur l'hôte (documenté ici, pas dans un script
+d'installation — cohérent avec le reste du projet qui n'automatise pas
+le provisioning) : extension PHP `imagick` (`pecl install imagick`,
+nécessite `imagemagick` + `pkg-config` sur la machine), et Ghostscript
+(`gs`, utilisé par `spatie/pdf-to-image` pour rasteriser un PDF).
+
+**`Conversion::nonQueued()` appelé avant `width()`/`height()`**, pas
+après — piège Larastan rencontré en session : `Conversion` porte un
+docblock `@mixin ImageDriver`, et Larastan résout le type de retour de
+`width()`/`height()` (magiques, via `__call()`, qui retournent toujours
+`Conversion` à l'exécution) sur le type déclaré par le mixin
+(`ImageDriver::width(): static`) plutôt que sur le comportement réel —
+`nonQueued()` (une vraie méthode de `Conversion`) devient alors
+introuvable si elle est appelée en dernier. Appeler la seule méthode
+réelle de la chaîne en premier contourne le problème sans avoir besoin
+d'ignorer l'erreur.
+
+⚠️ **Test rencontré, pas un bug applicatif** : `UploadedFile::fake()->image()`
+génère par défaut un JPEG 10×10 — Ghostscript échoue à rasteriser une
+page construite depuis une image aussi minuscule à l'intérieur d'un
+PDF ("Page drawing error... Could not draw this page at all"),
+reproduit isolément en dehors de Laravel. Les tests qui exercent la
+fusion multi-image doivent donc passer une taille réaliste
+(`UploadedFile::fake()->image('x.jpg', 800, 600)`) — une vraie photo
+uploadée depuis un téléphone n'est jamais 10×10, donc ce n'est pas un
+vrai défaut à corriger côté production.
+
 ---
 
 ## 4. Scheduling
