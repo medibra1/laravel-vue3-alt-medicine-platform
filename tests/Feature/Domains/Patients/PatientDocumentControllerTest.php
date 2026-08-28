@@ -56,6 +56,10 @@ test('uploading multiple images at once into identity merges them into a single 
     $media = $patient->getMedia('identity');
     expect($media)->toHaveCount(1);
     expect($media->first()->mime_type)->toBe('application/pdf');
+    // The stored file_name stays a technical timestamp, but the displayed
+    // name must be human-readable rather than "merged-2026-08-28-...pdf".
+    expect($media->first()->name)->toStartWith("Pièce d'identité du ");
+    expect($media->first()->name)->not->toContain('merged-');
 });
 
 test('uploading multiple images at once into medical merges them into a single pdf', function () {
@@ -75,6 +79,7 @@ test('uploading multiple images at once into medical merges them into a single p
 
     expect($patient->getMedia('medical'))->toHaveCount(1);
     expect($patient->getMedia('medical')->first()->mime_type)->toBe('application/pdf');
+    expect($patient->getMedia('medical')->first()->name)->toStartWith('Documents médicaux du ');
 });
 
 test('uploading multiple images into other does not merge them', function () {

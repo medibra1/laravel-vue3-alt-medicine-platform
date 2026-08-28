@@ -786,10 +786,11 @@ depuis deux points d'entrée vers le même endpoint : l'onglet Documents
 du dossier patient (`PatientDocumentsTab.vue`, jamais de
 `treatment_session_id`) et un nouvel onglet "Documents" dans
 `TreatmentSessionDialog.vue` (toujours avec `treatment_session_id`,
-voir plus bas). Le document reste consultable uniquement depuis
+voir plus bas). ~~Le document reste consultable uniquement depuis
 l'onglet Documents du dossier patient — `TreatmentSessionDialog` ne
-liste pas les documents déjà liés à la séance (décision explicite,
-scope resserré au strict "upload" pour cette session).
+liste pas les documents déjà liés à la séance~~ — **revu dans l'addendum
+du 2026-08-28 (deuxième suite) ci-dessous**, `TreatmentSessionDialog`
+liste maintenant ces documents.
 
 **`TreatmentSessionDialog.vue` — upload désactivé pour une séance pas
 encore enregistrée** — contrairement à `Patient`/`Treatment`
@@ -820,6 +821,59 @@ confirmé) mais gagnent un garde `v-if="patient"` avec un message
 sur `props.patient!.id` — ces deux onglets n'avaient jamais été exercés
 sans un `patient` réellement chargé avant ce changement, l'assertion de
 non-nullité y était jusqu'ici toujours vraie en pratique.
+
+#### Addendum (2026-08-28, deuxième suite) — nom lisible, documents liés visibles dans la séance
+
+Deux retours utilisateur supplémentaires.
+
+**Nom affiché lisible pour un PDF fusionné** — `usingFileName()`
+continue de fixer un nom de fichier technique et unique côté disque
+(`merged-2026-08-28-154026.pdf`, ne collisionne jamais), mais
+`Media::$name` (ce qu'expose `PatientDocumentResource.name`, affiché
+à l'écran) est maintenant fixé séparément via `usingName()` :
+`"Pièce d'identité du 28 août 2026"` / `"Documents médicaux du 28 août
+2026"` (`now()->translatedFormat('d F Y')`, locale Carbon déjà `fr` via
+`APP_LOCALE`). **Portée volontairement limitée au cas fusionné** —
+décision explicite : un upload simple (un seul fichier) garde le nom
+original du fichier tel quel (déjà lisible, ex. `photo_id.jpg`), pas
+remplacé par un nom uniforme.
+
+**Documents médicaux liés à une séance affichés dans son dialog** —
+revient sur la décision "upload seulement, pas de liste" actée dans
+l'addendum précédent. `Form.vue` expose maintenant
+`medicalDocumentsForSession(sessionId)` (filtre `props.documents.medical`
+sur `treatment_session_id`), passé à `TreatmentSessionDialog` via une
+nouvelle prop `medicalDocuments` — affichés en lecture seule (miniature/
+nom/bouton télécharger) au-dessus de l'uploader dans l'onglet
+"Documents" du dialog. Toujours vide pour une nouvelle séance (pas
+d'id). Suppression/remplacement restent réservés à l'onglet Documents
+du dossier patient — ce dialog reste un point de consultation, pas un
+deuxième endroit de gestion.
+
+##### Vérification (pour de vrai, pas seulement les tests automatisés)
+
+275 tests Pest (2 assertions ajoutées aux tests de fusion existants
+plutôt que dupliquées — nom lisible sur `identity`/`medical`, zéro
+nouveau test créé, zéro régression), 47 tests Vitest inchangés
+(aucun composant n'avait de test unitaire sur ce comportement précis),
+`pint --test` clean, Larastan niveau 5 clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean.
+
+**Vérification navigateur réelle (Playwright headless, scratchpad de
+session)** : upload de 2 photos dans "Documents médicaux" → carte
+affiche "Documents médicaux du 28 août 2026" (confirmé : aucune
+occurrence de "merged-" dans le texte affiché) ; upload d'un document
+depuis l'onglet "Documents" du dialog de séance → **réouverture du
+dialog** (pas seulement le même montage) → document visible dans la
+liste avec sa miniature et son nom original, **vérifié en base**
+(`custom_properties.treatment_session_id` correct, `name` du PDF
+fusionné correctement formaté). Zéro erreur console. Données de test
+supprimées, mot de passe seed remis à une valeur aléatoire — un
+résidu de media (patient id 7, créé plus tôt dans cette même session
+avant l'adoption du préfixe "Verif*" pour les données de test)
+identifié et nettoyé au passage ; le patient "Bech Kadr" (id 5)
+repéré lors de l'addendum précédent reste volontairement intact
+(toujours pas de certitude que ce soit une donnée de test).
 
 ---
 

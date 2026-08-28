@@ -38,8 +38,17 @@ class PatientDocumentController extends Controller
         if ($shouldMerge) {
             $mergedPath = $mergeImages($files);
 
+            // The stored file_name stays a technical, collision-free
+            // timestamp — only the *displayed* name (Media::$name, what
+            // PatientDocumentResource exposes) needs to be readable. A
+            // merge has no single meaningful source filename to reuse (it
+            // came from several photos), so a "<collection> du <date>"
+            // label is used instead of the raw merged-*.pdf name.
+            $collectionLabels = ['identity' => "Pièce d'identité", 'medical' => 'Documents médicaux'];
+
             $patient->addMedia($mergedPath)
                 ->usingFileName('merged-'.now()->format('Y-m-d-His').'.pdf')
+                ->usingName($collectionLabels[$collection].' du '.now()->translatedFormat('d F Y'))
                 ->withCustomProperties(array_filter(['treatment_session_id' => $treatmentSessionId]))
                 ->toMediaCollection($collection);
         } else {

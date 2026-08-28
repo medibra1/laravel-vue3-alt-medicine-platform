@@ -47,6 +47,15 @@ interface LastKnownOutcome {
     notes: string | null;
 }
 
+interface MedicalDocument {
+    id: number;
+    name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+}
+
 const props = withDefaults(
     defineProps<{
         visible: boolean;
@@ -64,8 +73,18 @@ const props = withDefaults(
          * when editing an existing session (that session's own values win).
          */
         lastKnownOutcomes?: Record<number, LastKnownOutcome>;
+        /**
+         * Medical documents already tagged with this session's id
+         * (Patient's single 'medical' collection, filtered by
+         * custom_properties.treatment_session_id — see Form.vue's
+         * medicalDocumentsForSession()). Always empty for a brand-new
+         * session (nothing to tag yet). Listed here purely for review —
+         * still only ever deleted/downloaded from the patient file's
+         * Documents tab, the single place that owns document management.
+         */
+        medicalDocuments?: MedicalDocument[];
     }>(),
-    { lastKnownOutcomes: () => ({}) },
+    { lastKnownOutcomes: () => ({}), medicalDocuments: () => [] },
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
@@ -115,8 +134,8 @@ const prefilledDiseaseIds = ref<Set<number>>(new Set());
 // as the Documents tab (admin.patients.documents.store) — one source of
 // truth on Patient's 'medical' collection, not a separate collection or
 // pivot. treatment_session_id tags the upload so it's traceable back to
-// this session; the document itself is still only ever consulted from the
-// patient file's Documents tab, never listed back here.
+// this session. Deletion/replacement still only happens from the patient
+// file's Documents tab (medicalDocuments here is read-only review).
 const pendingMedicalFiles = ref<File[]>([]);
 const uploadingMedical = ref(false);
 const medicalUploadError = ref<string | null>(null);
@@ -323,10 +342,33 @@ function uploadMedicalDocuments() {
 
                 <template #documents>
                     <div v-if="session" class="d-flex flex-column ga-3">
-                        <p class="text-body-2 text-medium-emphasis mb-0">
-                            Documents médicaux liés à cette séance — consultables dans l'onglet "Documents" du
-                            dossier patient.
+                        <template v-if="medicalDocuments.length">
+                            <div
+                                v-for="document in medicalDocuments"
+                                :key="document.id"
+                                class="d-flex align-center ga-3"
+                            >
+                                <v-avatar v-if="document.thumb_url" size="48" rounded>
+                                    <v-img :src="document.thumb_url" cover />
+                                </v-avatar>
+                                <v-icon v-else icon="mdi-file-pdf-box" size="36" color="error" />
+
+                                <p class="text-body-2 mb-0 flex-grow-1">{{ document.name }}</p>
+
+                                <AppButton
+                                    as="a"
+                                    :href="document.download_url"
+                                    target="_blank"
+                                    icon="mdi-download"
+                                    severity="secondary"
+                                    size="small"
+                                />
+                            </div>
+                        </template>
+                        <p v-else class="text-body-2 text-medium-emphasis mb-0">
+                            Aucun document médical lié à cette séance.
                         </p>
+
                         <AppFileUpload
                             v-model="pendingMedicalFiles"
                             multiple

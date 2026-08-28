@@ -132,6 +132,7 @@ interface PatientDocument {
     size: number;
     download_url: string;
     thumb_url: string | null;
+    treatment_session_id: number | null;
     created_at: string;
 }
 
@@ -423,6 +424,14 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
     return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
 }
 
+// Medical documents already show up on the Documents tab (the single
+// source of truth) — this just also surfaces the subset tagged with this
+// particular session's id, so a practitioner reviewing/editing a session
+// doesn't have to jump to another tab to see what was attached.
+function medicalDocumentsForSession(sessionId: number): PatientDocument[] {
+    return (props.documents?.medical ?? []).filter((doc) => doc.treatment_session_id === sessionId);
+}
+
 const pageTitle = computed(() =>
     props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
 );
@@ -586,6 +595,7 @@ function onStatusChipClick() {
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
             :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
+            :medical-documents="editingSession ? medicalDocumentsForSession(editingSession.id) : []"
             @saved="reloadPatient"
         />
 
