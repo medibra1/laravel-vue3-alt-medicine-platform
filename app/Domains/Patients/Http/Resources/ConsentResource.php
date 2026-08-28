@@ -20,9 +20,14 @@ class ConsentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'type' => $this->template->type,
+            'type' => $this->type,
+            'source' => $this->source,
             'version' => $this->version,
-            'template_version' => $this->template->version,
+            // Only meaningful for source = 'digital' — an 'uploaded'
+            // consent has no template to compare against, so it can
+            // never be flagged "à renouveler" by version drift (see
+            // PatientConsentsTab.vue's isUpToDate()).
+            'template_version' => $this->template?->version,
             'signer_name' => $this->signer_name,
             'accepted_at' => $this->accepted_at,
             'accepted_by' => $this->acceptedBy->name,

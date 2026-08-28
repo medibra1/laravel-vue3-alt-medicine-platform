@@ -424,6 +424,20 @@ archivée), badge "À renouveler" affiché correctement sur le patient
 après la bascule de version. Mode sombre vérifié. Zéro erreur console.
 Données de test et mot de passe seed nettoyés en fin de session.
 
+**Addendum consentement — deux sources** (2026-08-29, même branche) :
+un consentement peut désormais être recueilli par signature électronique
+(`digital`, comportement ci-dessus, inchangé) ou par import d'un document
+papier déjà signé (`uploaded` — photo/scan, plusieurs photos fusionnées
+en un seul PDF via le même service que les documents patient, aucune
+génération PDF dans ce cas). `Consent.type` déplacé depuis le template
+vers `Consent` lui-même (toujours requis), `consent_template_id`/
+`version`/`content_snapshot` nullables. Choix libre à chaque recueil, pas
+de config par centre. Détail complet dans `CLAUDE.md` "Consentement —
+deux sources". Vérifié : 302 tests Pest (5 nouveaux, zéro régression),
+`pint`/Larastan/build/`vue-tsc` clean, golden path navigateur réel sur
+les deux sources (PDF fusionné inspecté directement, 2 pages
+correspondant aux 2 photos importées). Données de test nettoyées.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —

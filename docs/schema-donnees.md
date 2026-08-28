@@ -944,24 +944,24 @@ la ligne en place, il désactive l'ancienne et crée
 deux écritures ensemble, pour qu'un type ne soit jamais brièvement sans
 version active).
 
-**`consents`** : `patient_id` (cascade delete), `consent_template_id`
-(`restrictOnDelete` — un template déjà référencé par un consentement ne
-peut pas être supprimé, cohérent avec le fait qu'aucune route
-`destroy()` n'existe d'ailleurs sur `ConsentTemplateController`),
-`version` (copie de `consent_templates.version` au moment du recueil),
-`content_snapshot` (`longText`, copie figée du texte accepté —
-**indépendante** d'une édition ultérieure du template, c'est le point
-central de cette table : un texte déjà signé ne doit jamais changer
-rétroactivement même si `update()` crée une nouvelle version), `signer_name`,
-`signature_svg` (`longText` nullable — en pratique une data URL PNG du
-tracé canvas, pas du SVG vectoriel malgré le nom de colonne repris tel
-quel du prompt initial), `accepted_at`, `accepted_by` (FK `users`),
-`ip_address` (nullable). Un seul point d'écriture :
-`RecordPatientConsentAction` (`app/Domains/Patients/Services/`) — charge
-le template actif du type demandé (abort 422 si aucun), crée la ligne
-`Consent`, génère le PDF (`resources/views/pdf/consent.blade.php` via
-`Barryvdh\DomPDF\Facade\Pdf`) et l'attache via `HasMedia` en une seule
-opération, pour que la ligne DB et le PDF ne puissent jamais diverger.
+**`consents`** : `patient_id` (cascade delete), `type` (string, directement
+sur `Consent` — voir addendum ci-dessous, pas résolu via le template),
+`source` (`digital`/`uploaded`, voir addendum), `consent_template_id`
+(nullable, `restrictOnDelete` — un template déjà référencé par un
+consentement ne peut pas être supprimé, cohérent avec le fait qu'aucune
+route `destroy()` n'existe d'ailleurs sur `ConsentTemplateController`),
+`version` (nullable, copie de `consent_templates.version` au moment du
+recueil), `content_snapshot` (`longText` nullable, copie figée du texte
+accepté — **indépendante** d'une édition ultérieure du template, c'est
+le point central de cette colonne pour une source `digital` : un texte
+déjà signé ne doit jamais changer rétroactivement même si `update()`
+crée une nouvelle version), `signer_name`, `signature_svg` (`longText`
+nullable — en pratique une data URL PNG du tracé canvas, pas du SVG
+vectoriel malgré le nom de colonne repris tel quel du prompt initial),
+`accepted_at`, `accepted_by` (FK `users`), `ip_address` (nullable). Un
+seul point d'écriture (deux méthodes, un seul modèle touché) :
+`RecordPatientConsentAction` (`app/Domains/Patients/Services/`) — voir
+addendum pour le détail des deux chemins `digital()`/`uploaded()`.
 
 **`Consent implements HasMedia`** — collection unique `document`
 (`singleFile()`, disque `local` privé, même raisonnement que
@@ -1028,6 +1028,93 @@ tierce), `v-model` en data URL PNG (`canvas.toDataURL()`), bouton
 "Effacer". Premier wrapper de signature du projet, pas de précédent à
 suivre au-delà des conventions générales `App*` (props/emits typés,
 pas de logique métier).
+
+#### Addendum (2026-08-29) — deux sources de consentement : `digital` / `uploaded`
+
+Retour utilisateur : tous les consentements ne se recueillent pas
+électroniquement — un praticien peut avoir un document déjà signé sur
+papier (formulaire papier existant, patient qui préfère signer à la
+main) à importer directement plutôt que refaire une signature
+électronique. Choix libre à chaque recueil, pas une config par
+centre/pays (over-engineering pour un besoin "au cas par cas selon le
+praticien").
+
+**`consents.type` déplacé directement sur `Consent`, `source` ajoutée**
+— avant cet addendum, `type` n'existait que sur `consent_templates`,
+résolu via `$consent->template->type`. Un consentement `uploaded` n'a
+justement pas toujours de template (voir plus bas), donc `type` doit
+vivre sur `Consent` lui-même, **toujours requis quelle que soit la
+source** — c'est ce qui garde le consentement classable dans la bonne
+carte de l'onglet Consentement, peu importe comment il a été recueilli.
+`source` (`digital`/`uploaded`, string libre, même raisonnement que
+`type` sur `consent_templates` — deux valeurs connues, pas de PHP enum).
+
+**`consent_template_id`/`version`/`content_snapshot` deviennent
+nullables** — seul un consentement `digital` en a besoin (signature
+contre le texte d'un template actif, snapshot figé de ce texte). Un
+consentement `uploaded` n'a structurellement rien à y mettre : le papier
+importé ne correspond pas forcément mot pour mot à une version précise
+d'un template — pas de tentative de le faire correspondre a posteriori.
+
+**`RecordPatientConsentAction` scindée en deux méthodes publiques,
+`digital()` et `uploaded()`, plutôt qu'un seul `__invoke()`** — même
+principe déjà en place ailleurs dans ce domaine (un seul point
+d'écriture pour une même notion de donnée, voir `syncDiseases()` sur
+`TreatmentController`) mais les deux chemins sont trop différents pour
+un seul corps de méthode avec des `if` internes : `digital()` charge le
+template actif (abort 422 si aucun), crée la ligne, génère le PDF via
+dompdf et l'attache ; `uploaded()` ne cherche aucun template, crée la
+ligne avec `accepted_at` fourni par l'appelant (pas `now()` — voir plus
+bas), et attache directement le(s) fichier(s) uploadé(s) comme media —
+**aucune génération PDF** dans ce chemin, le papier scanné/photographié
+*est* déjà le document final.
+
+**`uploaded()` réutilise `MergeImagesIntoPdfAction` telle quelle** —
+même service déjà utilisé par `PatientDocumentController` pour fusionner
+plusieurs photos d'un même document en un seul PDF (un praticien qui
+photographie 2 pages d'un formulaire papier obtient un seul fichier
+attaché, pas un par photo). Aucune logique de fusion dupliquée : un
+seul fichier s'attache tel quel, plusieurs fichiers passent par
+`MergeImagesIntoPdfAction` exactement comme pour les documents patient.
+Mêmes contraintes de validation que `StorePatientDocumentRequest`
+(`jpg,jpeg,png,pdf`, 20 Mo max par fichier, 10 fichiers max) — reprises
+telles quelles dans `StorePatientConsentRequest` plutôt que factorisées
+dans une règle partagée (deux `FormRequest` différents, pas assez de
+duplication réelle pour justifier une abstraction commune).
+
+**`accepted_at` : `now()` pour `digital`, saisi par l'utilisateur pour
+`uploaded`** — décision explicite : la signature électronique se fait
+dans l'instant (pas de date "antérieure" à capturer), mais un document
+papier importé a une vraie date de signature, potentiellement bien
+avant l'import dans le système — c'est cette date-là qui donne sa
+valeur légale/traçable au consentement, pas la date d'upload.
+`StorePatientConsentRequest` : `accepted_at` requis uniquement si
+`source = uploaded` (`Rule::requiredIf`), `before_or_equal:today` (une
+signature ne peut pas dater du futur). Pour `digital`, le champ n'est
+ni demandé ni lu — `RecordPatientConsentAction::digital()` continue de
+poser `now()` en interne comme avant cet addendum.
+
+**Frontend : dialog à deux étapes, pas deux dialogs séparés** —
+`PatientConsentsTab.vue` garde un seul `AppDialog` par carte de type ;
+un `ref<ConsentSource | null>` pilote l'étape affichée (`null` = choix
+initial entre deux `AppCard clickable` "Signature électronique"/
+"Document déjà signé", puis le formulaire correspondant). Bouton
+"Retour" pour revenir au choix initial sans fermer le dialog. Le bouton
+"Recueillir le consentement" de la carte n'est **plus** désactivé
+quand aucun template actif n'existe pour ce type (avant cet addendum,
+il l'était) — un consentement `uploaded` reste possible sans aucun
+template ; c'est uniquement l'option "Signature électronique", une fois
+choisie à l'étape 2, qui affiche un message d'erreur si aucun template
+actif n'existe pour ce type précis.
+
+**Badge "À jour"/"À renouveler" : toujours "à jour" pour un consentement
+`uploaded`** — la comparaison de version (`consent.template_version ===
+template.version`) n'a de sens que pour `digital`. Un `uploaded` n'a pas
+de `template_version` (toujours `null`), donc `isUpToDate()` retourne
+directement `true` pour cette source plutôt que de comparer des `null`.
+Un second chip ("Signature électronique"/"Document importé") affiche la
+source à côté du badge de fraîcheur, pour que les deux notions restent
+visuellement distinctes.
 
 ---
 

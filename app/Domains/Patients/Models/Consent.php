@@ -33,7 +33,12 @@ class Consent extends Model implements HasMedia
         return $this->belongsTo(Patient::class);
     }
 
-    /** @return BelongsTo<ConsentTemplate, $this> */
+    /**
+     * Only set for source = 'digital' — an 'uploaded' consent has no
+     * template to point to (see consent_template_id's nullability).
+     *
+     * @return BelongsTo<ConsentTemplate, $this>
+     */
     public function template(): BelongsTo
     {
         return $this->belongsTo(ConsentTemplate::class, 'consent_template_id');

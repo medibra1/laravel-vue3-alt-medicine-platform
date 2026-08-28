@@ -153,6 +153,7 @@ interface PatientDocuments {
 }
 
 type ConsentType = 'treatment' | 'data_privacy' | 'image_rights';
+type ConsentSource = 'digital' | 'uploaded';
 
 interface ConsentTemplate {
     type: ConsentType;
@@ -164,8 +165,9 @@ interface ConsentTemplate {
 interface Consent {
     id: number;
     type: ConsentType;
-    version: number;
-    template_version: number;
+    source: ConsentSource;
+    version: number | null;
+    template_version: number | null;
     signer_name: string;
     accepted_at: string;
     accepted_by: string;
