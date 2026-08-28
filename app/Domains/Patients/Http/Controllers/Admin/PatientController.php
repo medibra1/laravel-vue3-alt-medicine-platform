@@ -102,6 +102,7 @@ class PatientController extends Controller
                 'diseases.category',
                 'sessions.careItems.category',
                 'sessions.diseaseProgress.disease',
+                'sessions.measurements.measurementType',
             ])->orderByDesc('started_at'),
         ]);
 
@@ -128,6 +129,7 @@ class PatientController extends Controller
             'careCategories' => CareCategoryResource::collection(
                 CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get(),
             ),
+            'measurementTypes' => $this->measurementTypeOptions(),
         ]);
     }
 
@@ -203,6 +205,22 @@ class PatientController extends Controller
                 'id' => $option->id,
                 'code' => $option->code,
                 'label' => $option->label['fr'] ?? $option->code,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, code: string, label: string, unit: ?string, placeholder: ?string}>
+     */
+    private function measurementTypeOptions(): array
+    {
+        return EnumOption::cachedByType('session_measurement_type')
+            ->map(fn (EnumOption $option) => [
+                'id' => $option->id,
+                'code' => $option->code,
+                'label' => $option->label['fr'] ?? $option->code,
+                'unit' => $option->properties['unit'] ?? null,
+                'placeholder' => $option->properties['placeholder'] ?? null,
             ])
             ->all();
     }

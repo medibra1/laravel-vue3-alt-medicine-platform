@@ -26,7 +26,8 @@ class TreatmentSessionController extends Controller
         $validated = $request->validated();
         $diseaseProgress = $validated['disease_progress'] ?? [];
         $careItemIds = $validated['care_item_ids'] ?? [];
-        unset($validated['disease_progress'], $validated['care_item_ids']);
+        $measurements = $validated['measurements'] ?? [];
+        unset($validated['disease_progress'], $validated['care_item_ids'], $validated['measurements']);
 
         $session = $treatment->sessions()->create([
             ...$validated,
@@ -35,6 +36,7 @@ class TreatmentSessionController extends Controller
 
         $session->careItems()->sync($careItemIds);
         $this->syncDiseaseProgress($session, $diseaseProgress);
+        $this->syncMeasurements($session, $measurements);
         $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
@@ -45,11 +47,13 @@ class TreatmentSessionController extends Controller
         $validated = $request->validated();
         $diseaseProgress = $validated['disease_progress'] ?? [];
         $careItemIds = $validated['care_item_ids'] ?? [];
-        unset($validated['disease_progress'], $validated['care_item_ids']);
+        $measurements = $validated['measurements'] ?? [];
+        unset($validated['disease_progress'], $validated['care_item_ids'], $validated['measurements']);
 
         $session->update($validated);
         $session->careItems()->sync($careItemIds);
         $this->syncDiseaseProgress($session, $diseaseProgress);
+        $this->syncMeasurements($session, $measurements);
         $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
@@ -92,6 +96,28 @@ class TreatmentSessionController extends Controller
                 [
                     'outcome' => $row['outcome'] ?? null,
                     'outcome_percentage' => $row['outcome_percentage'] ?? null,
+                    'notes' => $row['notes'] ?? null,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Upsert on [treatment_session_id, measurement_type_option_id] — same
+     * reasoning as syncDiseaseProgress(): re-saving a session updates the
+     * existing measurement row for that type instead of creating a
+     * duplicate, mirroring the DB unique constraint.
+     *
+     * @param  array<int, array{measurement_type_option_id: int, value: string, unit?: ?string, notes?: ?string}>  $measurements
+     */
+    protected function syncMeasurements(TreatmentSession $session, array $measurements): void
+    {
+        foreach ($measurements as $row) {
+            $session->measurements()->updateOrCreate(
+                ['measurement_type_option_id' => $row['measurement_type_option_id']],
+                [
+                    'value' => $row['value'],
+                    'unit' => $row['unit'] ?? null,
                     'notes' => $row['notes'] ?? null,
                 ]
             );

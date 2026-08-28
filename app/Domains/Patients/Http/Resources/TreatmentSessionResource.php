@@ -21,6 +21,7 @@ class TreatmentSessionResource extends JsonResource
             'notes' => $this->notes,
             'care_items' => CareItemResource::collection($this->whenLoaded('careItems')),
             'disease_progress' => DiseaseProgressResource::collection($this->whenLoaded('diseaseProgress')),
+            'measurements' => TreatmentSessionMeasurementResource::collection($this->whenLoaded('measurements')),
         ];
     }
 }

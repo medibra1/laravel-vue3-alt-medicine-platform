@@ -627,6 +627,33 @@ séance implicite créée à la confirmation (voir "Domaine Treatment" dans
 au niveau du traitement) — ce step ne fait qu'ajouter un deuxième point
 d'entrée vers ce même pivot, pas une nouvelle notion de donnée.
 
+### `treatment_session_measurements` — **implémenté** (2026-08-28)
+Mesures libres par séance (tension artérielle, glycémie, poids,
+température, fréquence cardiaque...), même schéma d'upsert que
+`treatment_session_disease_progress` (une ligne par type de mesure par
+séance, pas un historique séparé). Le type de mesure n'est **pas**
+codé en dur — il pointe vers `enum_options` (`enum_type =
+'session_measurement_type'`), sur le même principe que
+`patients.religion_option_id` : un admin ajoute/désactive un type de
+mesure depuis l'écran `EnumOptions` existant, sans migration ni
+déploiement. `EnumOption.properties.unit` sert de valeur par défaut
+pré-remplie dans le formulaire de séance (modifiable au cas par cas,
+donc dupliquée sur la ligne elle-même plutôt que toujours résolue
+depuis le type) ; `properties.placeholder` (ex. "12/8" pour la tension)
+guide la saisie sans la contraindre.
+
+id · treatment_session_id (fk `treatment_sessions`, cascade) ·
+measurement_type_option_id (fk `enum_options`, cascade) · value
+(string — pas numeric, pour couvrir aussi bien "12/8" que "0.95") ·
+unit, nullable · notes, nullable · timestamps ·
+unique(treatment_session_id, measurement_type_option_id)
+
+Cinq types seedés par défaut (`SessionMeasurementTypesSeeder`) :
+tension artérielle (mmHg), glycémie (g/L), poids (kg), température
+(°C), fréquence cardiaque (bpm) — liste de départ, à étendre/corriger
+depuis l'admin plutôt qu'en éditant le seeder plus tard (même
+convention que `patient.religion`).
+
 ### `care_categories` / `care_items` — **implémenté** (2026-08-20)
 Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
 de `disease_categories`/`diseases` (décision : la

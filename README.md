@@ -77,7 +77,7 @@ temps qu'un usage manuel actif de cette DB.
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
 | Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
-| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -376,6 +376,25 @@ selon le centre actif, reste en lecture seule (formulaire désactivé via
 `<fieldset disabled>`, boutons de création/suppression masqués). Zéro
 erreur console. Données de test supprimées, mot de passe seed remis à
 une valeur aléatoire en fin de session.
+
+**Mesures par séance** (2026-08-28, branche `feature/session-measurements`,
+depuis `develop`) : `TreatmentSession` peut désormais porter une ou
+plusieurs mesures libres (tension artérielle, glycémie, poids,
+température, fréquence cardiaque...) — le type de mesure n'est pas codé
+en dur, il pointe vers `EnumOption` (`enum_type =
+'session_measurement_type'`), éditable depuis l'admin sans déploiement,
+cinq types seedés par défaut. Branche rebasée en cours de session sur
+le vrai tip de `develop` (`git fetch` initial manquant avait laissé un
+`develop` local périvé de 5 commits, sans `feature/patient-documents`
+pourtant déjà mergée sur GitHub) — deux conflits réels résolus
+(`README.md`, `TreatmentSessionDialog.vue`), voir `CLAUDE.md` "Mesures
+par séance" pour le détail complet. Vérifié après rebase : 279 tests
+Pest (4 nouveaux propres à cette session, zéro régression sur
+l'ensemble y compris les 21 apportés par `feature/patient-documents`),
+48 tests Vitest (2 nouveaux), `pint --test` clean, Larastan niveau 5
+clean, build Vite client+SSR OK, `vue-tsc --noEmit` clean. Vérification
+navigateur réelle non exécutée cette session (portée resserrée, voir
+`CLAUDE.md`).
 
 ## Points ouverts connus
 

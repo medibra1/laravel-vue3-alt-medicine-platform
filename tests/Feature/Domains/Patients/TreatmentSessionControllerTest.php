@@ -1,11 +1,13 @@
 <?php
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Patients\Models\TreatmentSessionDiseaseProgress;
+use App\Domains\Patients\Models\TreatmentSessionMeasurement;
 
 test('guests are redirected to login', function () {
     $treatment = Treatment::factory()->create();
@@ -76,6 +78,79 @@ test('updating a session upserts disease progress instead of duplicating it', fu
 
     expect(TreatmentSessionDiseaseProgress::query()->where('treatment_session_id', $session->id)->count())->toBe(1);
     expect($session->diseaseProgress()->first()->outcome)->toBe('cured');
+});
+
+test('super admin can add several measurements to a session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $bloodPressure = EnumOption::factory()->create(['enum_type' => 'session_measurement_type', 'code' => 'blood_pressure']);
+    $weight = EnumOption::factory()->create(['enum_type' => 'session_measurement_type', 'code' => 'weight']);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'measurements' => [
+            ['measurement_type_option_id' => $bloodPressure->id, 'value' => '12/8', 'unit' => 'mmHg'],
+            ['measurement_type_option_id' => $weight->id, 'value' => '78', 'unit' => 'kg', 'notes' => 'À jeun'],
+        ],
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $session = $treatment->sessions()->firstOrFail();
+    expect($session->measurements()->count())->toBe(2);
+    expect($session->measurements()->where('measurement_type_option_id', $bloodPressure->id)->first()->value)->toBe('12/8');
+    expect($session->measurements()->where('measurement_type_option_id', $weight->id)->first()->notes)->toBe('À jeun');
+});
+
+test('updating a session upserts measurements instead of duplicating them', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+    $bloodPressure = EnumOption::factory()->create(['enum_type' => 'session_measurement_type', 'code' => 'blood_pressure']);
+
+    $first = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'measurements' => [
+            ['measurement_type_option_id' => $bloodPressure->id, 'value' => '14/9'],
+        ],
+    ]);
+    $first->assertRedirect();
+    $session = $treatment->sessions()->firstOrFail();
+
+    $this->actingAs($superAdmin)->patch(route('admin.treatments.sessions.update', [$treatment, $session]), [
+        'session_date' => '2026-08-20',
+        'measurements' => [
+            ['measurement_type_option_id' => $bloodPressure->id, 'value' => '12/8'],
+        ],
+    ]);
+
+    expect(TreatmentSessionMeasurement::query()->where('treatment_session_id', $session->id)->count())->toBe(1);
+    expect($session->measurements()->first()->value)->toBe('12/8');
+});
+
+test('a measurement referencing a non-existent enum option is rejected', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'measurements' => [
+            ['measurement_type_option_id' => 999999, 'value' => '12/8'],
+        ],
+    ]);
+
+    $response->assertSessionHasErrors('measurements.0.measurement_type_option_id');
+});
+
+test('a session without any measurement remains valid', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $session = $treatment->sessions()->firstOrFail();
+    expect($session->measurements()->count())->toBe(0);
 });
 
 test('a session that resolves the last unresolved disease auto-closes the treatment', function () {
