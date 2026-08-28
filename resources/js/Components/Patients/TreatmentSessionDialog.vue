@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
+import AppFileUpload from '@/Components/App/AppFileUpload.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
@@ -46,9 +47,19 @@ interface LastKnownOutcome {
     notes: string | null;
 }
 
+interface MedicalDocument {
+    id: number;
+    name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+}
+
 const props = withDefaults(
     defineProps<{
         visible: boolean;
+        patientId: number;
         treatmentId: number;
         session: Session | null;
         treatmentDiseases: TreatmentDisease[];
@@ -62,8 +73,18 @@ const props = withDefaults(
          * when editing an existing session (that session's own values win).
          */
         lastKnownOutcomes?: Record<number, LastKnownOutcome>;
+        /**
+         * Medical documents already tagged with this session's id
+         * (Patient's single 'medical' collection, filtered by
+         * custom_properties.treatment_session_id — see Form.vue's
+         * medicalDocumentsForSession()). Always empty for a brand-new
+         * session (nothing to tag yet). Listed here purely for review —
+         * still only ever deleted/downloaded from the patient file's
+         * Documents tab, the single place that owns document management.
+         */
+        medicalDocuments?: MedicalDocument[];
     }>(),
-    { lastKnownOutcomes: () => ({}) },
+    { lastKnownOutcomes: () => ({}), medicalDocuments: () => [] },
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
@@ -72,6 +93,16 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 // the same session — not a step-by-step sequence like the treatment wizard
 // — so this uses Tabs rather than a Stepper, same choice already made for
 // the patient file's own tabs (see AuthenticatedLayout/Form.vue).
+//
+// A "Documents" tab (upload + review of medical documents tagged to this
+// session) was added and then pulled back out on 2026-08-28 — not deleted:
+// the <template #documents> below, medicalDocuments prop, and
+// uploadMedicalDocuments() all still exist, just no longer reachable
+// because AppTabs only renders tabs listed here. Decision was to keep
+// document management solely on the patient file's Documents tab for now,
+// "as it was at the start" — how a session-level entry point should really
+// fit in is still to be worked out. Add { title: 'Documents', value:
+// 'documents' } back to re-enable once that's settled.
 const sessionTabs: AppTabItem[] = [
     { title: 'Soins', value: 'care' },
     { title: 'Suivi des maladies', value: 'diseases' },
@@ -107,12 +138,24 @@ const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
 // de la dernière séance" hint so it's never presented as if freshly entered.
 const prefilledDiseaseIds = ref<Set<number>>(new Set());
 
+// Medical documents attached from here go through the exact same endpoint
+// as the Documents tab (admin.patients.documents.store) — one source of
+// truth on Patient's 'medical' collection, not a separate collection or
+// pivot. treatment_session_id tags the upload so it's traceable back to
+// this session. Deletion/replacement still only happens from the patient
+// file's Documents tab (medicalDocuments here is read-only review).
+const pendingMedicalFiles = ref<File[]>([]);
+const uploadingMedical = ref(false);
+const medicalUploadError = ref<string | null>(null);
+
 function resetForm() {
     activeSessionTab.value = 'care';
     form.session_date = props.session?.session_date ?? toLocalDateString(new Date());
     form.duration_minutes = props.session?.duration_minutes ?? null;
     form.notes = props.session?.notes ?? null;
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
+    pendingMedicalFiles.value = [];
+    medicalUploadError.value = null;
 
     const next: Record<number, DiseaseOutcomeRow> = {};
     const prefilled = new Set<number>();
@@ -206,6 +249,35 @@ function save() {
 function close() {
     emit('update:visible', false);
 }
+
+function uploadMedicalDocuments() {
+    if (pendingMedicalFiles.value.length === 0 || !props.session) return;
+
+    uploadingMedical.value = true;
+    medicalUploadError.value = null;
+
+    router.post(
+        route('admin.patients.documents.store', props.patientId),
+        {
+            collection: 'medical',
+            files: pendingMedicalFiles.value,
+            treatment_session_id: props.session.id,
+        },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                pendingMedicalFiles.value = [];
+            },
+            onError: (errors) => {
+                medicalUploadError.value = Object.values(errors)[0] as string;
+            },
+            onFinish: () => {
+                uploadingMedical.value = false;
+            },
+        },
+    );
+}
 </script>
 
 <template>
@@ -274,6 +346,53 @@ function close() {
                         </div>
                     </div>
                     <p v-else class="text-body-2 text-medium-emphasis">Aucune maladie suivie sur ce traitement.</p>
+                </template>
+
+                <template #documents>
+                    <div v-if="session" class="d-flex flex-column ga-3">
+                        <template v-if="medicalDocuments.length">
+                            <div
+                                v-for="document in medicalDocuments"
+                                :key="document.id"
+                                class="d-flex align-center ga-3"
+                            >
+                                <v-avatar v-if="document.thumb_url" size="48" rounded>
+                                    <v-img :src="document.thumb_url" cover />
+                                </v-avatar>
+                                <v-icon v-else icon="mdi-file-pdf-box" size="36" color="error" />
+
+                                <p class="text-body-2 mb-0 flex-grow-1">{{ document.name }}</p>
+
+                                <AppButton
+                                    as="a"
+                                    :href="document.download_url"
+                                    target="_blank"
+                                    icon="mdi-download"
+                                    severity="secondary"
+                                    size="small"
+                                />
+                            </div>
+                        </template>
+                        <p v-else class="text-body-2 text-medium-emphasis mb-0">
+                            Aucun document médical lié à cette séance.
+                        </p>
+
+                        <AppFileUpload
+                            v-model="pendingMedicalFiles"
+                            multiple
+                            :error="medicalUploadError"
+                            label="Ajouter des documents médicaux (plusieurs photos d'un même document sont fusionnées en un seul PDF)"
+                        />
+                        <AppButton
+                            v-if="pendingMedicalFiles.length"
+                            label="Enregistrer les documents"
+                            :loading="uploadingMedical"
+                            @click="uploadMedicalDocuments"
+                        />
+                    </div>
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Enregistrez la séance pour pouvoir y attacher un document médical.
+                    </p>
                 </template>
             </AppTabs>
 

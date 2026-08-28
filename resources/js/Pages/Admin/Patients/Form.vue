@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
 import PatientStatusChip from '@/Components/Patients/PatientStatusChip.vue';
 import TreatmentCard from '@/Components/Patients/TreatmentCard.vue';
@@ -123,6 +124,24 @@ interface CareCategoryOption {
     items: CareItemOption[];
 }
 
+interface PatientDocument {
+    id: number;
+    name: string;
+    file_name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+    treatment_session_id: number | null;
+    created_at: string;
+}
+
+interface PatientDocuments {
+    identity: PatientDocument | null;
+    medical: PatientDocument[];
+    other: PatientDocument[];
+}
+
 const props = defineProps<{
     patient: Patient | null;
     centers: Center[];
@@ -133,6 +152,7 @@ const props = defineProps<{
     careCategories?: CareCategoryOption[];
     religionOptions?: ReligionOption[];
     can_update: boolean;
+    documents?: PatientDocuments;
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -245,9 +265,22 @@ const ongoingTreatment = computed(() => (props.treatments ?? []).find((t) => t.s
 const pastTreatments = computed(() => (props.treatments ?? []).filter((t) => t.status !== 'ongoing'));
 
 // --- Tabs (patient file navigation) ---
+// The Documents tab only needs a patient id to work (upload/list attach to
+// any existing Patient row regardless of draft/confirmed status) — usable
+// as soon as the very first storeDraft() succeeds, not gated behind
+// confirmation like the rest of the file. `patient` itself stays null for
+// the whole /admin/patients/create session (Inertia never reloads this
+// page after storeDraft(), the id only ever lives in serverId from
+// useResilientForm) — effectivePatientId is the id to use everywhere a
+// patient id is needed before a page reload, patient.id/`patient` itself
+// stays the source of truth for anything that actually needs the loaded
+// record (treatments, derived_status...).
+const effectivePatientId = computed(() => props.patient?.id ?? serverId.value);
+
 const tabs: AppTabItem[] = [
     { title: 'Informations', value: 'informations' },
     { title: 'Traitement en cours', value: 'ongoing' },
+    { title: 'Documents', value: 'documents' },
     { title: 'Historique', value: 'history' },
 ];
 
@@ -299,7 +332,7 @@ function editTreatment(treatment: TreatmentSummary) {
 }
 
 function reloadPatient() {
-    router.reload({ only: ['patient', 'treatments'] });
+    router.reload({ only: ['patient', 'treatments', 'documents'] });
 }
 
 // Only ever set by PatientController::confirm()'s redirect, right after a
@@ -391,6 +424,14 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
     return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
 }
 
+// Medical documents already show up on the Documents tab (the single
+// source of truth) — this just also surfaces the subset tagged with this
+// particular session's id, so a practitioner reviewing/editing a session
+// doesn't have to jump to another tab to see what was attached.
+function medicalDocumentsForSession(sessionId: number): PatientDocument[] {
+    return (props.documents?.medical ?? []).filter((doc) => doc.treatment_session_id === sessionId);
+}
+
 const pageTitle = computed(() =>
     props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
 );
@@ -425,7 +466,7 @@ function onStatusChipClick() {
         </AppPageHeader>
 
         <div class="mx-auto" style="max-width: 800px">
-            <AppTabs v-if="patient" v-model="activeTab" :tabs="tabs">
+            <AppTabs v-if="effectivePatientId" v-model="activeTab" :tabs="tabs">
                 <template #informations>
                     <PatientInfoForm
                         :form="form"
@@ -442,7 +483,7 @@ function onStatusChipClick() {
                 </template>
 
                 <template #ongoing>
-                    <div>
+                    <div v-if="patient">
                         <div class="d-flex align-center justify-space-between mb-1">
                             <h2 class="text-h6">Traitement en cours</h2>
                             <AppButton
@@ -468,10 +509,28 @@ function onStatusChipClick() {
                             @delete-session="deleteSession"
                         />
                     </div>
+                    <!-- Patient not yet confirmed (still on /admin/patients/create, no
+                         server reload has happened yet) — treatments need a real
+                         confirmed patient, not just an id, so this stays a plain
+                         message rather than reusing the "Ajouter un traitement" flow. -->
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Confirmez d'abord les informations du patient pour pouvoir ajouter un traitement.
+                    </p>
+                </template>
+
+                <template #documents>
+                    <PatientDocumentsTab
+                        :patient-id="effectivePatientId"
+                        :identity="documents?.identity ?? null"
+                        :medical="documents?.medical ?? []"
+                        :other="documents?.other ?? []"
+                        :readonly="!can_update"
+                        @saved="reloadPatient"
+                    />
                 </template>
 
                 <template #history>
-                    <div>
+                    <div v-if="patient">
                         <h2 class="text-h6 mb-3">Historique des traitements</h2>
 
                         <p v-if="!pastTreatments.length" class="text-body-2 text-medium-emphasis">
@@ -491,6 +550,9 @@ function onStatusChipClick() {
                             @delete-session="deleteSession"
                         />
                     </div>
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Confirmez d'abord les informations du patient pour voir son historique.
+                    </p>
                 </template>
             </AppTabs>
 
@@ -525,13 +587,15 @@ function onStatusChipClick() {
         />
 
         <TreatmentSessionDialog
-            v-if="sessionTreatmentId"
+            v-if="sessionTreatmentId && patient"
             v-model:visible="sessionDialogVisible"
+            :patient-id="patient.id"
             :treatment-id="sessionTreatmentId"
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
             :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
+            :medical-documents="editingSession ? medicalDocumentsForSession(editingSession.id) : []"
             @saved="reloadPatient"
         />
 

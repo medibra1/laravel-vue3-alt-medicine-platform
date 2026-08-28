@@ -29,6 +29,7 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: null,
                 treatmentDiseases,
@@ -53,6 +54,7 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: null,
                 treatmentDiseases,
@@ -80,6 +82,7 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: {
                     id: 5,

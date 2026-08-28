@@ -11,6 +11,7 @@ use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseResource;
+use App\Domains\Patients\Http\Resources\PatientDocumentResource;
 use App\Domains\Patients\Http\Resources\TreatmentResource;
 use App\Domains\Patients\Models\CareCategory;
 use App\Domains\Patients\Models\Disease;
@@ -111,6 +112,13 @@ class PatientController extends Controller
             'practitioners' => $this->practitionerOptions($request),
             'religionOptions' => $this->religionOptions(),
             'can_update' => Gate::allows('update', $patient),
+            'documents' => [
+                'identity' => $patient->getFirstMedia('identity')
+                    ? new PatientDocumentResource($patient->getFirstMedia('identity'))
+                    : null,
+                'medical' => PatientDocumentResource::collection($patient->getMedia('medical')),
+                'other' => PatientDocumentResource::collection($patient->getMedia('other')),
+            ],
             'diseases' => DiseaseResource::collection(
                 Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
             ),

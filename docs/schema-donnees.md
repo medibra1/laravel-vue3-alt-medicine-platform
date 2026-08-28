@@ -695,6 +695,204 @@ stock ni prix, contrairement à une pommade, donc ce lien ne concernera
 qu'une partie des catégories le jour où il sera construit) ; lien vers
 la facturation/paiement patient (`Billing`).
 
+### Documents patient (2026-08-28, `spatie/laravel-medialibrary`)
+
+Premier usage réel du package dans ce projet (déjà en dépendance,
+migration `media` déjà présente, mais aucun modèle ne portait
+`HasMedia` avant cette session). `Patient` (`app/Domains/Patients/Models/Patient.php`)
+implémente `HasMedia`/`InteractsWithMedia`, trois collections :
+`identity` (pièce d'identité, `singleFile()` — un nouvel upload
+remplace l'ancien plutôt que de s'accumuler), `medical` (documents
+médicaux, multiples), `other` (documents libres, multiples). Mimes
+acceptés : `image/jpeg`, `image/png`, `application/pdf` — **HEIC pas
+encore accepté**, reporté (Imagick sur cet environnement lit HEIC de
+façon non fiable sans `libheif`, jamais vérifié réellement).
+
+**Disque `local` (privé), jamais `public`** — ce sont des documents
+sensibles (identité, dossier médical). Aucune URL directe ne les sert :
+téléchargement et miniature passent par deux routes authentifiées
+dédiées (`admin.patients.documents.show`/`admin.patients.documents.thumb`),
+gate `PatientPolicy::view`/`update` selon l'action — mêmes règles de
+scoping centre que le reste du dossier patient, pas de mécanisme
+spécifique aux documents.
+
+**Fusion automatique en PDF dès 2+ fichiers uploadés d'un coup sur
+`identity`/`medical`** — un praticien qui photographie plusieurs pages
+d'un même document avec son téléphone obtient un seul fichier attaché,
+pas un par photo. `MergeImagesIntoPdfAction`
+(`app/Domains/Patients/Services/`) : chaque fichier du lot est lu par
+Imagick, un PDF déjà présent dans le lot voit ses pages insérées
+telles quelles (pas re-rasterisées). `other` ne fusionne jamais (tous
+les items n'y sont pas forcément liés les uns aux autres), et un
+upload d'un seul fichier ne fusionne jamais non plus (rien à
+combiner), quelle que soit la collection.
+
+**Miniature (`thumb`, 240×240) générée pour les trois collections**,
+y compris sur un PDF (`Pdf` est déjà dans les `image_generators` par
+défaut du package) — nécessite deux prérequis non actifs par défaut
+sur cet environnement, vérifiés et corrigés en session, pas supposés :
+- `IMAGE_DRIVER=imagick` dans `.env`/`phpunit.xml` (défaut du package :
+  `gd`, qui ne sait pas lire un PDF — sans ce réglage, la conversion
+  `thumb` échoue silencieusement sur `identity`/`medical` fusionnés).
+- `spatie/pdf-to-image` ajouté explicitement à `composer.json` (le
+  package le liste en dépendance *suggérée*, pas installée par défaut —
+  sans lui, `requirementsAreInstalled()` du générateur PDF de Media
+  Library retourne `false` et saute la conversion sans erreur visible).
+
+Requiert aussi, sur l'hôte (documenté ici, pas dans un script
+d'installation — cohérent avec le reste du projet qui n'automatise pas
+le provisioning) : extension PHP `imagick` (`pecl install imagick`,
+nécessite `imagemagick` + `pkg-config` sur la machine), et Ghostscript
+(`gs`, utilisé par `spatie/pdf-to-image` pour rasteriser un PDF).
+
+**`Conversion::nonQueued()` appelé avant `width()`/`height()`**, pas
+après — piège Larastan rencontré en session : `Conversion` porte un
+docblock `@mixin ImageDriver`, et Larastan résout le type de retour de
+`width()`/`height()` (magiques, via `__call()`, qui retournent toujours
+`Conversion` à l'exécution) sur le type déclaré par le mixin
+(`ImageDriver::width(): static`) plutôt que sur le comportement réel —
+`nonQueued()` (une vraie méthode de `Conversion`) devient alors
+introuvable si elle est appelée en dernier. Appeler la seule méthode
+réelle de la chaîne en premier contourne le problème sans avoir besoin
+d'ignorer l'erreur.
+
+⚠️ **Test rencontré, pas un bug applicatif** : `UploadedFile::fake()->image()`
+génère par défaut un JPEG 10×10 — Ghostscript échoue à rasteriser une
+page construite depuis une image aussi minuscule à l'intérieur d'un
+PDF ("Page drawing error... Could not draw this page at all"),
+reproduit isolément en dehors de Laravel. Les tests qui exercent la
+fusion multi-image doivent donc passer une taille réaliste
+(`UploadedFile::fake()->image('x.jpg', 800, 600)`) — une vraie photo
+uploadée depuis un téléphone n'est jamais 10×10, donc ce n'est pas un
+vrai défaut à corriger côté production.
+
+#### Addendum (2026-08-28, suite immédiate) — lien séance, disponibilité précoce
+
+Trois ajustements demandés juste après la première implémentation
+ci-dessus :
+
+**Documents médicaux liés à une séance via `custom_properties`, pas une
+nouvelle collection ni un pivot** — `medical` reste une seule
+collection globale sur `Patient` (un seul endroit de vérité, jamais
+dupliquée par séance). `PatientDocumentController::store()` accepte un
+`treatment_session_id` optionnel (`StorePatientDocumentRequest`, validé
+comme appartenant à une séance d'un traitement de **ce** patient —
+`Rule::exists('treatment_sessions', 'id')->where(fn ($q) => $q->whereIn('treatment_id', $patient->treatments()->select('id')))`,
+sinon un id de séance forgé appartenant à un autre patient pourrait
+autrement taguer un document sur la mauvaise séance). Stocké via
+`FileAdder::withCustomProperties(['treatment_session_id' => ...])`,
+exposé par `PatientDocumentResource.treatment_session_id`. Uploadable
+depuis deux points d'entrée vers le même endpoint : l'onglet Documents
+du dossier patient (`PatientDocumentsTab.vue`, jamais de
+`treatment_session_id`) et un nouvel onglet "Documents" dans
+`TreatmentSessionDialog.vue` (toujours avec `treatment_session_id`,
+voir plus bas). ~~Le document reste consultable uniquement depuis
+l'onglet Documents du dossier patient — `TreatmentSessionDialog` ne
+liste pas les documents déjà liés à la séance~~ — **revu dans l'addendum
+du 2026-08-28 (deuxième suite) ci-dessous**, `TreatmentSessionDialog`
+liste maintenant ces documents.
+
+**`TreatmentSessionDialog.vue` — upload désactivé pour une séance pas
+encore enregistrée** — contrairement à `Patient`/`Treatment`
+(wizard résilient avec autosave), une `TreatmentSession` est un CRUD
+simple en un seul submit, sans id avant le premier `save()` réussi. Le
+nouvel onglet "Documents" du dialog affiche l'uploader seulement si
+`props.session !== null` (édition d'une séance existante) ; pour une
+nouvelle séance, un message ("Enregistrez la séance pour pouvoir y
+attacher un document médical.") remplace l'uploader — décision
+explicite (alternative écartée : auto-save silencieux de la séance au
+premier fichier choisi, jugée trop surprenante).
+
+**Onglet Documents disponible dès le premier `storeDraft()`, pas
+seulement après confirmation du patient** — jusqu'ici, `Patients/Form.vue`
+n'affichait `AppTabs` (et donc tous les onglets) que si `props.patient`
+était chargé, ce qui n'arrive **jamais** pendant toute la session
+`/admin/patients/create` (Inertia ne recharge pas cette page après
+`storeDraft()` — seul `serverId`, interne à `useResilientForm`, connaît
+l'id du patient fraîchement créé). Nouveau `computed effectivePatientId`
+(`patient?.id ?? serverId.value`) pilote maintenant l'affichage de
+`AppTabs` — dès que le tout premier `storeDraft()` réussit (~50ms après
+la première frappe), les 4 onglets apparaissent, et `PatientDocumentsTab`
+reçoit `effectivePatientId` plutôt que `patient.id`. "Traitement en
+cours"/"Historique" restent inchangés dans leur fonctionnement (décision
+explicite : pas de masquage supplémentaire tant que le patient n'est pas
+confirmé) mais gagnent un garde `v-if="patient"` avec un message
+("Confirmez d'abord les informations du patient...") plutôt qu'un crash
+sur `props.patient!.id` — ces deux onglets n'avaient jamais été exercés
+sans un `patient` réellement chargé avant ce changement, l'assertion de
+non-nullité y était jusqu'ici toujours vraie en pratique.
+
+#### Addendum (2026-08-28, deuxième suite) — nom lisible, documents liés visibles dans la séance
+
+Deux retours utilisateur supplémentaires.
+
+**Nom affiché lisible pour un PDF fusionné** — `usingFileName()`
+continue de fixer un nom de fichier technique et unique côté disque
+(`merged-2026-08-28-154026.pdf`, ne collisionne jamais), mais
+`Media::$name` (ce qu'expose `PatientDocumentResource.name`, affiché
+à l'écran) est maintenant fixé séparément via `usingName()` :
+`"Pièce d'identité du 28 août 2026"` / `"Documents médicaux du 28 août
+2026"` (`now()->translatedFormat('d F Y')`, locale Carbon déjà `fr` via
+`APP_LOCALE`). **Portée volontairement limitée au cas fusionné** —
+décision explicite : un upload simple (un seul fichier) garde le nom
+original du fichier tel quel (déjà lisible, ex. `photo_id.jpg`), pas
+remplacé par un nom uniforme.
+
+**Documents médicaux liés à une séance affichés dans son dialog** —
+revient sur la décision "upload seulement, pas de liste" actée dans
+l'addendum précédent. `Form.vue` expose maintenant
+`medicalDocumentsForSession(sessionId)` (filtre `props.documents.medical`
+sur `treatment_session_id`), passé à `TreatmentSessionDialog` via une
+nouvelle prop `medicalDocuments` — affichés en lecture seule (miniature/
+nom/bouton télécharger) au-dessus de l'uploader dans l'onglet
+"Documents" du dialog. Toujours vide pour une nouvelle séance (pas
+d'id). Suppression/remplacement restent réservés à l'onglet Documents
+du dossier patient — ce dialog reste un point de consultation, pas un
+deuxième endroit de gestion.
+
+##### Vérification (pour de vrai, pas seulement les tests automatisés)
+
+275 tests Pest (2 assertions ajoutées aux tests de fusion existants
+plutôt que dupliquées — nom lisible sur `identity`/`medical`, zéro
+nouveau test créé, zéro régression), 47 tests Vitest inchangés
+(aucun composant n'avait de test unitaire sur ce comportement précis),
+`pint --test` clean, Larastan niveau 5 clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean.
+
+**Vérification navigateur réelle (Playwright headless, scratchpad de
+session)** : upload de 2 photos dans "Documents médicaux" → carte
+affiche "Documents médicaux du 28 août 2026" (confirmé : aucune
+occurrence de "merged-" dans le texte affiché) ; upload d'un document
+depuis l'onglet "Documents" du dialog de séance → **réouverture du
+dialog** (pas seulement le même montage) → document visible dans la
+liste avec sa miniature et son nom original, **vérifié en base**
+(`custom_properties.treatment_session_id` correct, `name` du PDF
+fusionné correctement formaté). Zéro erreur console. Données de test
+supprimées, mot de passe seed remis à une valeur aléatoire — un
+résidu de media (patient id 7, créé plus tôt dans cette même session
+avant l'adoption du préfixe "Verif*" pour les données de test)
+identifié et nettoyé au passage ; le patient "Bech Kadr" (id 5)
+repéré lors de l'addendum précédent reste volontairement intact
+(toujours pas de certitude que ce soit une donnée de test).
+
+#### Addendum (2026-08-28, troisième suite) — retrait temporaire de l'onglet Documents côté séance
+
+Retour utilisateur : trop tôt pour exposer l'upload/la liste de
+documents médicaux directement depuis `TreatmentSessionDialog.vue` —
+pas encore clair comment bien l'organiser vis-à-vis du reste du
+dossier patient. Demande explicite : retirer l'affichage sans retirer
+l'implémentation.
+
+**`sessionTabs` ne liste plus l'entrée Documents** — `AppTabs` (qui
+génère ses `v-window-item` en bouclant sur le tableau `tabs` qu'on lui
+passe) ne monte donc plus jamais le `<template #documents>` du dialog.
+Tout le reste (template, refs, `uploadMedicalDocuments()`, prop
+`medicalDocuments`, `Form.vue`'s `medicalDocumentsForSession()`) reste
+en place à l'identique — un simple ré-ajout de l'entrée à `sessionTabs`
+suffira à réactiver, dès qu'une approche d'organisation sera tranchée.
+Comportement observable : upload de document médical redevient
+exclusivement depuis l'onglet Documents du dossier patient.
+
 ---
 
 ## 4. Scheduling
