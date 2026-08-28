@@ -18,7 +18,11 @@ export function useAppTheme() {
     const theme = useTheme();
 
     function apply(name: AppThemeName) {
-        theme.global.name.value = name;
+        // theme.change(), not the deprecated theme.global.name.value =
+        // assignment — the latter still worked but logged a
+        // "[Vuetify UPGRADE] ... is deprecated" console warning on every
+        // theme switch, found via real browser testing.
+        void theme.change(name);
     }
 
     function init() {

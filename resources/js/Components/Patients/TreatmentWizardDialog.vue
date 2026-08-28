@@ -384,6 +384,18 @@ async function confirmTreatment() {
         {
             onError: (errors) => {
                 confirmErrors.value = errors as Record<string, string>;
+
+                // The failing field can live on a step the user has
+                // already moved past (e.g. "Date de début"/"Praticien" on
+                // step 1 while confirming from step 3) — jump back to the
+                // first step that actually has an error, otherwise the
+                // v-alert above is the only visible sign anything failed.
+                const infosFields = ['center_id', 'patient_id', 'practitioner_id', 'started_at', 'ended_at', 'notes'];
+                if (infosFields.some((field) => field in confirmErrors.value)) {
+                    currentStep.value = 'infos';
+                } else if ('disease_ids' in confirmErrors.value) {
+                    currentStep.value = 'diseases';
+                }
             },
             onSuccess: () => {
                 emit('saved');
@@ -419,6 +431,23 @@ function close() {
         >
             <ul class="ps-4">
                 <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
+            </ul>
+        </v-alert>
+
+        <v-alert
+            v-if="Object.keys(confirmErrors).length"
+            type="error"
+            variant="tonal"
+            class="mb-4"
+            title="Confirmation impossible"
+        >
+            <!-- The field with the error can live on a step the user has
+                 already moved past (e.g. "Date de début" on step 1 while
+                 confirming from step 3) — surfaced here explicitly rather
+                 than only on that field's own :error prop, which is
+                 invisible while that step isn't the active one. -->
+            <ul class="ps-4">
+                <li v-for="(message, field) in confirmErrors" :key="field">{{ message }}</li>
             </ul>
         </v-alert>
 

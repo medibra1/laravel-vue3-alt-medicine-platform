@@ -58,17 +58,25 @@ class ConfirmTreatmentRequest extends FormRequest
      * persisted state (merged with any last-second payload), not just the
      * request body, in case the frontend hasn't flushed the last autosave
      * before the confirm click.
+     *
+     * Falls back with `??`, not `$this->input($key, $fallback)` (whose
+     * default only applies when the key is missing entirely) — see the
+     * identical fix/reasoning on ConfirmPatientRequest::prepareForValidation().
+     * useResilientForm spreads the whole reactive form on every submit,
+     * so an explicit null for a field the wizard hasn't (yet) filled
+     * survived past the old array_filter-based merge and failed
+     * 'required' below with a real validation error.
      */
     protected function prepareForValidation(): void
     {
         /** @var Treatment $treatment */
         $treatment = $this->route('treatment');
 
-        $this->merge(array_filter([
-            'practitioner_id' => $this->input('practitioner_id', $treatment->practitioner_id),
-            'started_at' => $this->input('started_at', $treatment->started_at?->toDateString()),
-            'outcome' => $this->input('outcome', $treatment->outcome),
-        ], fn ($value) => $value !== null));
+        $this->merge([
+            'practitioner_id' => $this->input('practitioner_id') ?? $treatment->practitioner_id,
+            'started_at' => $this->input('started_at') ?? $treatment->started_at?->toDateString(),
+            'outcome' => $this->input('outcome') ?? $treatment->outcome,
+        ]);
 
         if (! $this->has('disease_ids')) {
             $this->merge(['disease_ids' => $treatment->diseases()->pluck('diseases.id')->all()]);
