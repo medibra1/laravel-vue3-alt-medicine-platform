@@ -75,8 +75,9 @@ temps qu'un usage manuel actif de cette DB.
 | Domaine | État |
 |---|---|
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
-| Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests |
-| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins) fait ; dossier patient unifié fait ; `ExternalMedicalRecord` à faire |
+| Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
+| Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | Pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
@@ -317,6 +318,126 @@ runs consécutifs pour confirmer l'idempotence du setup/teardown),
 vérification navigateur manuelle complémentaire (mode clair/sombre,
 zéro erreur console).
 
+**Gestion des comptes utilisateurs Phase 1** (2026-08-25, branche
+`feature/user-management-phase1`) : nouveau domaine `Auth` (jusqu'ici
+seulement le modèle `User` scaffoldé par Breeze) — rôle `admin` (quasi
+super_admin, même contournement team_id-sentinelle que `super_admin`,
+distinction faite au niveau policy plutôt que permissions), CRUD
+`UserController` (création directe avec mot de passe, ou par invitation
+email réutilisant le password broker natif Laravel — pas de mécanisme
+de token custom), blocage de connexion si `is_active = false`
+(`AuthenticatedSessionController`, colonne déjà présente depuis une
+migration antérieure jamais exploitée), notifications applicatives
+(canal `database` uniquement cette phase, cloche `AppNotificationBell`
+dans l'app-bar). Détail complet, décisions techniques (pourquoi le
+password broker plutôt qu'un token maison, le piège de team-scoping sur
+`$user->can()`, le bug de validation `password`/`prohibited` trouvé en
+vérification navigateur) dans `CLAUDE.md` "Gestion des comptes
+utilisateurs Phase 1". Vérifié : 217 tests Pest (1 nouveau test de
+régression sur le bug de validation, zéro régression), `pint --test`
+clean, Larastan niveau 5 clean, build Vite client+SSR OK, `vue-tsc
+--noEmit` clean, golden path navigateur réel (Playwright) : création
+d'un manager par invitation → email (best-effort, échec SMTP local
+toléré et loggé sans bloquer) → lien `password.reset` → définition du
+mot de passe → email auto-vérifié → connexion → notification "Nouveau
+centre géré" visible dans la cloche ; compte désactivé bloqué à la
+connexion avec message clair. Mot de passe seed remis à une valeur
+aléatoire, données de test supprimées en fin de session.
+
+**Gestion des comptes practitioner multi-centres Phase 2** (2026-08-25,
+branche `feature/user-management-phase2`, depuis Phase 1) : rôle
+`practitioner` (lecture seule sur patients/traitements, scopé par
+centre comme `manager` — contrairement à `admin`/`super_admin`), un
+practitioner peut être accessible sur plusieurs centres à la fois
+(`User::accessibleCenterIds()`, plusieurs assignations `practitioner`
+jamais remplacées). Sélecteur de centre actif dans l'app-bar
+(`AppCenterSwitcher.vue`), auto-sélection sans écran de choix
+obligatoire (`EnsureCenterAccess` étendu). Un seul point d'entrée de
+création : le formulaire Praticiens existant gagne un toggle "Donner
+un accès à l'application" avec vérification d'email en direct
+(nouveau/existant/déjà pris) — email déjà lié à un praticien existant
+= auto-jonction au centre courant sans dupliquer sa fiche. Détail
+complet, dont deux bugs réels trouvés en vérification navigateur (un
+`useForm().reset()` d'Inertia qui recalibre ses valeurs par défaut sur
+le dernier submit réussi plutôt que sur l'état vide initial, et un
+piège de validation `prohibited` sur des champs masqués mais toujours
+soumis — le même genre de piège déjà rencontré en Phase 1, cette fois
+sur deux champs distincts) dans `CLAUDE.md` "Gestion des comptes
+practitioner multi-centres Phase 2". Vérifié : 235 tests Pest (1
+nouveau test de régression, zéro régression), `pint --test` clean,
+Larastan niveau 5 clean, build Vite client+SSR OK, `vue-tsc --noEmit`
+clean, golden path navigateur réel (Playwright) : création d'un
+practitioner avec accès sur Centre A → création d'un second praticien
+sur Centre B avec le même email (auto-jonction confirmée en base —
+aucune deuxième fiche `Practitioner` créée, mail + notification database
+reçus) → connexion practitioner → sélecteur de centre visible avec les
+deux centres → bascule Centre A → Centre B → liste patients change bien
+selon le centre actif, reste en lecture seule (formulaire désactivé via
+`<fieldset disabled>`, boutons de création/suppression masqués). Zéro
+erreur console. Données de test supprimées, mot de passe seed remis à
+une valeur aléatoire en fin de session.
+
+**Mesures par séance** (2026-08-28, branche `feature/session-measurements`,
+depuis `develop`) : `TreatmentSession` peut désormais porter une ou
+plusieurs mesures libres (tension artérielle, glycémie, poids,
+température, fréquence cardiaque...) — le type de mesure n'est pas codé
+en dur, il pointe vers `EnumOption` (`enum_type =
+'session_measurement_type'`), éditable depuis l'admin sans déploiement,
+cinq types seedés par défaut. Branche rebasée en cours de session sur
+le vrai tip de `develop` (`git fetch` initial manquant avait laissé un
+`develop` local périvé de 5 commits, sans `feature/patient-documents`
+pourtant déjà mergée sur GitHub) — deux conflits réels résolus
+(`README.md`, `TreatmentSessionDialog.vue`), voir `CLAUDE.md` "Mesures
+par séance" pour le détail complet. Vérifié après rebase : 279 tests
+Pest (4 nouveaux propres à cette session, zéro régression sur
+l'ensemble y compris les 21 apportés par `feature/patient-documents`),
+48 tests Vitest (2 nouveaux), `pint --test` clean, Larastan niveau 5
+clean, build Vite client+SSR OK, `vue-tsc --noEmit` clean. Vérification
+navigateur réelle non exécutée cette session (portée resserrée, voir
+`CLAUDE.md`).
+
+**Consentement patient** (2026-08-28, branche `feature/patient-consent`,
+depuis `develop` à jour) : un nouvel onglet "Consentement" dans le
+dossier patient permet de recueillir la signature d'un patient
+(nom + trait de signature optionnel) sur un texte versionné par type
+(traitement, RGPD, droit à l'image), avec génération automatique d'un
+PDF horodaté et figé (`barryvdh/laravel-dompdf`, pas `spatie/browsershot`
+— demande explicite de l'utilisateur ; `browsershot` reste en dépendance
+inutilisée). Contrairement aux "documents patient" (Media Library seule),
+`Consent` est un vrai modèle Eloquent avec relations interrogeables
+(qui a consenti, à quelle version, quand) — le PDF lui-même reste
+attaché via `HasMedia`, même mécanisme que `Patient`. Un admin gère les
+modèles de consentement depuis une nouvelle page `/admin/consent-templates`
+(non prévue explicitement dans la consigne initiale mais nécessaire :
+sans elle, aucun consentement n'est jamais recueillable) — éditer un
+modèle crée toujours une nouvelle version plutôt que de modifier la
+ligne existante, pour qu'un texte déjà signé par un patient ne change
+jamais rétroactivement. Détail complet dans `CLAUDE.md` "Consentement
+patient". Vérifié : 297 tests Pest (18 nouveaux, zéro régression),
+`pint --test` clean, Larastan niveau 5 clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean, golden path navigateur réel (Playwright) :
+recueil d'un consentement (signature dessinée, PDF généré et
+téléchargeable, contenu du PDF inspecté — texte, signataire, date,
+trait de signature tous corrects), création d'un nouveau modèle en
+admin, édition d'un modèle existant (nouvelle version créée, ancienne
+archivée), badge "À renouveler" affiché correctement sur le patient
+après la bascule de version. Mode sombre vérifié. Zéro erreur console.
+Données de test et mot de passe seed nettoyés en fin de session.
+
+**Addendum consentement — deux sources** (2026-08-29, même branche) :
+un consentement peut désormais être recueilli par signature électronique
+(`digital`, comportement ci-dessus, inchangé) ou par import d'un document
+papier déjà signé (`uploaded` — photo/scan, plusieurs photos fusionnées
+en un seul PDF via le même service que les documents patient, aucune
+génération PDF dans ce cas). `Consent.type` déplacé depuis le template
+vers `Consent` lui-même (toujours requis), `consent_template_id`/
+`version`/`content_snapshot` nullables. Choix libre à chaque recueil, pas
+de config par centre. Détail complet dans `CLAUDE.md` "Consentement —
+deux sources". Vérifié : 302 tests Pest (5 nouveaux, zéro régression),
+`pint`/Larastan/build/`vue-tsc` clean, golden path navigateur réel sur
+les deux sources (PDF fusionné inspecté directement, 2 pages
+correspondant aux 2 photos importées). Données de test nettoyées.
+
 ## Points ouverts connus
 
 - 9 pays sur 46 sans zone assignée (ambigus dans le document source) —
@@ -332,3 +453,9 @@ zéro erreur console).
 - Découpage du blocage "Mariage" (804) en sous-cas fait par
   interprétation (source en prose continue, pas une liste structurée) —
   voir le docblock de `DiseaseCategorySeeder.php`.
+- Documents patient : HEIC (format photo iPhone par défaut) pas encore
+  accepté à l'upload — reporté, voir `CLAUDE.md` "Documents patient".
+  Requiert sur l'hôte : extension PHP `imagick`, ImageMagick, et
+  Ghostscript (pour les miniatures PDF) — voir
+  `docs/schema-donnees.md` "Documents patient" pour le détail
+  d'installation.

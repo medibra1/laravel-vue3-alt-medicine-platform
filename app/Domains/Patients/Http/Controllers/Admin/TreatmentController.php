@@ -57,6 +57,10 @@ class TreatmentController extends Controller
             'treatments' => $treatments,
             'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $this->centerOptions($request),
+            // Same reasoning as PatientController::index() — a
+            // read-only practitioner sees this list without create
+            // affordances, resolved server-side rather than guessed.
+            'can_create' => Gate::allows('create', Treatment::class),
         ]);
     }
 
@@ -240,7 +244,7 @@ class TreatmentController extends Controller
     /** @return array<string, mixed> */
     protected function formOptions(Request $request): array
     {
-        $centerId = $request->user()->isSuperAdmin() ? null : $request->user()->managedCenterId();
+        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
 
         return [
             'centers' => $this->centerOptions($request),

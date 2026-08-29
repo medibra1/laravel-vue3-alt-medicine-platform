@@ -15,6 +15,7 @@ const sessions = [
         disease_progress: [
             { disease_id: 1, disease_label: 'Acidity', outcome: 'cured', outcome_percentage: null, notes: null },
         ],
+        measurements: [{ measurement_type_option_id: 1, measurement_type_code: 'blood_pressure', measurement_type_label: 'Tension artérielle', value: '12/8', unit: 'mmHg', notes: null }],
     },
     {
         id: 2,
@@ -25,6 +26,7 @@ const sessions = [
         disease_progress: [
             { disease_id: 1, disease_label: 'Acidity', outcome: 'ongoing', outcome_percentage: null, notes: null },
         ],
+        measurements: [],
     },
 ];
 
@@ -61,6 +63,15 @@ describe('TreatmentTimeline', () => {
         expect(wrapper.text()).toContain('Acidity — En cours');
     });
 
+    it('shows a chip with the value and unit for each recorded measurement', () => {
+        const wrapper = mount(TreatmentTimeline, {
+            props: { sessions, treatmentStatus: 'ongoing' },
+            global: { plugins: [vuetify] },
+        });
+
+        expect(wrapper.text()).toContain('Tension artérielle : 12/8 mmHg');
+    });
+
     it('groups care items by category label, one heading per category', () => {
         const groupedSessions = [
             {
@@ -74,6 +85,7 @@ describe('TreatmentTimeline', () => {
                     { id: 12, label: 'Pied', category_label: 'Ventouses' },
                 ],
                 disease_progress: [],
+                measurements: [],
             },
         ];
 

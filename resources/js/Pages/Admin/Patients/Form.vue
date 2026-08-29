@@ -2,6 +2,8 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import PatientConsentsTab from '@/Components/Patients/PatientConsentsTab.vue';
+import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
 import PatientStatusChip from '@/Components/Patients/PatientStatusChip.vue';
 import TreatmentCard from '@/Components/Patients/TreatmentCard.vue';
@@ -31,6 +33,9 @@ interface Patient {
     first_name: string | null;
     last_name: string | null;
     gender: string | null;
+    marital_status: string | null;
+    children_count: number | null;
+    religion_option_id: number | null;
     birth_date: string | null;
     phone: string | null;
     email: string | null;
@@ -40,6 +45,12 @@ interface Patient {
     emergency_contact_phone: string | null;
     notes: string | null;
     derived_status?: DerivedStatus;
+}
+
+interface ReligionOption {
+    id: number;
+    code: string;
+    label: string;
 }
 
 interface TreatmentDisease {
@@ -57,6 +68,15 @@ interface TreatmentSessionSummary {
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
+    measurements: { measurement_type_option_id: number; measurement_type_code: string; measurement_type_label: string; value: string; unit: string | null; notes: string | null }[];
+}
+
+interface MeasurementTypeOption {
+    id: number;
+    code: string;
+    label: string;
+    unit: string | null;
+    placeholder: string | null;
 }
 
 interface TreatmentSummary {
@@ -114,6 +134,46 @@ interface CareCategoryOption {
     items: CareItemOption[];
 }
 
+interface PatientDocument {
+    id: number;
+    name: string;
+    file_name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+    treatment_session_id: number | null;
+    created_at: string;
+}
+
+interface PatientDocuments {
+    identity: PatientDocument | null;
+    medical: PatientDocument[];
+    other: PatientDocument[];
+}
+
+type ConsentType = 'treatment' | 'data_privacy' | 'image_rights';
+type ConsentSource = 'digital' | 'uploaded';
+
+interface ConsentTemplate {
+    type: ConsentType;
+    title: string;
+    content: string;
+    version: number;
+}
+
+interface Consent {
+    id: number;
+    type: ConsentType;
+    source: ConsentSource;
+    version: number | null;
+    template_version: number | null;
+    signer_name: string;
+    accepted_at: string;
+    accepted_by: string;
+    download_url: string;
+}
+
 const props = defineProps<{
     patient: Patient | null;
     centers: Center[];
@@ -122,6 +182,12 @@ const props = defineProps<{
     diseases?: DiseaseOption[];
     diseaseCategories?: DiseaseCategoryOption[];
     careCategories?: CareCategoryOption[];
+    religionOptions?: ReligionOption[];
+    measurementTypes?: MeasurementTypeOption[];
+    can_update: boolean;
+    documents?: PatientDocuments;
+    consents?: Consent[];
+    consentTemplates?: ConsentTemplate[];
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -133,6 +199,9 @@ const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
             first_name: props.patient?.first_name ?? null,
             last_name: props.patient?.last_name ?? null,
             gender: props.patient?.gender ?? null,
+            marital_status: props.patient?.marital_status ?? null,
+            children_count: props.patient?.children_count ?? null,
+            religion_option_id: props.patient?.religion_option_id ?? null,
             birth_date: props.patient?.birth_date ?? null,
             phone: props.patient?.phone ?? null,
             email: props.patient?.email ?? null,
@@ -231,9 +300,23 @@ const ongoingTreatment = computed(() => (props.treatments ?? []).find((t) => t.s
 const pastTreatments = computed(() => (props.treatments ?? []).filter((t) => t.status !== 'ongoing'));
 
 // --- Tabs (patient file navigation) ---
+// The Documents tab only needs a patient id to work (upload/list attach to
+// any existing Patient row regardless of draft/confirmed status) — usable
+// as soon as the very first storeDraft() succeeds, not gated behind
+// confirmation like the rest of the file. `patient` itself stays null for
+// the whole /admin/patients/create session (Inertia never reloads this
+// page after storeDraft(), the id only ever lives in serverId from
+// useResilientForm) — effectivePatientId is the id to use everywhere a
+// patient id is needed before a page reload, patient.id/`patient` itself
+// stays the source of truth for anything that actually needs the loaded
+// record (treatments, derived_status...).
+const effectivePatientId = computed(() => props.patient?.id ?? serverId.value);
+
 const tabs: AppTabItem[] = [
     { title: 'Informations', value: 'informations' },
     { title: 'Traitement en cours', value: 'ongoing' },
+    { title: 'Documents', value: 'documents' },
+    { title: 'Consentement', value: 'consent' },
     { title: 'Historique', value: 'history' },
 ];
 
@@ -285,7 +368,7 @@ function editTreatment(treatment: TreatmentSummary) {
 }
 
 function reloadPatient() {
-    router.reload({ only: ['patient', 'treatments'] });
+    router.reload({ only: ['patient', 'treatments', 'documents', 'consents'] });
 }
 
 // Only ever set by PatientController::confirm()'s redirect, right after a
@@ -377,6 +460,14 @@ function latestKnownOutcomesFor(treatmentId: number): TreatmentSummary['latest_k
     return props.treatments?.find((t) => t.id === treatmentId)?.latest_known_outcomes ?? {};
 }
 
+// Medical documents already show up on the Documents tab (the single
+// source of truth) — this just also surfaces the subset tagged with this
+// particular session's id, so a practitioner reviewing/editing a session
+// doesn't have to jump to another tab to see what was attached.
+function medicalDocumentsForSession(sessionId: number): PatientDocument[] {
+    return (props.documents?.medical ?? []).filter((doc) => doc.treatment_session_id === sessionId);
+}
+
 const pageTitle = computed(() =>
     props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
 );
@@ -411,26 +502,28 @@ function onStatusChipClick() {
         </AppPageHeader>
 
         <div class="mx-auto" style="max-width: 800px">
-            <AppTabs v-if="patient" v-model="activeTab" :tabs="tabs">
+            <AppTabs v-if="effectivePatientId" v-model="activeTab" :tabs="tabs">
                 <template #informations>
                     <PatientInfoForm
                         :form="form"
                         :centers="centers"
+                        :religion-options="religionOptions ?? []"
                         :field-errors="fieldErrors"
                         :saved-label="savedLabel"
                         :save-errors="saveErrors"
                         :confirming="confirming"
+                        :readonly="!can_update"
                         @confirm="confirmPatient"
                         @cancel="router.get(route('admin.patients.index'))"
                     />
                 </template>
 
                 <template #ongoing>
-                    <div>
+                    <div v-if="patient">
                         <div class="d-flex align-center justify-space-between mb-1">
                             <h2 class="text-h6">Traitement en cours</h2>
                             <AppButton
-                                v-if="!ongoingTreatment"
+                                v-if="!ongoingTreatment && can_update"
                                 label="Ajouter un traitement"
                                 icon="mdi-plus"
                                 @click="openNewTreatment"
@@ -452,10 +545,39 @@ function onStatusChipClick() {
                             @delete-session="deleteSession"
                         />
                     </div>
+                    <!-- Patient not yet confirmed (still on /admin/patients/create, no
+                         server reload has happened yet) — treatments need a real
+                         confirmed patient, not just an id, so this stays a plain
+                         message rather than reusing the "Ajouter un traitement" flow. -->
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Confirmez d'abord les informations du patient pour pouvoir ajouter un traitement.
+                    </p>
+                </template>
+
+                <template #documents>
+                    <PatientDocumentsTab
+                        :patient-id="effectivePatientId"
+                        :identity="documents?.identity ?? null"
+                        :medical="documents?.medical ?? []"
+                        :other="documents?.other ?? []"
+                        :readonly="!can_update"
+                        @saved="reloadPatient"
+                    />
+                </template>
+
+                <template #consent>
+                    <PatientConsentsTab
+                        :patient-id="effectivePatientId"
+                        :patient-full-name="pageTitle"
+                        :consents="consents ?? []"
+                        :consent-templates="consentTemplates ?? []"
+                        :readonly="!can_update"
+                        @saved="reloadPatient"
+                    />
                 </template>
 
                 <template #history>
-                    <div>
+                    <div v-if="patient">
                         <h2 class="text-h6 mb-3">Historique des traitements</h2>
 
                         <p v-if="!pastTreatments.length" class="text-body-2 text-medium-emphasis">
@@ -475,6 +597,9 @@ function onStatusChipClick() {
                             @delete-session="deleteSession"
                         />
                     </div>
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Confirmez d'abord les informations du patient pour voir son historique.
+                    </p>
                 </template>
             </AppTabs>
 
@@ -482,6 +607,7 @@ function onStatusChipClick() {
                 v-else
                 :form="form"
                 :centers="centers"
+                :religion-options="religionOptions ?? []"
                 :field-errors="fieldErrors"
                 :saved-label="savedLabel"
                 :save-errors="saveErrors"
@@ -508,13 +634,16 @@ function onStatusChipClick() {
         />
 
         <TreatmentSessionDialog
-            v-if="sessionTreatmentId"
+            v-if="sessionTreatmentId && patient"
             v-model:visible="sessionDialogVisible"
+            :patient-id="patient.id"
             :treatment-id="sessionTreatmentId"
             :session="editingSession"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
+            :measurement-types="measurementTypes ?? []"
             :latest-known-outcomes="latestKnownOutcomesFor(sessionTreatmentId)"
+            :medical-documents="editingSession ? medicalDocumentsForSession(editingSession.id) : []"
             @saved="reloadPatient"
         />
 

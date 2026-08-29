@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domains\Core\Models\Center;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -30,11 +31,28 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $accessibleCenterIds = $user?->accessibleCenterIds() ?? [];
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
-                'is_super_admin' => $request->user()?->isSuperAdmin() ?? false,
+                'user' => $user,
+                'is_super_admin' => $user?->isSuperAdmin() ?? false,
+                'is_admin' => $user?->isAdmin() ?? false,
+                'is_manager' => $user?->isManager() ?? false,
+                'unread_notifications_count' => $user?->unreadNotifications()->count() ?? 0,
+                // Only meaningful for someone with more than one
+                // accessible center (a multi-center practitioner, or —
+                // extended 2026-08-26 — a manager managing several
+                // centers) — AppCenterSwitcher only renders once
+                // there's more than one to switch between (see
+                // EnsureCenterAccess for how the active one is
+                // resolved/auto-selected).
+                'accessible_centers' => $accessibleCenterIds !== []
+                    ? Center::query()->whereIn('id', $accessibleCenterIds)->orderBy('name')->get(['id', 'name'])
+                    : [],
+                'active_center_id' => $accessibleCenterIds !== [] ? $request->session()->get('active_center_id') : null,
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),

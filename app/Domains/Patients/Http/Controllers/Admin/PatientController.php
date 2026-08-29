@@ -2,16 +2,20 @@
 
 namespace App\Domains\Patients\Http\Controllers\Admin;
 
+use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Http\Requests\ConfirmPatientRequest;
 use App\Domains\Patients\Http\Requests\StorePatientDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
+use App\Domains\Patients\Http\Resources\ConsentResource;
 use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseResource;
+use App\Domains\Patients\Http\Resources\PatientDocumentResource;
 use App\Domains\Patients\Http\Resources\TreatmentResource;
 use App\Domains\Patients\Models\CareCategory;
+use App\Domains\Patients\Models\ConsentTemplate;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
@@ -61,6 +65,11 @@ class PatientController extends Controller
             'patients' => $patients,
             'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => $this->centerOptions($request),
+            // A read-only practitioner (patients.view but not
+            // patients.create/update) sees the same list — the template
+            // hides create/edit affordances based on this rather than
+            // guessing from a role name client-side.
+            'can_create' => Gate::allows('create', Patient::class),
         ]);
     }
 
@@ -71,12 +80,23 @@ class PatientController extends Controller
         return Inertia::render('Admin/Patients/Form', [
             'patient' => null,
             'centers' => $this->centerOptions($request),
+            'religionOptions' => $this->religionOptions(),
+            // Form.vue declares can_update as a required prop (it drives
+            // PatientInfoForm's readonly state) — create() never sent it,
+            // producing a "Missing required prop" console warning on
+            // every visit to this page. Always true here: reaching this
+            // action already passed the 'create' gate, and creating
+            // implies being able to edit what was just created.
+            'can_update' => true,
         ]);
     }
 
     public function edit(Request $request, Patient $patient): Response
     {
-        Gate::authorize('update', $patient);
+        // 'view', not 'update' — a read-only practitioner (patients.view
+        // only) can open a patient's file, just not edit it. can_update
+        // below drives what the template actually lets them touch.
+        Gate::authorize('view', $patient);
 
         $patient->load([
             'treatments' => fn ($query) => $query->with([
@@ -84,6 +104,7 @@ class PatientController extends Controller
                 'diseases.category',
                 'sessions.careItems.category',
                 'sessions.diseaseProgress.disease',
+                'sessions.measurements.measurementType',
             ])->orderByDesc('started_at'),
         ]);
 
@@ -92,6 +113,15 @@ class PatientController extends Controller
             'treatments' => TreatmentResource::collection($patient->treatments),
             'centers' => $this->centerOptions($request),
             'practitioners' => $this->practitionerOptions($request),
+            'religionOptions' => $this->religionOptions(),
+            'can_update' => Gate::allows('update', $patient),
+            'documents' => [
+                'identity' => $patient->getFirstMedia('identity')
+                    ? new PatientDocumentResource($patient->getFirstMedia('identity'))
+                    : null,
+                'medical' => PatientDocumentResource::collection($patient->getMedia('medical')),
+                'other' => PatientDocumentResource::collection($patient->getMedia('other')),
+            ],
             'diseases' => DiseaseResource::collection(
                 Disease::query()->where('active', true)->with('category')->orderBy('code')->get(),
             ),
@@ -101,6 +131,13 @@ class PatientController extends Controller
             'careCategories' => CareCategoryResource::collection(
                 CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get(),
             ),
+            'measurementTypes' => $this->measurementTypeOptions(),
+            'consents' => ConsentResource::collection(
+                $patient->consents()->with('template', 'acceptedBy')->latest()->get(),
+            ),
+            'consentTemplates' => ConsentTemplate::query()
+                ->where('is_active', true)
+                ->get(['type', 'title', 'content', 'version']),
         ]);
     }
 
@@ -164,5 +201,35 @@ class PatientController extends Controller
         $patient->delete();
 
         return redirect()->route('admin.patients.index');
+    }
+
+    /**
+     * @return array<int, array{id: int, code: string, label: string}>
+     */
+    private function religionOptions(): array
+    {
+        return EnumOption::cachedByType('patient.religion')
+            ->map(fn (EnumOption $option) => [
+                'id' => $option->id,
+                'code' => $option->code,
+                'label' => $option->label['fr'] ?? $option->code,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, code: string, label: string, unit: ?string, placeholder: ?string}>
+     */
+    private function measurementTypeOptions(): array
+    {
+        return EnumOption::cachedByType('session_measurement_type')
+            ->map(fn (EnumOption $option) => [
+                'id' => $option->id,
+                'code' => $option->code,
+                'label' => $option->label['fr'] ?? $option->code,
+                'unit' => $option->properties['unit'] ?? null,
+                'placeholder' => $option->properties['placeholder'] ?? null,
+            ])
+            ->all();
     }
 }

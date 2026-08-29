@@ -17,6 +17,7 @@ interface TreatmentSessionSummary {
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
+    measurements: { measurement_type_option_id: number; measurement_type_code: string; measurement_type_label: string; value: string; unit: string | null; notes: string | null }[];
 }
 
 const props = defineProps<{
@@ -125,13 +126,19 @@ function careItemGroups(session: TreatmentSessionSummary): CareItemGroup[] {
                         </div>
                     </div>
 
-                    <div v-if="session.disease_progress.length" class="d-flex flex-column ga-1">
+                    <div v-if="session.disease_progress.length" class="d-flex flex-column ga-1 mb-2">
                         <div v-for="progress in session.disease_progress" :key="progress.disease_id" class="d-flex align-center ga-1">
                             <v-icon :icon="outcomeIcon(progress.outcome)" :color="outcomeColor(progress.outcome)" size="small" />
                             <span class="text-body-2">
                                 {{ progress.disease_label }} — {{ outcomeLabel(progress.outcome, progress.outcome_percentage) }}
                             </span>
                         </div>
+                    </div>
+
+                    <div v-if="session.measurements.length" class="d-flex flex-wrap ga-2">
+                        <v-chip v-for="measurement in session.measurements" :key="measurement.measurement_type_option_id" size="small" variant="tonal">
+                            {{ measurement.measurement_type_label }} : {{ measurement.value }}{{ measurement.unit ? ` ${measurement.unit}` : '' }}
+                        </v-chip>
                     </div>
                 </v-card-text>
             </AppCard>

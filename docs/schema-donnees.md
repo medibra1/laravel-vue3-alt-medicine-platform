@@ -99,10 +99,96 @@ id · code · label (translatable) · coefficient (décimal, multiplicateur
 
 ### `users`
 id · name · email (unique) · password · locale (préférence UI) ·
-is_active · timestamps
+is_active · email_verified_at · timestamps
 → table pivot `spatie/laravel-permission` en **mode teams**, `team_id` =
-`center_id` (un manager/soignant a un rôle scopé à son centre ; le
-`super_admin` a un rôle sans team, global).
+`center_id` (un manager/soignant a un rôle scopé à son centre ; les
+rôles `super_admin`/`admin` sont sans team réelle, assignés sous la
+team sentinelle `0` — `model_has_roles.team_id` est `NOT NULL`, voir
+`RolesAndPermissionsSeeder`).
+
+✅ **Gestion des comptes (Phase 1, 2026-08-25)** — `is_active` (colonne
+déjà présente depuis une migration antérieure, jamais réellement
+exploitée jusqu'ici) bloque désormais la connexion
+(`AuthenticatedSessionController::store()`, vérifié juste après
+`Auth::attempt()` — pas via un listener sur `Attempting`, qui n'a pas
+encore le `User` résolu à ce stade). Deux modes de création
+(`UserController::store()`) :
+- **Direct** : mot de passe choisi par l'admin, `email_verified_at`
+  posé immédiatement (`now()`) — l'admin vouche pour l'adresse.
+- **Invitation** : mot de passe aléatoire jetable jamais communiqué,
+  `email_verified_at = null`, `WelcomeSetPasswordNotification` envoie
+  un lien vers la route `password.reset` **déjà existante** (générée
+  via `Password::createToken()`) — pas de colonne
+  `invitation_token`/`invited_at` custom, le password broker natif de
+  Laravel est réutilisé tel quel. `MarkEmailVerifiedOnPasswordReset`
+  (listener sur `Illuminate\Auth\Events\PasswordReset`, enregistré
+  manuellement dans `AppServiceProvider::boot()` — l'auto-discovery de
+  Laravel ne scanne que `app/Listeners`, pas les sous-dossiers de
+  domaine) marque l'email vérifié dès que l'utilisateur clique le lien
+  et définit son mot de passe, sans étape de vérification séparée.
+
+⚠️ **Piège de validation trouvé en vérification navigateur** — le
+formulaire frontend envoie toujours `password`/`password_confirmation`
+(chaînes vides en mode invitation, jamais absentes). Empiler
+`'prohibited'` et `Password::defaults()` dans le même tableau de règles
+ne suffit pas : `Password::defaults()` s'exécute quand même contre la
+valeur vide, échec de validation silencieux (redirection 302 vers la
+page précédente avec erreurs en session, aucune exception côté serveur
+— long à diagnostiquer). Fix dans `StoreUserRequest::rules()` : deux
+branches de règles complètement séparées selon `creation_mode`, jamais
+`prohibited` et `Password::defaults()` dans le même tableau. **Ce même
+piège s'est reproduit deux fois en Phase 2** (`matricule`/
+`creation_mode` sur `StorePractitionerRequest`, voir section
+`practitioners` — Inertia's `useForm()` soumet toujours tous les
+champs, même masqués par `v-if`, `'prohibited'` n'est fiable que si le
+frontend vide vraiment le champ avant soumission, sinon préférer
+`nullable` quand le contrôleur ignore la valeur de toute façon).
+
+✅ **Rôle `practitioner` et centre actif multi-centre (Phase 2,
+2026-08-25)** — contrairement à `manager` (un seul centre géré,
+`User::managedCenterId()`), un `practitioner` peut être scopé sur
+plusieurs centres à la fois (`User::accessibleCenterIds()`, raw query
+non scopée sur `model_has_roles`/`roles` filtrée sur le rôle
+`practitioner`, même famille que `isSuperAdmin()`/`managedCenterId()`).
+`EnsureCenterAccess` (middleware existant, étendu) résout le centre
+actif de la requête dans cet ordre : `managedCenterId()` (manager,
+inchangé) → sinon `session('active_center_id')` si présent et
+toujours accessible → sinon **auto-sélection du premier centre
+accessible**, posée en session automatiquement. **Pas d'écran de choix
+obligatoire** (décision explicite : plus simple qu'un `SelectCenter.vue`
+bloquant, le practitioner peut changer à tout moment via le sélecteur
+`AppCenterSwitcher.vue` dans l'app-bar, visible seulement si plus d'un
+centre accessible). `POST admin/active-center`
+(`ActiveCenterController`) change la sélection, revalidée contre
+`accessibleCenterIds()` à chaque fois (rejet si le centre demandé n'y
+figure pas).
+
+`PatientPolicy`/`TreatmentPolicy::viewAny()`/`view()` fonctionnent
+nativement pour `practitioner` via `$user->can(...)` (contrairement à
+`admin`/`super_admin`, ce rôle est scopé par team comme `manager` —
+pas de contournement `before()` nécessaire). Seules `patients.view`/
+`treatments.view` sont accordées à ce rôle (`RolePermissions::
+practitioner()`) — jamais `create`/`update`/`delete`, qui restent
+`manager`-only. `PatientController::edit()` autorise désormais `view`
+(pas `update`) pour permettre la consultation lecture-seule, expose
+`can_update` (bool) pour que `Form.vue`/`PatientInfoForm.vue`
+désactivent le formulaire (`<fieldset disabled>`) sans dupliquer la
+page. Même principe côté listes (`can_create` sur `Patients/Index.vue`
+et `Treatments/Index.vue`, masque les boutons de création/édition/
+suppression).
+
+### `notifications` — **implémenté** (2026-08-25)
+Table standard Laravel (`php artisan notifications:table`), pas
+préfixée par domaine (référentiel `Common`-like, polymorphe
+`notifiable_type`/`notifiable_id`). Canal `database` uniquement en
+Phase 1 (`ManagerAssignedNotification`) — pas de broadcasting temps
+réel. Phase 2 ajoute `PractitionerJoinedCenterNotification`
+(`app/Domains/Practitioners/Notifications/`), mail **et** database
+cette fois (contrairement à `ManagerAssignedNotification`) : un
+practitioner déjà connecté sur un autre centre doit être notifié de
+façon visible d'un changement d'accès qui peut se produire pendant
+qu'il travaille. Cloche `AppNotificationBell.vue` dans l'app-bar,
+rafraîchie au clic (pas de polling).
 
 ### `practitioners` (soignants)
 | Colonne | Type | Notes |
@@ -110,7 +196,7 @@ is_active · timestamps
 | id | bigint PK | |
 | first_name | string | **ajouté 2026-08-21** — absent depuis la création du domaine, seul `matricule`/`full_code` identifiaient un praticien jusque-là (repéré par l'utilisateur en voyant "Praticien : 0116694" dans le dossier patient) |
 | last_name | string | **ajouté 2026-08-21**, voir `first_name` |
-| user_id | fk `users`, nullable | un soignant peut ne pas avoir de compte de connexion (juste référencé) |
+| user_id | fk `users`, nullable, **unique (2026-08-25)** | un soignant peut ne pas avoir de compte de connexion (juste référencé) ; unique = un compte `User` ne peut jamais être lié qu'à une seule ligne `Practitioner`, même s'il a accès à plusieurs centres (voir Phase 2 ci-dessous) |
 | center_id | fk `centers` | |
 | grade_id | fk `grades`, nullable | porte le coefficient utilisé dans le calcul de paie |
 | matricule | string(3) | dernier segment du code — **renommé depuis `diploma_number` le 2026-08-20** (le mot "diplôme" prêtait à confusion : un matricule n'est pas toujours un vrai numéro de diplôme) |
@@ -140,6 +226,42 @@ dans le centre, `PractitionerCodeGenerator::suggestNextMatricule()`,
 endpoint `GET admin/practitioners/next-matricule`) mais reste
 éditable : un manager qui a déjà un vrai numéro de diplôme/registre
 peut le saisir directement à la place de la suggestion.
+
+✅ **Comptes practitioner multi-centres (Phase 2, 2026-08-25)** — un
+`Practitioner` (une ligne, un seul centre `center_id` — inchangé) peut
+avoir son `User` lié (`user_id`) accessible sur **plusieurs** centres
+en même temps, via plusieurs assignations `practitioner` dans
+`model_has_roles` (une par centre, jamais remplacées — voir
+`PractitionerController::grantPractitionerAccessToCenter()`, additive
+contrairement à `UserController::assignRole()` qui écrase tout).
+`User::accessibleCenterIds()` liste ces centres. Deux façons d'obtenir
+cet accès depuis le formulaire de création Praticien (toggle "Donner
+un accès à l'application") :
+- **Nouveau compte** : email inconnu → crée `User` + lie
+  `Practitioner.user_id` + assigne `practitioner` sur ce centre
+  (comportement identique à la création manager/admin en Phase 1 :
+  direct ou invitation par email, mot de passe natif Laravel).
+- **Auto-jonction** : email déjà lié à un `Practitioner` existant
+  (peu importe le centre d'origine) → **aucune nouvelle ligne
+  `Practitioner` créée** — juste une assignation `practitioner`
+  supplémentaire sur ce nouveau centre pour le `User` déjà existant.
+  Aucune étape d'acceptation, notification immédiate (mail +
+  database, `PractitionerJoinedCenterNotification`).
+- **Email déjà pris par un compte non-practitioner** (admin/manager) →
+  rejeté, message clair (`PractitionerAccountResolver`).
+
+⚠️ **Piège de validation rencontré deux fois d'affilée en vérification
+navigateur** — `useForm()` d'Inertia soumet toujours tous les champs
+du formulaire, même ceux masqués par `v-if` côté template (ex.
+`matricule`/`creation_mode`/`first_name`/`last_name`, masqués une fois
+l'auto-jonction détectée). `'prohibited'` sur ces champs dans
+`StorePractitionerRequest` rejetait donc la requête avec une valeur
+résiduelle non vide, produisant un 302 de redirection-back qui
+ressemblait exactement à un vrai succès (même URL cible que l'index).
+Fix : ces champs sont `nullable` (acceptés mais jamais lus par
+`store()` dans la branche d'auto-jonction, qui retourne avant de les
+toucher) plutôt que `prohibited` — voir CLAUDE.md "Gestion des comptes
+practitioner multi-centres" pour le détail du diagnostic.
 
 ---
 
@@ -505,6 +627,33 @@ séance implicite créée à la confirmation (voir "Domaine Treatment" dans
 au niveau du traitement) — ce step ne fait qu'ajouter un deuxième point
 d'entrée vers ce même pivot, pas une nouvelle notion de donnée.
 
+### `treatment_session_measurements` — **implémenté** (2026-08-28)
+Mesures libres par séance (tension artérielle, glycémie, poids,
+température, fréquence cardiaque...), même schéma d'upsert que
+`treatment_session_disease_progress` (une ligne par type de mesure par
+séance, pas un historique séparé). Le type de mesure n'est **pas**
+codé en dur — il pointe vers `enum_options` (`enum_type =
+'session_measurement_type'`), sur le même principe que
+`patients.religion_option_id` : un admin ajoute/désactive un type de
+mesure depuis l'écran `EnumOptions` existant, sans migration ni
+déploiement. `EnumOption.properties.unit` sert de valeur par défaut
+pré-remplie dans le formulaire de séance (modifiable au cas par cas,
+donc dupliquée sur la ligne elle-même plutôt que toujours résolue
+depuis le type) ; `properties.placeholder` (ex. "12/8" pour la tension)
+guide la saisie sans la contraindre.
+
+id · treatment_session_id (fk `treatment_sessions`, cascade) ·
+measurement_type_option_id (fk `enum_options`, cascade) · value
+(string — pas numeric, pour couvrir aussi bien "12/8" que "0.95") ·
+unit, nullable · notes, nullable · timestamps ·
+unique(treatment_session_id, measurement_type_option_id)
+
+Cinq types seedés par défaut (`SessionMeasurementTypesSeeder`) :
+tension artérielle (mmHg), glycémie (g/L), poids (kg), température
+(°C), fréquence cardiaque (bpm) — liste de départ, à étendre/corriger
+depuis l'admin plutôt qu'en éditant le seeder plus tard (même
+convention que `patient.religion`).
+
 ### `care_categories` / `care_items` — **implémenté** (2026-08-20)
 Catalogue de soins dynamique à 2 niveaux, hand-roll sur le modèle exact
 de `disease_categories`/`diseases` (décision : la
@@ -572,6 +721,400 @@ de soins et le stock (`Catalog.Product` — un item comme "Verset" n'a ni
 stock ni prix, contrairement à une pommade, donc ce lien ne concernera
 qu'une partie des catégories le jour où il sera construit) ; lien vers
 la facturation/paiement patient (`Billing`).
+
+### Documents patient (2026-08-28, `spatie/laravel-medialibrary`)
+
+Premier usage réel du package dans ce projet (déjà en dépendance,
+migration `media` déjà présente, mais aucun modèle ne portait
+`HasMedia` avant cette session). `Patient` (`app/Domains/Patients/Models/Patient.php`)
+implémente `HasMedia`/`InteractsWithMedia`, trois collections :
+`identity` (pièce d'identité, `singleFile()` — un nouvel upload
+remplace l'ancien plutôt que de s'accumuler), `medical` (documents
+médicaux, multiples), `other` (documents libres, multiples). Mimes
+acceptés : `image/jpeg`, `image/png`, `application/pdf` — **HEIC pas
+encore accepté**, reporté (Imagick sur cet environnement lit HEIC de
+façon non fiable sans `libheif`, jamais vérifié réellement).
+
+**Disque `local` (privé), jamais `public`** — ce sont des documents
+sensibles (identité, dossier médical). Aucune URL directe ne les sert :
+téléchargement et miniature passent par deux routes authentifiées
+dédiées (`admin.patients.documents.show`/`admin.patients.documents.thumb`),
+gate `PatientPolicy::view`/`update` selon l'action — mêmes règles de
+scoping centre que le reste du dossier patient, pas de mécanisme
+spécifique aux documents.
+
+**Fusion automatique en PDF dès 2+ fichiers uploadés d'un coup sur
+`identity`/`medical`** — un praticien qui photographie plusieurs pages
+d'un même document avec son téléphone obtient un seul fichier attaché,
+pas un par photo. `MergeImagesIntoPdfAction`
+(`app/Domains/Patients/Services/`) : chaque fichier du lot est lu par
+Imagick, un PDF déjà présent dans le lot voit ses pages insérées
+telles quelles (pas re-rasterisées). `other` ne fusionne jamais (tous
+les items n'y sont pas forcément liés les uns aux autres), et un
+upload d'un seul fichier ne fusionne jamais non plus (rien à
+combiner), quelle que soit la collection.
+
+**Miniature (`thumb`, 240×240) générée pour les trois collections**,
+y compris sur un PDF (`Pdf` est déjà dans les `image_generators` par
+défaut du package) — nécessite deux prérequis non actifs par défaut
+sur cet environnement, vérifiés et corrigés en session, pas supposés :
+- `IMAGE_DRIVER=imagick` dans `.env`/`phpunit.xml` (défaut du package :
+  `gd`, qui ne sait pas lire un PDF — sans ce réglage, la conversion
+  `thumb` échoue silencieusement sur `identity`/`medical` fusionnés).
+- `spatie/pdf-to-image` ajouté explicitement à `composer.json` (le
+  package le liste en dépendance *suggérée*, pas installée par défaut —
+  sans lui, `requirementsAreInstalled()` du générateur PDF de Media
+  Library retourne `false` et saute la conversion sans erreur visible).
+
+Requiert aussi, sur l'hôte (documenté ici, pas dans un script
+d'installation — cohérent avec le reste du projet qui n'automatise pas
+le provisioning) : extension PHP `imagick` (`pecl install imagick`,
+nécessite `imagemagick` + `pkg-config` sur la machine), et Ghostscript
+(`gs`, utilisé par `spatie/pdf-to-image` pour rasteriser un PDF).
+
+**`Conversion::nonQueued()` appelé avant `width()`/`height()`**, pas
+après — piège Larastan rencontré en session : `Conversion` porte un
+docblock `@mixin ImageDriver`, et Larastan résout le type de retour de
+`width()`/`height()` (magiques, via `__call()`, qui retournent toujours
+`Conversion` à l'exécution) sur le type déclaré par le mixin
+(`ImageDriver::width(): static`) plutôt que sur le comportement réel —
+`nonQueued()` (une vraie méthode de `Conversion`) devient alors
+introuvable si elle est appelée en dernier. Appeler la seule méthode
+réelle de la chaîne en premier contourne le problème sans avoir besoin
+d'ignorer l'erreur.
+
+⚠️ **Test rencontré, pas un bug applicatif** : `UploadedFile::fake()->image()`
+génère par défaut un JPEG 10×10 — Ghostscript échoue à rasteriser une
+page construite depuis une image aussi minuscule à l'intérieur d'un
+PDF ("Page drawing error... Could not draw this page at all"),
+reproduit isolément en dehors de Laravel. Les tests qui exercent la
+fusion multi-image doivent donc passer une taille réaliste
+(`UploadedFile::fake()->image('x.jpg', 800, 600)`) — une vraie photo
+uploadée depuis un téléphone n'est jamais 10×10, donc ce n'est pas un
+vrai défaut à corriger côté production.
+
+#### Addendum (2026-08-28, suite immédiate) — lien séance, disponibilité précoce
+
+Trois ajustements demandés juste après la première implémentation
+ci-dessus :
+
+**Documents médicaux liés à une séance via `custom_properties`, pas une
+nouvelle collection ni un pivot** — `medical` reste une seule
+collection globale sur `Patient` (un seul endroit de vérité, jamais
+dupliquée par séance). `PatientDocumentController::store()` accepte un
+`treatment_session_id` optionnel (`StorePatientDocumentRequest`, validé
+comme appartenant à une séance d'un traitement de **ce** patient —
+`Rule::exists('treatment_sessions', 'id')->where(fn ($q) => $q->whereIn('treatment_id', $patient->treatments()->select('id')))`,
+sinon un id de séance forgé appartenant à un autre patient pourrait
+autrement taguer un document sur la mauvaise séance). Stocké via
+`FileAdder::withCustomProperties(['treatment_session_id' => ...])`,
+exposé par `PatientDocumentResource.treatment_session_id`. Uploadable
+depuis deux points d'entrée vers le même endpoint : l'onglet Documents
+du dossier patient (`PatientDocumentsTab.vue`, jamais de
+`treatment_session_id`) et un nouvel onglet "Documents" dans
+`TreatmentSessionDialog.vue` (toujours avec `treatment_session_id`,
+voir plus bas). ~~Le document reste consultable uniquement depuis
+l'onglet Documents du dossier patient — `TreatmentSessionDialog` ne
+liste pas les documents déjà liés à la séance~~ — **revu dans l'addendum
+du 2026-08-28 (deuxième suite) ci-dessous**, `TreatmentSessionDialog`
+liste maintenant ces documents.
+
+**`TreatmentSessionDialog.vue` — upload désactivé pour une séance pas
+encore enregistrée** — contrairement à `Patient`/`Treatment`
+(wizard résilient avec autosave), une `TreatmentSession` est un CRUD
+simple en un seul submit, sans id avant le premier `save()` réussi. Le
+nouvel onglet "Documents" du dialog affiche l'uploader seulement si
+`props.session !== null` (édition d'une séance existante) ; pour une
+nouvelle séance, un message ("Enregistrez la séance pour pouvoir y
+attacher un document médical.") remplace l'uploader — décision
+explicite (alternative écartée : auto-save silencieux de la séance au
+premier fichier choisi, jugée trop surprenante).
+
+**Onglet Documents disponible dès le premier `storeDraft()`, pas
+seulement après confirmation du patient** — jusqu'ici, `Patients/Form.vue`
+n'affichait `AppTabs` (et donc tous les onglets) que si `props.patient`
+était chargé, ce qui n'arrive **jamais** pendant toute la session
+`/admin/patients/create` (Inertia ne recharge pas cette page après
+`storeDraft()` — seul `serverId`, interne à `useResilientForm`, connaît
+l'id du patient fraîchement créé). Nouveau `computed effectivePatientId`
+(`patient?.id ?? serverId.value`) pilote maintenant l'affichage de
+`AppTabs` — dès que le tout premier `storeDraft()` réussit (~50ms après
+la première frappe), les 4 onglets apparaissent, et `PatientDocumentsTab`
+reçoit `effectivePatientId` plutôt que `patient.id`. "Traitement en
+cours"/"Historique" restent inchangés dans leur fonctionnement (décision
+explicite : pas de masquage supplémentaire tant que le patient n'est pas
+confirmé) mais gagnent un garde `v-if="patient"` avec un message
+("Confirmez d'abord les informations du patient...") plutôt qu'un crash
+sur `props.patient!.id` — ces deux onglets n'avaient jamais été exercés
+sans un `patient` réellement chargé avant ce changement, l'assertion de
+non-nullité y était jusqu'ici toujours vraie en pratique.
+
+#### Addendum (2026-08-28, deuxième suite) — nom lisible, documents liés visibles dans la séance
+
+Deux retours utilisateur supplémentaires.
+
+**Nom affiché lisible pour un PDF fusionné** — `usingFileName()`
+continue de fixer un nom de fichier technique et unique côté disque
+(`merged-2026-08-28-154026.pdf`, ne collisionne jamais), mais
+`Media::$name` (ce qu'expose `PatientDocumentResource.name`, affiché
+à l'écran) est maintenant fixé séparément via `usingName()` :
+`"Pièce d'identité du 28 août 2026"` / `"Documents médicaux du 28 août
+2026"` (`now()->translatedFormat('d F Y')`, locale Carbon déjà `fr` via
+`APP_LOCALE`). **Portée volontairement limitée au cas fusionné** —
+décision explicite : un upload simple (un seul fichier) garde le nom
+original du fichier tel quel (déjà lisible, ex. `photo_id.jpg`), pas
+remplacé par un nom uniforme.
+
+**Documents médicaux liés à une séance affichés dans son dialog** —
+revient sur la décision "upload seulement, pas de liste" actée dans
+l'addendum précédent. `Form.vue` expose maintenant
+`medicalDocumentsForSession(sessionId)` (filtre `props.documents.medical`
+sur `treatment_session_id`), passé à `TreatmentSessionDialog` via une
+nouvelle prop `medicalDocuments` — affichés en lecture seule (miniature/
+nom/bouton télécharger) au-dessus de l'uploader dans l'onglet
+"Documents" du dialog. Toujours vide pour une nouvelle séance (pas
+d'id). Suppression/remplacement restent réservés à l'onglet Documents
+du dossier patient — ce dialog reste un point de consultation, pas un
+deuxième endroit de gestion.
+
+##### Vérification (pour de vrai, pas seulement les tests automatisés)
+
+275 tests Pest (2 assertions ajoutées aux tests de fusion existants
+plutôt que dupliquées — nom lisible sur `identity`/`medical`, zéro
+nouveau test créé, zéro régression), 47 tests Vitest inchangés
+(aucun composant n'avait de test unitaire sur ce comportement précis),
+`pint --test` clean, Larastan niveau 5 clean, build Vite client+SSR OK,
+`vue-tsc --noEmit` clean.
+
+**Vérification navigateur réelle (Playwright headless, scratchpad de
+session)** : upload de 2 photos dans "Documents médicaux" → carte
+affiche "Documents médicaux du 28 août 2026" (confirmé : aucune
+occurrence de "merged-" dans le texte affiché) ; upload d'un document
+depuis l'onglet "Documents" du dialog de séance → **réouverture du
+dialog** (pas seulement le même montage) → document visible dans la
+liste avec sa miniature et son nom original, **vérifié en base**
+(`custom_properties.treatment_session_id` correct, `name` du PDF
+fusionné correctement formaté). Zéro erreur console. Données de test
+supprimées, mot de passe seed remis à une valeur aléatoire — un
+résidu de media (patient id 7, créé plus tôt dans cette même session
+avant l'adoption du préfixe "Verif*" pour les données de test)
+identifié et nettoyé au passage ; le patient "Bech Kadr" (id 5)
+repéré lors de l'addendum précédent reste volontairement intact
+(toujours pas de certitude que ce soit une donnée de test).
+
+#### Addendum (2026-08-28, troisième suite) — retrait temporaire de l'onglet Documents côté séance
+
+Retour utilisateur : trop tôt pour exposer l'upload/la liste de
+documents médicaux directement depuis `TreatmentSessionDialog.vue` —
+pas encore clair comment bien l'organiser vis-à-vis du reste du
+dossier patient. Demande explicite : retirer l'affichage sans retirer
+l'implémentation.
+
+**`sessionTabs` ne liste plus l'entrée Documents** — `AppTabs` (qui
+génère ses `v-window-item` en bouclant sur le tableau `tabs` qu'on lui
+passe) ne monte donc plus jamais le `<template #documents>` du dialog.
+Tout le reste (template, refs, `uploadMedicalDocuments()`, prop
+`medicalDocuments`, `Form.vue`'s `medicalDocumentsForSession()`) reste
+en place à l'identique — un simple ré-ajout de l'entrée à `sessionTabs`
+suffira à réactiver, dès qu'une approche d'organisation sera tranchée.
+Comportement observable : upload de document médical redevient
+exclusivement depuis l'onglet Documents du dossier patient.
+
+### Consentement patient (2026-08-28, `consent_templates` / `consents`)
+
+Contrairement aux "documents patient" ci-dessus (Media Library seule,
+aucun modèle dédié — `Patient` porte directement `HasMedia`),
+le consentement a besoin de données relationnelles interrogeables (qui
+a consenti, à quelle version, quand) — d'où deux vraies tables/modèles
+Eloquent plutôt qu'une simple collection média de plus.
+
+**`consent_templates`** : `type` (`treatment`/`data_privacy`/
+`image_rights`, string libre pas un enum PHP — trois valeurs connues
+mais pas de raison de figer un type PHP pour ça), `version`
+(`unsignedInteger`), `title`, `content` (`longText`, le texte présenté
+au patient), `is_active` (bool). Unique sur `(type, version)`. **Un
+seul `is_active = true` par `type` à la fois, appliqué en code
+(`ConsentTemplateController`), pas par contrainte SQL** — décision
+actée avec l'utilisateur (option choisie explicitement) : `store()` ne
+crée jamais que la toute première version d'un type (rejeté par
+validation si ce type a déjà une version active) ; `update()` est le
+seul chemin qui fait évoluer un type existant — il ne modifie **jamais**
+la ligne en place, il désactive l'ancienne et crée
+`version = ancienne + 1, is_active = true` dans une transaction DB (les
+deux écritures ensemble, pour qu'un type ne soit jamais brièvement sans
+version active).
+
+**`consents`** : `patient_id` (cascade delete), `type` (string, directement
+sur `Consent` — voir addendum ci-dessous, pas résolu via le template),
+`source` (`digital`/`uploaded`, voir addendum), `consent_template_id`
+(nullable, `restrictOnDelete` — un template déjà référencé par un
+consentement ne peut pas être supprimé, cohérent avec le fait qu'aucune
+route `destroy()` n'existe d'ailleurs sur `ConsentTemplateController`),
+`version` (nullable, copie de `consent_templates.version` au moment du
+recueil), `content_snapshot` (`longText` nullable, copie figée du texte
+accepté — **indépendante** d'une édition ultérieure du template, c'est
+le point central de cette colonne pour une source `digital` : un texte
+déjà signé ne doit jamais changer rétroactivement même si `update()`
+crée une nouvelle version), `signer_name`, `signature_svg` (`longText`
+nullable — en pratique une data URL PNG du tracé canvas, pas du SVG
+vectoriel malgré le nom de colonne repris tel quel du prompt initial),
+`accepted_at`, `accepted_by` (FK `users`), `ip_address` (nullable). Un
+seul point d'écriture (deux méthodes, un seul modèle touché) :
+`RecordPatientConsentAction` (`app/Domains/Patients/Services/`) — voir
+addendum pour le détail des deux chemins `digital()`/`uploaded()`.
+
+**`Consent implements HasMedia`** — collection unique `document`
+(`singleFile()`, disque `local` privé, même raisonnement que
+`Patient`'s collections : un consentement signé est au moins aussi
+sensible qu'une pièce d'identité). Téléchargement via une route
+authentifiée dédiée (`admin.patients.consents.show`), jamais d'URL
+publique directe — même pattern que `PatientDocumentController`,
+y compris le garde-fou `abort_unless($consent->patient_id ===
+$patient->id, 404)` puisque `{consent}` n'est pas un scoped route-model
+binding.
+
+**dompdf, pas `spatie/browsershot`** — demande explicite de
+l'utilisateur en cours de session (le prompt initial supposait
+`browsershot` "déjà installé et utilisé", ce qui s'est révélé faux à la
+vérification : présent dans `composer.json` mais aucun code de
+génération PDF n'existait nulle part dans le projet avant cette
+session). `barryvdh/laravel-dompdf` `^3.1` (v3.1.2, dernière stable)
+ajouté ; `spatie/browsershot` reste dans `composer.json`, non retiré
+(décision explicite de l'utilisateur — hors périmètre de cette
+session), toujours inutilisé par aucun code. **Premier template Blade
+PDF du projet** (`resources/views/pdf/`, dossier qui n'existait pas
+avant) — pas de config `dompdf` publiée (les valeurs par défaut du
+package suffisent, rien de spécifique au projet à surcharger pour
+l'instant).
+
+⚠️ **Piège d'environnement rencontré, pas un bug de code** : après
+`composer require`, le cache `bootstrap/cache/packages.php` (généré
+lors d'une session précédente, avant l'installation de dompdf) ne
+listait pas le nouveau package — `Target class [dompdf.wrapper] does
+not exist` au premier test, jusqu'à `php artisan package:discover`. À
+revérifier après tout `composer require` d'un package Laravel dans cet
+environnement si un service fraîchement installé n'est "pas trouvé"
+alors qu'il est bien dans `vendor/`.
+
+**Page admin `/admin/consent-templates` construite en plus de ce que le
+prompt initial listait explicitement** — le prompt ne décrivait que le
+contrôleur backend (`ConsentTemplateController`), pas de page Vue.
+Sans elle, la route pointait vers une 404 et aucun consentement n'aurait
+jamais pu être recueilli, faute de template actif configurable —
+question posée et tranchée avec l'utilisateur avant de construire.
+Suit le pattern déjà en place pour les CRUD référentiels
+(`EnumOptions`/`Centers` : liste + dialog de création + dialog
+d'édition), `ConsentTemplatePolicy` calquée sur `CenterPolicy`
+(`super_admin` **et** `admin`, pas `super_admin` seul comme
+`EnumOptionPolicy` — pattern le plus récent du projet pour une
+référence globale, voir "Domaine Auth" plus haut). Lien de nav dans le
+même groupe `isSuperAdmin || isAdmin` que "Utilisateurs"/"Centres".
+
+**Onglet "Consentement" dans le dossier patient** — 4e onglet, entre
+"Documents" et "Historique" (ordre non spécifié explicitement par le
+prompt, choisi par cohérence avec la convention déjà en place de
+toujours faire précéder "Historique", l'onglet terminal). Nouveau
+composant `Components/Patients/PatientConsentsTab.vue` : une `AppCard`
+par type, badge "À jour"/"À renouveler" (comparaison
+`consent.template_version === template.version` — pas
+`consent.version`, qui reste la version au moment du recueil,
+immuable), dialog de recueil (texte du template, nom du signataire
+pré-rempli avec le nom du patient, `AppSignaturePad`, case à cocher
+obligatoire côté serveur comme côté client).
+
+**`AppSignaturePad.vue` (nouveau wrapper `Components/App/`)** — canvas
+HTML natif (`pointerdown`/`pointermove`/`pointerup`, pas de librairie
+tierce), `v-model` en data URL PNG (`canvas.toDataURL()`), bouton
+"Effacer". Premier wrapper de signature du projet, pas de précédent à
+suivre au-delà des conventions générales `App*` (props/emits typés,
+pas de logique métier).
+
+#### Addendum (2026-08-29) — deux sources de consentement : `digital` / `uploaded`
+
+Retour utilisateur : tous les consentements ne se recueillent pas
+électroniquement — un praticien peut avoir un document déjà signé sur
+papier (formulaire papier existant, patient qui préfère signer à la
+main) à importer directement plutôt que refaire une signature
+électronique. Choix libre à chaque recueil, pas une config par
+centre/pays (over-engineering pour un besoin "au cas par cas selon le
+praticien").
+
+**`consents.type` déplacé directement sur `Consent`, `source` ajoutée**
+— avant cet addendum, `type` n'existait que sur `consent_templates`,
+résolu via `$consent->template->type`. Un consentement `uploaded` n'a
+justement pas toujours de template (voir plus bas), donc `type` doit
+vivre sur `Consent` lui-même, **toujours requis quelle que soit la
+source** — c'est ce qui garde le consentement classable dans la bonne
+carte de l'onglet Consentement, peu importe comment il a été recueilli.
+`source` (`digital`/`uploaded`, string libre, même raisonnement que
+`type` sur `consent_templates` — deux valeurs connues, pas de PHP enum).
+
+**`consent_template_id`/`version`/`content_snapshot` deviennent
+nullables** — seul un consentement `digital` en a besoin (signature
+contre le texte d'un template actif, snapshot figé de ce texte). Un
+consentement `uploaded` n'a structurellement rien à y mettre : le papier
+importé ne correspond pas forcément mot pour mot à une version précise
+d'un template — pas de tentative de le faire correspondre a posteriori.
+
+**`RecordPatientConsentAction` scindée en deux méthodes publiques,
+`digital()` et `uploaded()`, plutôt qu'un seul `__invoke()`** — même
+principe déjà en place ailleurs dans ce domaine (un seul point
+d'écriture pour une même notion de donnée, voir `syncDiseases()` sur
+`TreatmentController`) mais les deux chemins sont trop différents pour
+un seul corps de méthode avec des `if` internes : `digital()` charge le
+template actif (abort 422 si aucun), crée la ligne, génère le PDF via
+dompdf et l'attache ; `uploaded()` ne cherche aucun template, crée la
+ligne avec `accepted_at` fourni par l'appelant (pas `now()` — voir plus
+bas), et attache directement le(s) fichier(s) uploadé(s) comme media —
+**aucune génération PDF** dans ce chemin, le papier scanné/photographié
+*est* déjà le document final.
+
+**`uploaded()` réutilise `MergeImagesIntoPdfAction` telle quelle** —
+même service déjà utilisé par `PatientDocumentController` pour fusionner
+plusieurs photos d'un même document en un seul PDF (un praticien qui
+photographie 2 pages d'un formulaire papier obtient un seul fichier
+attaché, pas un par photo). Aucune logique de fusion dupliquée : un
+seul fichier s'attache tel quel, plusieurs fichiers passent par
+`MergeImagesIntoPdfAction` exactement comme pour les documents patient.
+Mêmes contraintes de validation que `StorePatientDocumentRequest`
+(`jpg,jpeg,png,pdf`, 20 Mo max par fichier, 10 fichiers max) — reprises
+telles quelles dans `StorePatientConsentRequest` plutôt que factorisées
+dans une règle partagée (deux `FormRequest` différents, pas assez de
+duplication réelle pour justifier une abstraction commune).
+
+**`accepted_at` : `now()` pour `digital`, saisi par l'utilisateur pour
+`uploaded`** — décision explicite : la signature électronique se fait
+dans l'instant (pas de date "antérieure" à capturer), mais un document
+papier importé a une vraie date de signature, potentiellement bien
+avant l'import dans le système — c'est cette date-là qui donne sa
+valeur légale/traçable au consentement, pas la date d'upload.
+`StorePatientConsentRequest` : `accepted_at` requis uniquement si
+`source = uploaded` (`Rule::requiredIf`), `before_or_equal:today` (une
+signature ne peut pas dater du futur). Pour `digital`, le champ n'est
+ni demandé ni lu — `RecordPatientConsentAction::digital()` continue de
+poser `now()` en interne comme avant cet addendum.
+
+**Frontend : dialog à deux étapes, pas deux dialogs séparés** —
+`PatientConsentsTab.vue` garde un seul `AppDialog` par carte de type ;
+un `ref<ConsentSource | null>` pilote l'étape affichée (`null` = choix
+initial entre deux `AppCard clickable` "Signature électronique"/
+"Document déjà signé", puis le formulaire correspondant). Bouton
+"Retour" pour revenir au choix initial sans fermer le dialog. Le bouton
+"Recueillir le consentement" de la carte n'est **plus** désactivé
+quand aucun template actif n'existe pour ce type (avant cet addendum,
+il l'était) — un consentement `uploaded` reste possible sans aucun
+template ; c'est uniquement l'option "Signature électronique", une fois
+choisie à l'étape 2, qui affiche un message d'erreur si aucun template
+actif n'existe pour ce type précis.
+
+**Badge "À jour"/"À renouveler" : toujours "à jour" pour un consentement
+`uploaded`** — la comparaison de version (`consent.template_version ===
+template.version`) n'a de sens que pour `digital`. Un `uploaded` n'a pas
+de `template_version` (toujours `null`), donc `isUpToDate()` retourne
+directement `true` pour cette source plutôt que de comparer des `null`.
+Un second chip ("Signature électronique"/"Document importé") affiche la
+source à côté du badge de fraîcheur, pour que les deux notions restent
+visuellement distinctes.
 
 ---
 

@@ -47,6 +47,12 @@ class TreatmentSession extends Model
         return $this->hasMany(TreatmentSessionDiseaseProgress::class, 'treatment_session_id');
     }
 
+    /** @return HasMany<TreatmentSessionMeasurement, $this> */
+    public function measurements(): HasMany
+    {
+        return $this->hasMany(TreatmentSessionMeasurement::class, 'treatment_session_id');
+    }
+
     /** @return BelongsToMany<CareItem, $this> */
     public function careItems(): BelongsToMany
     {

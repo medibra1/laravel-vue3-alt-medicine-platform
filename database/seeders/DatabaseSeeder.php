@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             EnumOptionSeeder::class,
+            SessionMeasurementTypesSeeder::class,
             ZoneSeeder::class,
             CountrySeeder::class,
             GradeSeeder::class,

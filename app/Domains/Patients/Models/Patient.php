@@ -3,17 +3,21 @@
 namespace App\Domains\Patients\Models;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\ModelStatus\HasStatuses;
 
-class Patient extends Model
+class Patient extends Model implements HasMedia
 {
-    use HasFactory, HasStatuses;
+    use HasFactory, HasStatuses, InteractsWithMedia;
 
     protected $guarded = ['id'];
 
@@ -44,6 +48,12 @@ class Patient extends Model
         return $this->belongsTo(Country::class);
     }
 
+    /** @return BelongsTo<EnumOption, $this> */
+    public function religion(): BelongsTo
+    {
+        return $this->belongsTo(EnumOption::class, 'religion_option_id');
+    }
+
     /** @return BelongsTo<User, $this> */
     public function createdBy(): BelongsTo
     {
@@ -54,6 +64,12 @@ class Patient extends Model
     public function treatments(): HasMany
     {
         return $this->hasMany(Treatment::class);
+    }
+
+    /** @return HasMany<Consent, $this> */
+    public function consents(): HasMany
+    {
+        return $this->hasMany(Consent::class);
     }
 
     /**
@@ -97,5 +113,49 @@ class Patient extends Model
             'protocol_not_followed' => ['key' => 'stopped', 'label' => 'Arrêté', 'color' => 'error'],
             default => ['key' => 'other', 'label' => 'Autre', 'color' => 'secondary'],
         };
+    }
+
+    /**
+     * 'local' disk on purpose, not 'public' — identity documents and
+     * medical files are sensitive, they must never be reachable through a
+     * direct public URL. Downloads/thumbnails go through
+     * PatientDocumentController, which authorizes against PatientPolicy
+     * before streaming from this private disk.
+     */
+    public function registerMediaCollections(): void
+    {
+        $mimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+
+        $this->addMediaCollection('identity')
+            ->useDisk('local')
+            ->singleFile()
+            ->acceptsMimeTypes($mimeTypes);
+
+        $this->addMediaCollection('medical')
+            ->useDisk('local')
+            ->acceptsMimeTypes($mimeTypes);
+
+        $this->addMediaCollection('other')
+            ->useDisk('local')
+            ->acceptsMimeTypes($mimeTypes);
+    }
+
+    public function registerMediaConversions(?Media $media = null): void
+    {
+        // nonQueued() called before width()/height() on purpose: Conversion
+        // is annotated `@mixin ImageDriver` for width()/height() (they're
+        // resolved through __call() at runtime, always returning Conversion
+        // itself) — but Larastan trusts the mixin's declared `static` return
+        // type (ImageDriver), which doesn't have nonQueued(). Calling the
+        // one real Conversion method first keeps the chain typed correctly
+        // instead of ending it on a magic call.
+        // QUEUE_CONNECTION is 'sync' in local/tests here, but explicit
+        // beats implicit — the thumb must exist by the time the controller
+        // responds, not whenever a queue worker gets to it.
+        $this->addMediaConversion('thumb')
+            ->performOnCollections('identity', 'medical', 'other')
+            ->nonQueued()
+            ->width(240)
+            ->height(240);
     }
 }

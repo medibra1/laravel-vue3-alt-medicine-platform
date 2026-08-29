@@ -29,10 +29,12 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: null,
                 treatmentDiseases,
                 careCategories: [],
+                measurementTypes: [],
                 lastKnownOutcomes,
             },
             attachTo: document.body,
@@ -53,10 +55,12 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: null,
                 treatmentDiseases,
                 careCategories: [],
+                measurementTypes: [],
                 lastKnownOutcomes,
             },
             attachTo: document.body,
@@ -80,6 +84,7 @@ describe('TreatmentSessionDialog', () => {
         activeWrapper = mount(TreatmentSessionDialog, {
             props: {
                 visible: true,
+                patientId: 1,
                 treatmentId: 1,
                 session: {
                     id: 5,
@@ -88,9 +93,11 @@ describe('TreatmentSessionDialog', () => {
                     notes: null,
                     care_items: [],
                     disease_progress: [{ disease_id: 1, outcome: 'not_cured', outcome_percentage: null, notes: null }],
+                    measurements: [],
                 },
                 treatmentDiseases,
                 careCategories: [],
+                measurementTypes: [],
                 lastKnownOutcomes,
             },
             attachTo: document.body,

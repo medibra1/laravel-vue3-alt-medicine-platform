@@ -2,7 +2,9 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
+import AppFileUpload from '@/Components/App/AppFileUpload.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
@@ -31,6 +33,21 @@ interface CareCategoryOption {
     items: CareItemOption[];
 }
 
+interface MeasurementTypeOption {
+    id: number;
+    code: string;
+    label: string;
+    unit: string | null;
+    placeholder: string | null;
+}
+
+interface SessionMeasurement {
+    measurement_type_option_id: number;
+    value: string;
+    unit: string | null;
+    notes: string | null;
+}
+
 interface Session {
     id: number;
     session_date: string | null;
@@ -38,6 +55,7 @@ interface Session {
     notes: string | null;
     care_items: { id: number }[];
     disease_progress: { disease_id: number; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
+    measurements: SessionMeasurement[];
 }
 
 interface LastKnownOutcome {
@@ -46,13 +64,24 @@ interface LastKnownOutcome {
     notes: string | null;
 }
 
+interface MedicalDocument {
+    id: number;
+    name: string;
+    mime_type: string;
+    size: number;
+    download_url: string;
+    thumb_url: string | null;
+}
+
 const props = withDefaults(
     defineProps<{
         visible: boolean;
+        patientId: number;
         treatmentId: number;
         session: Session | null;
         treatmentDiseases: TreatmentDisease[];
         careCategories: CareCategoryOption[];
+        measurementTypes: MeasurementTypeOption[];
         /**
          * Most recent outcome/percentage/notes recorded for each disease
          * across every past session of this treatment — used to prefill a
@@ -62,8 +91,18 @@ const props = withDefaults(
          * when editing an existing session (that session's own values win).
          */
         lastKnownOutcomes?: Record<number, LastKnownOutcome>;
+        /**
+         * Medical documents already tagged with this session's id
+         * (Patient's single 'medical' collection, filtered by
+         * custom_properties.treatment_session_id — see Form.vue's
+         * medicalDocumentsForSession()). Always empty for a brand-new
+         * session (nothing to tag yet). Listed here purely for review —
+         * still only ever deleted/downloaded from the patient file's
+         * Documents tab, the single place that owns document management.
+         */
+        medicalDocuments?: MedicalDocument[];
     }>(),
-    { lastKnownOutcomes: () => ({}) },
+    { lastKnownOutcomes: () => ({}), medicalDocuments: () => [] },
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
@@ -72,9 +111,20 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 // the same session — not a step-by-step sequence like the treatment wizard
 // — so this uses Tabs rather than a Stepper, same choice already made for
 // the patient file's own tabs (see AuthenticatedLayout/Form.vue).
+//
+// A "Documents" tab (upload + review of medical documents tagged to this
+// session) was added and then pulled back out on 2026-08-28 — not deleted:
+// the <template #documents> below, medicalDocuments prop, and
+// uploadMedicalDocuments() all still exist, just no longer reachable
+// because AppTabs only renders tabs listed here. Decision was to keep
+// document management solely on the patient file's Documents tab for now,
+// "as it was at the start" — how a session-level entry point should really
+// fit in is still to be worked out. Add { title: 'Documents', value:
+// 'documents' } back to re-enable once that's settled.
 const sessionTabs: AppTabItem[] = [
     { title: 'Soins', value: 'care' },
     { title: 'Suivi des maladies', value: 'diseases' },
+    { title: 'Mesures', value: 'measurements' },
 ];
 const activeSessionTab = ref<string>('care');
 
@@ -102,10 +152,60 @@ interface DiseaseOutcomeRow {
 }
 
 const diseaseOutcomes = ref<Record<number, DiseaseOutcomeRow>>({});
+const measurementRows = ref<SessionMeasurement[]>([]);
+const newMeasurementTypeId = ref<number | null>(null);
+
+// A measurement type already present as a row can't be picked again — the
+// backend unique constraint on [treatment_session_id, measurement_type_option_id]
+// mirrors this, one value per type per session.
+const availableMeasurementTypes = computed(() =>
+    props.measurementTypes.filter((type) => !measurementRows.value.some((row) => row.measurement_type_option_id === type.id)),
+);
+
+function addMeasurementRow() {
+    if (newMeasurementTypeId.value === null) {
+        return;
+    }
+
+    const type = props.measurementTypes.find((option) => option.id === newMeasurementTypeId.value);
+    if (!type) {
+        return;
+    }
+
+    measurementRows.value.push({
+        measurement_type_option_id: type.id,
+        value: '',
+        unit: type.unit,
+        notes: null,
+    });
+    newMeasurementTypeId.value = null;
+}
+
+function removeMeasurementRow(typeId: number) {
+    measurementRows.value = measurementRows.value.filter((row) => row.measurement_type_option_id !== typeId);
+}
+
+function measurementTypeLabel(typeId: number): string {
+    return props.measurementTypes.find((type) => type.id === typeId)?.label ?? '';
+}
+
+function measurementPlaceholder(typeId: number): string | undefined {
+    return props.measurementTypes.find((type) => type.id === typeId)?.placeholder ?? undefined;
+}
 // Disease ids whose row was prefilled from lastKnownOutcomes (new session
 // only) rather than typed by the practitioner — drives the "valeur reprise
 // de la dernière séance" hint so it's never presented as if freshly entered.
 const prefilledDiseaseIds = ref<Set<number>>(new Set());
+
+// Medical documents attached from here go through the exact same endpoint
+// as the Documents tab (admin.patients.documents.store) — one source of
+// truth on Patient's 'medical' collection, not a separate collection or
+// pivot. treatment_session_id tags the upload so it's traceable back to
+// this session. Deletion/replacement still only happens from the patient
+// file's Documents tab (medicalDocuments here is read-only review).
+const pendingMedicalFiles = ref<File[]>([]);
+const uploadingMedical = ref(false);
+const medicalUploadError = ref<string | null>(null);
 
 function resetForm() {
     activeSessionTab.value = 'care';
@@ -113,6 +213,10 @@ function resetForm() {
     form.duration_minutes = props.session?.duration_minutes ?? null;
     form.notes = props.session?.notes ?? null;
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
+    pendingMedicalFiles.value = [];
+    medicalUploadError.value = null;
+    measurementRows.value = (props.session?.measurements ?? []).map((row) => ({ ...row }));
+    newMeasurementTypeId.value = null;
 
     const next: Record<number, DiseaseOutcomeRow> = {};
     const prefilled = new Set<number>();
@@ -181,6 +285,7 @@ function save() {
         ...form,
         care_item_ids: Array.from(selectedCareItemIds.value),
         disease_progress: Object.values(diseaseOutcomes.value),
+        measurements: measurementRows.value,
     };
 
     const options = {
@@ -205,6 +310,35 @@ function save() {
 
 function close() {
     emit('update:visible', false);
+}
+
+function uploadMedicalDocuments() {
+    if (pendingMedicalFiles.value.length === 0 || !props.session) return;
+
+    uploadingMedical.value = true;
+    medicalUploadError.value = null;
+
+    router.post(
+        route('admin.patients.documents.store', props.patientId),
+        {
+            collection: 'medical',
+            files: pendingMedicalFiles.value,
+            treatment_session_id: props.session.id,
+        },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                pendingMedicalFiles.value = [];
+            },
+            onError: (errors) => {
+                medicalUploadError.value = Object.values(errors)[0] as string;
+            },
+            onFinish: () => {
+                uploadingMedical.value = false;
+            },
+        },
+    );
 }
 </script>
 
@@ -274,6 +408,116 @@ function close() {
                         </div>
                     </div>
                     <p v-else class="text-body-2 text-medium-emphasis">Aucune maladie suivie sur ce traitement.</p>
+                </template>
+
+                <template #documents>
+                    <div v-if="session" class="d-flex flex-column ga-3">
+                        <template v-if="medicalDocuments.length">
+                            <div
+                                v-for="document in medicalDocuments"
+                                :key="document.id"
+                                class="d-flex align-center ga-3"
+                            >
+                                <v-avatar v-if="document.thumb_url" size="48" rounded>
+                                    <v-img :src="document.thumb_url" cover />
+                                </v-avatar>
+                                <v-icon v-else icon="mdi-file-pdf-box" size="36" color="error" />
+
+                                <p class="text-body-2 mb-0 flex-grow-1">{{ document.name }}</p>
+
+                                <AppButton
+                                    as="a"
+                                    :href="document.download_url"
+                                    target="_blank"
+                                    icon="mdi-download"
+                                    severity="secondary"
+                                    size="small"
+                                />
+                            </div>
+                        </template>
+                        <p v-else class="text-body-2 text-medium-emphasis mb-0">
+                            Aucun document médical lié à cette séance.
+                        </p>
+
+                        <AppFileUpload
+                            v-model="pendingMedicalFiles"
+                            multiple
+                            :error="medicalUploadError"
+                            label="Ajouter des documents médicaux (plusieurs photos d'un même document sont fusionnées en un seul PDF)"
+                        />
+                        <AppButton
+                            v-if="pendingMedicalFiles.length"
+                            label="Enregistrer les documents"
+                            :loading="uploadingMedical"
+                            @click="uploadMedicalDocuments"
+                        />
+                    </div>
+                    <p v-else class="text-body-2 text-medium-emphasis">
+                        Enregistrez la séance pour pouvoir y attacher un document médical.
+                    </p>
+                </template>
+
+                <template #measurements>
+                    <div class="d-flex flex-column ga-4">
+                        <div v-if="measurementRows.length" class="d-flex flex-column ga-3">
+                            <div
+                                v-for="row in measurementRows"
+                                :key="row.measurement_type_option_id"
+                                class="d-flex flex-column ga-2"
+                            >
+                                <div class="d-flex justify-space-between align-center">
+                                    <p class="text-body-2 font-weight-medium mb-0">{{ measurementTypeLabel(row.measurement_type_option_id) }}</p>
+                                    <AppButton
+                                        icon="mdi-delete"
+                                        severity="danger"
+                                        size="small"
+                                        aria-label="Retirer cette mesure"
+                                        @click="removeMeasurementRow(row.measurement_type_option_id)"
+                                    />
+                                </div>
+
+                                <v-row>
+                                    <v-col cols="8">
+                                        <AppInputText
+                                            v-model="row.value"
+                                            label="Valeur"
+                                            :placeholder="measurementPlaceholder(row.measurement_type_option_id)"
+                                            :error="errors[`measurements.${measurementRows.indexOf(row)}.value`]"
+                                        />
+                                    </v-col>
+                                    <v-col cols="4">
+                                        <AppInputText v-model="row.unit" label="Unité" />
+                                    </v-col>
+                                </v-row>
+
+                                <AppTextarea v-model="row.notes" label="Notes" :rows="2" />
+                            </div>
+                        </div>
+                        <p v-else class="text-body-2 text-medium-emphasis">Aucune mesure enregistrée pour cette séance.</p>
+
+                        <v-row v-if="availableMeasurementTypes.length" align="center">
+                            <v-col cols="8">
+                                <AppSelect
+                                    v-model="newMeasurementTypeId"
+                                    :options="availableMeasurementTypes"
+                                    option-label="label"
+                                    option-value="id"
+                                    label="Type de mesure"
+                                    placeholder="Choisir un type"
+                                />
+                            </v-col>
+                            <v-col cols="4">
+                                <AppButton
+                                    type="button"
+                                    label="Ajouter une mesure"
+                                    icon="mdi-plus"
+                                    severity="secondary"
+                                    :disabled="newMeasurementTypeId === null"
+                                    @click="addMeasurementRow"
+                                />
+                            </v-col>
+                        </v-row>
+                    </div>
                 </template>
             </AppTabs>
 
