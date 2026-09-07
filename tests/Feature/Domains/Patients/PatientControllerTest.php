@@ -2,6 +2,8 @@
 
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\Patient;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Scheduling\Models\Appointment;
 use Illuminate\Support\Str;
 
 test('guests are redirected to login', function () {
@@ -279,4 +281,53 @@ test('super admin can delete any patient', function () {
 
     $response->assertRedirect(route('admin.patients.index'));
     expect(Patient::query()->whereKey($patient->id)->exists())->toBeFalse();
+});
+
+test('the patient file exposes its soonest scheduled or confirmed appointment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $sooner = Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'starts_at' => '2026-09-10 09:00:00',
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ]);
+    Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'starts_at' => '2026-09-15 09:00:00',
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ]);
+    Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'starts_at' => '2026-09-05 09:00:00',
+        'duration_minutes' => 30,
+        'status' => 'cancelled',
+        'created_by' => $superAdmin->id,
+    ]);
+
+    $response = $this->actingAs($superAdmin)->get(route('admin.patients.edit', $patient));
+
+    $response->assertOk();
+    expect($response->inertiaPage()['props']['nextAppointment']['id'])->toBe($sooner->id);
+});
+
+test('the patient file exposes no next appointment when none is scheduled', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $patient = Patient::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->get(route('admin.patients.edit', $patient));
+
+    $response->assertOk();
+    expect($response->inertiaPage()['props']['nextAppointment'])->toBeNull();
 });

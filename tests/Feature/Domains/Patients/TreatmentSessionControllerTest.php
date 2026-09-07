@@ -5,9 +5,12 @@ use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\Disease;
+use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Patients\Models\TreatmentSessionDiseaseProgress;
 use App\Domains\Patients\Models\TreatmentSessionMeasurement;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Scheduling\Models\Appointment;
 
 test('guests are redirected to login', function () {
     $treatment = Treatment::factory()->create();
@@ -311,4 +314,60 @@ test('deleting a session whose treatment_id does not match the route treatment r
 
     $response->assertNotFound();
     expect($treatmentA->sessions()->whereKey($session->id)->exists())->toBeTrue();
+});
+
+test('creating a session with an appointment_id marks the appointment completed and links it', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $treatment = Treatment::factory()->for($center, 'center')->for($patient, 'patient')->create();
+    $appointment = Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'treatment_id' => $treatment->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-09-10',
+        'appointment_id' => $appointment->id,
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    $session = $treatment->sessions()->firstOrFail();
+    $fresh = $appointment->fresh();
+    expect($fresh->status)->toBe('completed');
+    expect($fresh->treatment_session_id)->toBe($session->id);
+});
+
+test('creating a session with an appointment_id belonging to another patient is refused', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $otherPatient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $treatment = Treatment::factory()->for($center, 'center')->for($patient, 'patient')->create();
+    $appointment = Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $otherPatient->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-09-10',
+        'appointment_id' => $appointment->id,
+    ]);
+
+    $response->assertForbidden();
+    expect($treatment->sessions()->count())->toBe(0);
+    expect($appointment->fresh()->status)->toBe('scheduled');
 });

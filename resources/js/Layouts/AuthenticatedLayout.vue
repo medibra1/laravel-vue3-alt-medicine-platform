@@ -41,6 +41,7 @@ const generalNavItems = computed(() => {
 
     const items = [
         { label: 'Dashboard', icon: 'mdi-view-dashboard-outline', href: route('dashboard'), active: route().current('dashboard') },
+        { label: 'Agenda', icon: 'mdi-calendar-clock', href: route('admin.agenda'), active: route().current('admin.agenda') },
         { label: 'Patients', icon: 'mdi-account-heart-outline', href: route('admin.patients.index'), active: route().current('admin.patients.*') },
         { label: 'Traitements', icon: 'mdi-medical-bag', href: route('admin.treatments.index'), active: route().current('admin.treatments.*') },
     ];
@@ -49,7 +50,10 @@ const generalNavItems = computed(() => {
     // has no practitioners.viewAny permission — the CRUD page would
     // just 403. Managers/admins/super_admins keep seeing it as before.
     if (isSuperAdmin.value || isAdmin.value || isManager.value) {
-        items.push({ label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') });
+        items.push(
+            { label: 'Praticiens', icon: 'mdi-account-tie-outline', href: route('admin.practitioners.index'), active: route().current('admin.practitioners.*') },
+            { label: 'Disponibilités', icon: 'mdi-calendar-account', href: route('admin.availabilities.index'), active: route().current('admin.availabilities.*') },
+        );
     }
 
     return items;

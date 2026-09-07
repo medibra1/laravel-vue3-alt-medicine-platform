@@ -11,6 +11,7 @@ const props = withDefaults(
         label?: string;
         showClear?: boolean;
         multiple?: boolean;
+        disabled?: boolean;
         error?: string | null;
     }>(),
     {
@@ -18,6 +19,7 @@ const props = withDefaults(
         label: undefined,
         showClear: false,
         multiple: false,
+        disabled: false,
         error: null,
     },
 );
@@ -42,6 +44,7 @@ const items = computed(() =>
         :label="label"
         :clearable="showClear"
         :multiple="multiple"
+        :disabled="disabled"
         chips
         :error-messages="error ?? undefined"
         variant="outlined"

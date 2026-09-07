@@ -21,6 +21,7 @@ use App\Domains\Patients\Models\DiseaseCategory;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Services\PatientNumberGenerator;
 use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
+use App\Domains\Scheduling\Http\Resources\AppointmentResource;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -138,6 +139,10 @@ class PatientController extends Controller
             'consentTemplates' => ConsentTemplate::query()
                 ->where('is_active', true)
                 ->get(['type', 'title', 'content', 'version']),
+            'nextAppointment' => optional(
+                $patient->nextAppointment()?->load('practitioner'),
+                fn ($appointment) => new AppointmentResource($appointment),
+            ),
         ]);
     }
 

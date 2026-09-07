@@ -5,6 +5,7 @@ namespace App\Domains\Patients\Models;
 use App\Domains\Auth\Models\User;
 use App\Domains\Core\Models\Center;
 use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Scheduling\Models\Appointment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -195,5 +196,11 @@ class Treatment extends Model
     public function sessions(): HasMany
     {
         return $this->hasMany(TreatmentSession::class)->orderByDesc('session_date')->orderByDesc('id');
+    }
+
+    /** @return HasMany<Appointment, $this> */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
     }
 }

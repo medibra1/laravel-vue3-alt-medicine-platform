@@ -104,6 +104,20 @@ function grantTreatmentSessionPermissions(): void
 }
 
 /**
+ * Same idea as grantPractitionerPermissions(), for Scheduling.
+ */
+function grantAppointmentPermissions(): void
+{
+    collect([
+        'appointments.viewAny',
+        'appointments.view',
+        'appointments.create',
+        'appointments.update',
+        'appointments.cancel',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
  * Same idea as grantPractitionerPermissions(), for Center.
  */
 function grantCenterPermissions(): void
@@ -141,6 +155,7 @@ function actingAsSuperAdmin(): User
     grantPatientPermissions();
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
+    grantAppointmentPermissions();
     grantCenterPermissions();
     grantUserManagementPermissions();
 
@@ -169,6 +184,7 @@ function actingAsAdmin(): User
     grantPatientPermissions();
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
+    grantAppointmentPermissions();
     grantCenterPermissions();
     grantUserManagementPermissions();
 
@@ -197,6 +213,7 @@ function actingAsManagerOf(Center $center): User
     grantPatientPermissions();
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
+    grantAppointmentPermissions();
 
     $user = User::factory()->create();
 
@@ -223,6 +240,11 @@ function actingAsManagerOf(Center $center): User
         'treatment_sessions.create',
         'treatment_sessions.update',
         'treatment_sessions.delete',
+        'appointments.viewAny',
+        'appointments.view',
+        'appointments.create',
+        'appointments.update',
+        'appointments.cancel',
     ]);
     $user->assignRole('manager');
     setPermissionsTeamId(null);
@@ -241,6 +263,7 @@ function actingAsPractitionerOf(Center ...$centers): User
     grantPatientPermissions();
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
+    grantAppointmentPermissions();
 
     $user = User::factory()->create();
 

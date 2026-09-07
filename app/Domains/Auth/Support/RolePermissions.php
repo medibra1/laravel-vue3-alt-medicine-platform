@@ -36,6 +36,11 @@ class RolePermissions
             'treatment_sessions.create',
             'treatment_sessions.update',
             'treatment_sessions.delete',
+            'appointments.viewAny',
+            'appointments.view',
+            'appointments.create',
+            'appointments.update',
+            'appointments.cancel',
         ];
     }
 
@@ -69,6 +74,11 @@ class RolePermissions
             'treatment_sessions.view',
             'treatment_sessions.create',
             'treatment_sessions.update',
+            'appointments.viewAny',
+            'appointments.view',
+            'appointments.create',
+            'appointments.update',
+            'appointments.cancel',
         ];
     }
 

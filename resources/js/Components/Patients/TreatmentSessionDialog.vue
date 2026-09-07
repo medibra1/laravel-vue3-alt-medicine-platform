@@ -79,6 +79,16 @@ const props = withDefaults(
         patientId: number;
         treatmentId: number;
         session: Session | null;
+        /**
+         * Set when this dialog is opened from "Marquer honoré" on a booked
+         * appointment (see Patients/Form.vue) rather than a plain "Ajouter
+         * une séance" — tags the created session so
+         * TreatmentSessionController::store() marks that appointment
+         * completed and links it, no separate "complete" action to
+         * remember. Never set when editing an existing session (the
+         * appointment is already linked by then).
+         */
+        appointmentId?: number | null;
         treatmentDiseases: TreatmentDisease[];
         careCategories: CareCategoryOption[];
         measurementTypes: MeasurementTypeOption[];
@@ -102,7 +112,7 @@ const props = withDefaults(
          */
         medicalDocuments?: MedicalDocument[];
     }>(),
-    { lastKnownOutcomes: () => ({}), medicalDocuments: () => [] },
+    { appointmentId: null, lastKnownOutcomes: () => ({}), medicalDocuments: () => [] },
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
@@ -286,6 +296,9 @@ function save() {
         care_item_ids: Array.from(selectedCareItemIds.value),
         disease_progress: Object.values(diseaseOutcomes.value),
         measurements: measurementRows.value,
+        // Only meaningful on creation — an existing session already has its
+        // appointment link set (or never had one), see appointmentId's docblock.
+        appointment_id: props.session ? undefined : props.appointmentId,
     };
 
     const options = {
