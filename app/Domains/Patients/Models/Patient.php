@@ -6,6 +6,7 @@ use App\Domains\Auth\Models\User;
 use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
+use App\Domains\Scheduling\Models\Appointment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,6 +71,25 @@ class Patient extends Model implements HasMedia
     public function consents(): HasMany
     {
         return $this->hasMany(Consent::class);
+    }
+
+    /** @return HasMany<Appointment, $this> */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    /**
+     * Feeds the "Prochain rendez-vous" card in the patient file — the
+     * soonest not-yet-happened appointment, regardless of whether it's
+     * tied to the ongoing treatment or was booked before one existed.
+     */
+    public function nextAppointment(): ?Appointment
+    {
+        return $this->appointments()
+            ->whereIn('status', ['scheduled', 'confirmed'])
+            ->orderBy('starts_at')
+            ->first();
     }
 
     /**

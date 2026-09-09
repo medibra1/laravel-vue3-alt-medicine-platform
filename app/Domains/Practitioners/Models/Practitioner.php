@@ -10,6 +10,8 @@ use App\Domains\Billing\Models\SalaryAdvance;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Grade;
 use App\Domains\Patients\Models\Treatment;
+use App\Domains\Scheduling\Models\Appointment;
+use App\Domains\Scheduling\Models\PractitionerAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +80,18 @@ class Practitioner extends Model
     public function treatments(): HasMany
     {
         return $this->hasMany(Treatment::class);
+    }
+
+    /** @return HasMany<PractitionerAvailability, $this> */
+    public function availabilities(): HasMany
+    {
+        return $this->hasMany(PractitionerAvailability::class);
+    }
+
+    /** @return HasMany<Appointment, $this> */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
     }
 
     /**

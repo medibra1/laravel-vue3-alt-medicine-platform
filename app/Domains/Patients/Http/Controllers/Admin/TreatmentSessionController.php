@@ -6,8 +6,10 @@ use App\Domains\Patients\Http\Requests\StoreTreatmentSessionRequest;
 use App\Domains\Patients\Http\Requests\UpdateTreatmentSessionRequest;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Patients\Models\TreatmentSession;
+use App\Domains\Scheduling\Models\Appointment;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class TreatmentSessionController extends Controller
@@ -27,17 +29,21 @@ class TreatmentSessionController extends Controller
         $diseaseProgress = $validated['disease_progress'] ?? [];
         $careItemIds = $validated['care_item_ids'] ?? [];
         $measurements = $validated['measurements'] ?? [];
-        unset($validated['disease_progress'], $validated['care_item_ids'], $validated['measurements']);
+        $appointmentId = $validated['appointment_id'] ?? null;
+        unset($validated['disease_progress'], $validated['care_item_ids'], $validated['measurements'], $validated['appointment_id']);
 
-        $session = $treatment->sessions()->create([
-            ...$validated,
-            'created_by' => $request->user()->id,
-        ]);
+        DB::transaction(function () use ($request, $treatment, $validated, $careItemIds, $diseaseProgress, $measurements, $appointmentId) {
+            $session = $treatment->sessions()->create([
+                ...$validated,
+                'created_by' => $request->user()->id,
+            ]);
 
-        $session->careItems()->sync($careItemIds);
-        $this->syncDiseaseProgress($session, $diseaseProgress);
-        $this->syncMeasurements($session, $measurements);
-        $treatment->refreshClosureStatus();
+            $session->careItems()->sync($careItemIds);
+            $this->syncDiseaseProgress($session, $diseaseProgress);
+            $this->syncMeasurements($session, $measurements);
+            $this->convertAppointment($appointmentId, $treatment, $session);
+            $treatment->refreshClosureStatus();
+        });
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
     }
@@ -78,6 +84,30 @@ class TreatmentSessionController extends Controller
         $treatment->refreshClosureStatus();
 
         return redirect()->route('admin.patients.edit', $treatment->patient_id);
+    }
+
+    /**
+     * When a session is logged for a booked appointment, the appointment
+     * is marked completed and linked to it automatically — no separate
+     * "complete" action to remember, no double entry. The patient_id
+     * check guards against a stray/forged id pointing at someone else's
+     * appointment (same ownership-check shape already used elsewhere in
+     * this controller, e.g. destroy()'s treatment_id mismatch check).
+     */
+    private function convertAppointment(?int $appointmentId, Treatment $treatment, TreatmentSession $session): void
+    {
+        if ($appointmentId === null) {
+            return;
+        }
+
+        $appointment = Appointment::query()->findOrFail($appointmentId);
+
+        abort_if($appointment->patient_id !== $treatment->patient_id, 403);
+
+        $appointment->update([
+            'status' => 'completed',
+            'treatment_session_id' => $session->id,
+        ]);
     }
 
     /**

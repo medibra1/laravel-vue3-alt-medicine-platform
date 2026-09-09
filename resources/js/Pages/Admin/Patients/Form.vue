@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
+import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
 import PatientConsentsTab from '@/Components/Patients/PatientConsentsTab.vue';
 import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
@@ -174,6 +176,17 @@ interface Consent {
     download_url: string;
 }
 
+interface NextAppointment {
+    id: number;
+    practitioner_id: number;
+    treatment_id: number | null;
+    starts_at: string;
+    duration_minutes: number;
+    status: string;
+    reason: string | null;
+    practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
+}
+
 const props = defineProps<{
     patient: Patient | null;
     centers: Center[];
@@ -188,6 +201,7 @@ const props = defineProps<{
     documents?: PatientDocuments;
     consents?: Consent[];
     consentTemplates?: ConsentTemplate[];
+    nextAppointment?: NextAppointment | null;
 }>();
 
 const { form, serverId, saving, lastSavedAt, saveErrors, scheduleSave, flush } =
@@ -368,7 +382,7 @@ function editTreatment(treatment: TreatmentSummary) {
 }
 
 function reloadPatient() {
-    router.reload({ only: ['patient', 'treatments', 'documents', 'consents'] });
+    router.reload({ only: ['patient', 'treatments', 'documents', 'consents', 'nextAppointment'] });
 }
 
 // Only ever set by PatientController::confirm()'s redirect, right after a
@@ -406,16 +420,23 @@ onUnmounted(removeNavigateListener);
 const sessionDialogVisible = ref(false);
 const sessionTreatmentId = ref<number | null>(null);
 const editingSession = ref<TreatmentSessionSummary | null>(null);
+// Set only when the session dialog was opened from "Marquer honoré" on a
+// booked appointment (see openMarkHonored()) — tags the session being
+// created so TreatmentSessionController::store() marks that appointment
+// completed and links it. Cleared on any other way of opening the dialog.
+const sessionAppointmentId = ref<number | null>(null);
 
 function openNewSession(treatment: TreatmentSummary) {
     sessionTreatmentId.value = treatment.id;
     editingSession.value = null;
+    sessionAppointmentId.value = null;
     sessionDialogVisible.value = true;
 }
 
 function openEditSession(treatment: TreatmentSummary, session: TreatmentSessionSummary) {
     sessionTreatmentId.value = treatment.id;
     editingSession.value = session;
+    sessionAppointmentId.value = null;
     sessionDialogVisible.value = true;
 }
 
@@ -445,6 +466,67 @@ function reopenTreatment(treatment: TreatmentSummary) {
     }
 
     router.post(route('admin.treatments.reopen', treatment.id), {}, { onSuccess: reloadPatient });
+}
+
+// --- Appointments (see nextAppointment prop, PatientController::edit()) ---
+const appointmentDialogVisible = ref(false);
+const editingAppointment = ref<NextAppointment | null>(null);
+
+function openNewAppointment() {
+    editingAppointment.value = null;
+    appointmentDialogVisible.value = true;
+}
+
+// A booking with no treatment yet (appointment.treatment_id === null) has
+// nothing for the session to attach to — the wizard runs first, prefilled
+// with this appointment's practitioner, and only once it's saved does the
+// session dialog open (tagged with the same appointment id) to complete
+// the conversion. A booking already tied to a treatment skips straight to
+// the session dialog.
+const pendingAppointmentForSession = ref<NextAppointment | null>(null);
+
+function openMarkHonored(appointment: NextAppointment) {
+    if (appointment.treatment_id === null) {
+        pendingAppointmentForSession.value = appointment;
+        editingTreatment.value = null;
+        editingTreatmentLockedDiseaseIds.value = [];
+        wizardKey.value++;
+        wizardVisible.value = true;
+        return;
+    }
+
+    sessionTreatmentId.value = appointment.treatment_id;
+    editingSession.value = null;
+    sessionAppointmentId.value = appointment.id;
+    sessionDialogVisible.value = true;
+}
+
+// Runs after *every* successful wizard save, not just the "Marquer
+// honoré" path — harmless no-op the rest of the time since
+// pendingAppointmentForSession is only ever set by openMarkHonored().
+function onTreatmentSaved() {
+    reloadPatient();
+
+    if (pendingAppointmentForSession.value) {
+        const appointment = pendingAppointmentForSession.value;
+        pendingAppointmentForSession.value = null;
+
+        // The freshly created treatment isn't known client-side yet
+        // (reloadPatient() is async) — ongoingTreatment will reflect it
+        // once the reload lands, since a patient can only have one
+        // ongoing treatment at a time (see Treatment's confirm() guard).
+        router.reload({
+            only: ['treatments'],
+            onSuccess: () => {
+                if (ongoingTreatment.value) {
+                    sessionTreatmentId.value = ongoingTreatment.value.id;
+                    editingSession.value = null;
+                    sessionAppointmentId.value = appointment.id;
+                    sessionDialogVisible.value = true;
+                }
+            },
+        });
+    }
 }
 
 // Only actively tracked diseases are handed to TreatmentSessionDialog — a
@@ -520,14 +602,52 @@ function onStatusChipClick() {
 
                 <template #ongoing>
                     <div v-if="patient">
+                        <AppCard v-if="nextAppointment" variant="tonal" class="mb-4">
+                            <v-card-text class="d-flex flex-wrap align-center justify-space-between ga-3">
+                                <div>
+                                    <p class="text-overline mb-0">Prochain rendez-vous</p>
+                                    <p class="text-body-1 font-weight-medium mb-0">
+                                        {{ new Date(nextAppointment.starts_at).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) }}
+                                    </p>
+                                    <p v-if="nextAppointment.practitioner" class="text-body-2 text-medium-emphasis mb-0">
+                                        Avec {{ nextAppointment.practitioner.first_name }} {{ nextAppointment.practitioner.last_name }}
+                                    </p>
+                                </div>
+                                <div class="d-flex ga-2">
+                                    <AppButton
+                                        label="Voir dans l'agenda"
+                                        severity="secondary"
+                                        size="small"
+                                        :href="route('admin.agenda')"
+                                        as="a"
+                                    />
+                                    <AppButton
+                                        v-if="can_update"
+                                        label="Marquer honoré"
+                                        size="small"
+                                        @click="openMarkHonored(nextAppointment)"
+                                    />
+                                </div>
+                            </v-card-text>
+                        </AppCard>
+
                         <div class="d-flex align-center justify-space-between mb-1">
                             <h2 class="text-h6">Traitement en cours</h2>
-                            <AppButton
-                                v-if="!ongoingTreatment && can_update"
-                                label="Ajouter un traitement"
-                                icon="mdi-plus"
-                                @click="openNewTreatment"
-                            />
+                            <div class="d-flex ga-2">
+                                <AppButton
+                                    v-if="can_update"
+                                    label="Nouveau rendez-vous"
+                                    icon="mdi-calendar-plus"
+                                    severity="secondary"
+                                    @click="openNewAppointment"
+                                />
+                                <AppButton
+                                    v-if="!ongoingTreatment && can_update"
+                                    label="Ajouter un traitement"
+                                    icon="mdi-plus"
+                                    @click="openNewTreatment"
+                                />
+                            </div>
                         </div>
 
                         <p v-if="!ongoingTreatment" class="text-body-2 text-medium-emphasis">
@@ -630,7 +750,7 @@ function onStatusChipClick() {
             :disease-categories="diseaseCategories ?? []"
             :care-categories="careCategories ?? []"
             :locked-disease-ids="editingTreatmentLockedDiseaseIds"
-            @saved="reloadPatient"
+            @saved="onTreatmentSaved"
         />
 
         <TreatmentSessionDialog
@@ -639,6 +759,7 @@ function onStatusChipClick() {
             :patient-id="patient.id"
             :treatment-id="sessionTreatmentId"
             :session="editingSession"
+            :appointment-id="sessionAppointmentId"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
             :measurement-types="measurementTypes ?? []"
@@ -651,6 +772,28 @@ function onStatusChipClick() {
             v-if="closingTreatmentId"
             v-model:visible="closeDialogVisible"
             :treatment-id="closingTreatmentId"
+            @saved="reloadPatient"
+        />
+
+        <AppointmentDialog
+            v-if="patient"
+            v-model:visible="appointmentDialogVisible"
+            :appointment="
+                editingAppointment
+                    ? {
+                          id: editingAppointment.id,
+                          practitioner_id: editingAppointment.practitioner_id,
+                          starts_at: editingAppointment.starts_at,
+                          duration_minutes: editingAppointment.duration_minutes,
+                          reason: editingAppointment.reason,
+                      }
+                    : null
+            "
+            :patient-id="patient.id"
+            :centers="centers"
+            :patients="[{ id: patient.id, first_name: patient.first_name, last_name: patient.last_name }]"
+            :practitioners="practitioners ?? []"
+            :treatments="treatments ?? []"
             @saved="reloadPatient"
         />
     </AuthenticatedLayout>

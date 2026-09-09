@@ -1118,7 +1118,220 @@ visuellement distinctes.
 
 ---
 
-## 4. Scheduling
+## 4. Scheduling — **implémenté** (2026-09-07, `feature/appointments-scheduling`)
+
+Premier vrai usage du domaine `Scheduling` (jusque-là uniquement des
+`.gitkeep`). Le schéma effectivement construit diffère de l'esquisse de
+conception initiale ci-dessous (conservée en historique par honnêteté,
+mais plus l'état réel) : pas de préfixe `scheduling_` sur les tables
+(suit la même révision déjà actée pour Patients — voir "Renommage des
+tables Patients" plus haut — le préfixe par domaine ne se justifie que
+s'il y a un vrai risque de collision de nom, qui n'existe pas ici),
+statut en colonne `string` plutôt que `spatie/laravel-model-status`
+(même choix que `patients_treatments.outcome`/`closure_reason` — peu de
+valeurs, pas besoin d'historique de statut), et pas de notion de
+"tournée" (`campaigns`) dans ce premier lot — hors périmètre du prompt
+qui a servi de base à cette session, à construire plus tard si le
+besoin de RDV de tournée partagés se confirme (le schéma actuel n'en
+bloque pas l'ajout : `campaign_id` nullable pourrait être ajouté à
+`appointments` sans rien casser).
+
+### `practitioner_availabilities`
+
+id · practitioner_id (fk `practitioners`, cascade) · day_of_week
+(tinyint, 0 = dimanche … 6 = samedi, cohérent avec `Carbon::dayOfWeek`)
+· start_time · end_time · timestamps. Plusieurs lignes possibles pour un
+même praticien+jour (coupure méridienne : matin 8h-12h + après-midi
+14h-18h) — pas de contrainte d'unicité sur `[practitioner_id,
+day_of_week]`. **Pas de gestion des congés/exceptions ponctuelles**
+(jours fériés, absence imprévue) dans cette V1 — horaire récurrent
+uniquement, à ajouter plus tard si le besoin se confirme.
+
+### `appointments`
+
+id · center_id (fk) · practitioner_id (fk) · patient_id (fk) ·
+treatment_id (fk, nullable — un RDV peut exister avec ou sans traitement
+en cours) · treatment_session_id (fk, nullable, **unique** — renseigné
+uniquement à la conversion, voir plus bas, jamais à la création) ·
+starts_at (datetime) · duration_minutes · status (string(20), défaut
+`scheduled` — valeurs `scheduled`/`confirmed`/`completed`/`cancelled`/
+`no_show`) · reason, nullable · cancellation_reason, nullable ·
+created_by (fk `users`) · timestamps. Index `[practitioner_id,
+starts_at]` (détection de conflit) et `[center_id, starts_at]` (vue
+agenda par centre).
+
+### Détection de conflit — `AppointmentConflictChecker`
+
+Chevauchement classique d'intervalles (`start_a < end_b AND end_a >
+start_b`), pas un simple test d'égalité — deux créneaux qui se
+chevauchent partiellement sont détectés, deux créneaux adjacents (fin de
+A = début de B) ne le sont pas. Ignore les RDV `cancelled`/`no_show`.
+**Portabilité sqlite** : ce projet tourne en sqlite en dev/tests (voir
+`.env`/`phpunit.xml`), pas MySQL comme le suppose la conception
+initiale du produit — une expression `DATE_ADD(starts_at, INTERVAL
+duration_minutes MINUTE)` en SQL brut n'aurait fonctionné que sur
+MySQL. La requête SQL ne fait donc que le premier narrowing (`starts_at
+< fin_proposée`), la vérification complète de chevauchement (côté
+`ends_at` calculé via l'accessor `Appointment::endsAt()`) se fait en PHP
+sur les candidats retournés — `AppointmentConflictChecker::overlaps()`
+est une méthode statique partagée, réutilisée telle quelle par
+`AvailableSlotsResolver` pour que les deux services ne puissent jamais
+diverger sur ce qui compte comme un chevauchement.
+
+### `AvailableSlotsResolver`
+
+Découpe les plages de `practitioner_availabilities` du jour demandé en
+créneaux de durée fixe, retire ceux qui chevauchent un RDV déjà pris
+(même logique de chevauchement que ci-dessus). Aucune disponibilité
+définie pour ce jour → tableau vide (le praticien ne travaille pas ce
+jour-là), pas une erreur.
+
+### Conversion RDV → séance (pas de champ `status` géré manuellement)
+
+Quand une séance est loguée pour un traitement via
+`TreatmentSessionController::store()`, un champ optionnel
+`appointment_id` dans le payload (ajouté à `StoreTreatmentSessionRequest`)
+déclenche automatiquement, dans la même transaction DB que la création
+de la séance : `appointment.status = 'completed'` +
+`appointment.treatment_session_id = session.id`. Garde-fou
+`abort_if($appointment->patient_id !== $treatment->patient_id, 403)` —
+même forme que les autres vérifications de propriété déjà en place dans
+ce contrôleur. **Aucune action `complete()` séparée n'existe** côté
+`AppointmentController` — volontairement, pour ne jamais créer une
+séance vide si le praticien abandonne le formulaire "Marquer honoré" en
+cours de route (voir Front-end ci-dessous pour le flux complet,
+notamment le cas où le RDV n'a pas encore de traitement associé).
+
+### Policy/permissions
+
+`AppointmentPolicy` (viewAny/view/create/update/cancel) et
+`PractitionerAvailabilityPolicy` (viewAny/view/create/update/delete)
+suivent exactement le pattern déjà en place (`before()` bypass
+super_admin, `$user->can('resource.ability') &&
+managesCenter($centerId)`) — voir la mémoire
+`spatie-teams-super_admin-workaround` pour le contexte plus large sur
+`getPermissionsTeamId()`. Permissions `appointments.viewAny/view/
+create/update/cancel` ajoutées à `RolePermissions::manager()` **et**
+`::practitioner()` avec la même granularité — pas de restriction "un
+praticien ne voit que ses propres RDV" dans cette V1, cohérent avec le
+fonctionnement actuel de `TreatmentSession` (tout praticien/manager du
+centre agit sur les données du centre).
+
+### Front-end
+
+`AppWeekCalendar.vue` (nouveau wrapper `Components/App/`) — grille
+horaire maison en CSS/flexbox, pas de librairie de calendrier tierce
+(le `VCalendar` de Vuetify 4 reste labs/expérimental, mal adapté à
+"cliquer sur un créneau vide pour ouvrir la réservation" — cohérent
+avec la règle du projet de préférer une abstraction `App*` maison à une
+dépendance de plus pour un besoin aussi spécifique). `Pages/Admin/
+Scheduling/Agenda.vue` : deux modes (Jour par centre/tous praticiens,
+Semaine par praticien), navigation prev/next/aujourd'hui, fetch live
+des RDV via `admin.appointments.index` (JSON, pas Inertia — la
+navigation entre jours/semaines ne doit pas recharger toute la page).
+`Components/Scheduling/AppointmentDialog.vue` : formulaire de
+réservation/reprogrammation (patient/praticien/traitement optionnel/
+date/créneau/durée/motif), créneau alimenté par `admin.appointments.
+available-slots`.
+
+**"Marquer honoré" — enchaînement wizard → séance** : géré dans
+`Patients/Form.vue`, pas dans `AppointmentDialog`/`Agenda.vue`. Si
+`appointment.treatment_id` est `null`, ouvre d'abord
+`TreatmentWizardDialog` (patient/praticien pré-remplis) ; une fois le
+traitement confirmé (`@saved="onTreatmentSaved"`), ouvre automatiquement
+`TreatmentSessionDialog` avec `appointment-id` posé sur la séance en
+cours de création — c'est cette prop qui fait remonter `appointment_id`
+dans le payload de `TreatmentSessionController::store()` et déclenche la
+conversion. Si le RDV a déjà un traitement associé, saute directement à
+`TreatmentSessionDialog`. Carte "Prochain rendez-vous" ajoutée dans
+l'onglet "Traitement en cours" du dossier patient (`PatientController::
+edit()` expose `nextAppointment`, le plus proche RDV `scheduled`/
+`confirmed`, via `Patient::nextAppointment()`) — disparaît d'elle-même
+une fois le RDV `completed`/`cancelled` puisque ces statuts sont exclus
+de la requête.
+
+**`AppSelect` gagne une prop `disabled`** — absente jusqu'ici (seul
+`AppCheckbox` l'avait). Nécessaire pour verrouiller le champ "Patient"
+d'`AppointmentDialog` quand il est pré-rempli depuis le dossier patient
+(même raisonnement que le verrouillage déjà en place ailleurs dans le
+projet pour un champ dont la valeur ne doit plus changer une fois le
+contexte fixé).
+
+### `AppointmentAssignedNotification`
+
+Notification database-only (même V1 scope que
+`ManagerAssignedNotification`), envoyée au praticien assigné à la
+création/reprogrammation d'un RDV — `try/catch` + `report()`, jamais
+bloquante sur la requête (même pattern que tous les envois de
+notification déjà en place dans ce projet). Pas de rappel programmé
+(J-1, etc.) — nécessiterait un scheduler/tâche planifiée, hors périmètre
+de cette V1.
+
+### Vérification (pour de vrai, pas seulement les tests automatisés)
+
+331 tests Pest (297 existants + 34 nouveaux : `AppointmentConflictCheckerTest`,
+`AvailableSlotsResolverTest`, `AppointmentControllerTest`,
+`PractitionerAvailabilityControllerTest`, extension de
+`TreatmentSessionControllerTest` pour la conversion, extension de
+`PatientControllerTest` pour `nextAppointment` — zéro régression), `pint
+--test` clean, Larastan niveau 5 clean (`--memory-limit=512M`), build
+Vite client+SSR OK, `vue-tsc --noEmit` clean.
+
+**Vérification navigateur réelle (Playwright headless, scratchpad de
+session)** : golden path complet — page Agenda (vues Jour/Semaine,
+sélecteurs centre/praticien, navigation prev/next/aujourd'hui) →
+création d'un RDV depuis "Nouveau rendez-vous" (patient/praticien/
+créneau résolu dynamiquement selon les disponibilités seedées) →
+vérifié en base (pas seulement à l'écran) que le RDV est bien créé avec
+le bon centre/patient/praticien/horaire → dossier patient, carte
+"Prochain rendez-vous" visible et correcte → "Marquer honoré" sur un
+RDV sans traitement → wizard "Nouveau traitement" s'ouvre automatiquement
+→ confirmation du traitement → dialog "Nouvelle séance" s'ouvre
+automatiquement, pré-rempli → sauvegarde → **vérifié en base** que le
+RDV est passé à `status=completed` avec `treatment_session_id` posé sur
+la séance créée. Page admin `/admin/availabilities` (CRUD simple)
+vérifiée avec une vraie ligne de disponibilité. Zéro erreur console sur
+tout le parcours. Un piège de script de vérification rencontré et
+corrigé en cours de route (pas un bug applicatif) : le champ Date de
+`AppointmentDialog` attend le format `DD/MM/YYYY` (locale `fr` de
+l'app), un premier essai en `MM/DD/YYYY` a silencieusement résolu une
+mauvaise date et fait apparaître "Aucune donnée disponible" sur le
+sélecteur de créneau — confirmé en isolant le champ et en lisant la
+valeur affichée avant de suspecter le resolver de créneaux côté
+backend. Données de test (patients/praticien/RDV/disponibilité créés en
+tinker et via le navigateur) supprimées, mot de passe de l'utilisateur
+seed remis à une valeur aléatoire inconnue en fin de session.
+
+### Reste à faire
+
+- Pas de gestion des congés/exceptions ponctuelles sur
+  `practitioner_availabilities` (jours fériés, absence imprévue) —
+  hors périmètre V1, voir ci-dessus.
+- Pas de notion de "tournée" (`campaigns`) — l'esquisse de conception
+  initiale en prévoyait une, non construite dans cette session (hors
+  périmètre du prompt qui a servi de base ici).
+- Pas de rappel programmé (J-1) avant un RDV — nécessiterait un
+  scheduler, hors périmètre V1.
+- `PractitionerAvailabilityController` accessible à super_admin/admin/
+  manager uniquement — pas au praticien lui-même pour auto-gérer ses
+  horaires, à revoir si le besoin apparaît.
+- Aucun test Vitest de composant pour `AppWeekCalendar.vue`/
+  `AppointmentDialog.vue`/`Agenda.vue` — vérifiés uniquement via
+  Playwright/Pest, cohérent avec l'absence de tests de composants déjà
+  notée pour plusieurs wrappers de ce projet.
+- Le pattern `MAX(colonne)+1`-style race condition n'existe pas ici
+  (pas de numérotation auto sur ce domaine), mais le double-booking
+  reste théoriquement possible entre le moment où `available-slots` est
+  lu côté client et la soumission réelle (fenêtre de course classique) —
+  `NoAppointmentConflict` protège la donnée en base au moment du
+  `store()`/`update()` (le vrai garde-fou), l'appel `available-slots`
+  n'est qu'une aide UX pour éviter une erreur évitable, pas la source de
+  vérité.
+
+---
+
+<details>
+<summary>Esquisse de conception initiale (2026-08-18, jamais construite telle quelle — voir section ci-dessus pour l'état réel)</summary>
 
 ### `scheduling_campaigns` (tournées de soin)
 id · name · organizing_center_id (fk `centers`) · location_type
@@ -1132,6 +1345,8 @@ campaign_id (fk, nullable — null = RDV classique en centre) ·
 scheduled_at · duration_minutes · notes · created_by · timestamps
 → statut (scheduled/confirmed/completed/cancelled/no_show) via
 `spatie/laravel-model-status`
+
+</details>
 
 ---
 

@@ -29,6 +29,7 @@ class StoreTreatmentSessionRequest extends FormRequest
         $treatment = $this->route('treatment');
 
         return [
+            'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
             'practitioner_id' => ['nullable', 'integer', 'exists:practitioners,id'],
             'session_date' => ['required', 'date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
