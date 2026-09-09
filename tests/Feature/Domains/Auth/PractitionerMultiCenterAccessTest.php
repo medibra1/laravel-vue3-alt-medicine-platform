@@ -153,6 +153,7 @@ test('a practitioner can create a treatment and log a session for a patient in t
 
     $sessionResponse = $this->actingAs($user)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-26',
+        'modality' => 'in_person',
     ]);
 
     $sessionResponse->assertRedirect(route('admin.patients.edit', $patient->id));
