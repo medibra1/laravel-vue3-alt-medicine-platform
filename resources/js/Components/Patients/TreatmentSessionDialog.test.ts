@@ -90,6 +90,7 @@ describe('TreatmentSessionDialog', () => {
                     id: 5,
                     session_date: '2026-08-20',
                     duration_minutes: 30,
+                    modality: 'in_person',
                     notes: null,
                     care_items: [],
                     disease_progress: [{ disease_id: 1, outcome: 'not_cured', outcome_percentage: null, notes: null }],

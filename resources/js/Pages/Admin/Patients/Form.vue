@@ -67,6 +67,7 @@ interface TreatmentSessionSummary {
     id: number;
     session_date: string | null;
     duration_minutes: number | null;
+    modality: string | null;
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
@@ -183,6 +184,8 @@ interface NextAppointment {
     starts_at: string;
     duration_minutes: number;
     status: string;
+    modality: string | null;
+    meeting_link: string | null;
     reason: string | null;
     practitioner: { id: number; first_name: string; last_name: string; full_code: string } | null;
 }
@@ -785,6 +788,8 @@ function onStatusChipClick() {
                           practitioner_id: editingAppointment.practitioner_id,
                           starts_at: editingAppointment.starts_at,
                           duration_minutes: editingAppointment.duration_minutes,
+                          modality: editingAppointment.modality,
+                          meeting_link: editingAppointment.meeting_link,
                           reason: editingAppointment.reason,
                       }
                     : null

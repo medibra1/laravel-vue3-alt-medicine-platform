@@ -29,6 +29,7 @@ test('super admin can create a session with care items and disease progress', fu
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'care_item_ids' => [$careItem->id],
         'disease_progress' => [
             ['disease_id' => $disease->id, 'outcome' => 'ongoing', 'notes' => 'Amélioration légère'],
@@ -49,6 +50,7 @@ test('outcome_percentage is required when outcome is percentage', function () {
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $disease->id, 'outcome' => 'percentage'],
         ],
@@ -65,6 +67,7 @@ test('updating a session upserts disease progress instead of duplicating it', fu
 
     $first = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $disease->id, 'outcome' => 'ongoing'],
         ],
@@ -74,6 +77,7 @@ test('updating a session upserts disease progress instead of duplicating it', fu
 
     $this->actingAs($superAdmin)->patch(route('admin.treatments.sessions.update', [$treatment, $session]), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $disease->id, 'outcome' => 'cured'],
         ],
@@ -91,6 +95,7 @@ test('super admin can add several measurements to a session', function () {
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'measurements' => [
             ['measurement_type_option_id' => $bloodPressure->id, 'value' => '12/8', 'unit' => 'mmHg'],
             ['measurement_type_option_id' => $weight->id, 'value' => '78', 'unit' => 'kg', 'notes' => 'À jeun'],
@@ -111,6 +116,7 @@ test('updating a session upserts measurements instead of duplicating them', func
 
     $first = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'measurements' => [
             ['measurement_type_option_id' => $bloodPressure->id, 'value' => '14/9'],
         ],
@@ -120,6 +126,7 @@ test('updating a session upserts measurements instead of duplicating them', func
 
     $this->actingAs($superAdmin)->patch(route('admin.treatments.sessions.update', [$treatment, $session]), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'measurements' => [
             ['measurement_type_option_id' => $bloodPressure->id, 'value' => '12/8'],
         ],
@@ -135,6 +142,7 @@ test('a measurement referencing a non-existent enum option is rejected', functio
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'measurements' => [
             ['measurement_type_option_id' => 999999, 'value' => '12/8'],
         ],
@@ -149,6 +157,7 @@ test('a session without any measurement remains valid', function () {
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
     ]);
 
     $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
@@ -168,6 +177,7 @@ test('a session that resolves the last unresolved disease auto-closes the treatm
     // First session resolves only one of the two diseases — still ongoing.
     $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $diseaseA->id, 'outcome' => 'cured'],
         ],
@@ -177,6 +187,7 @@ test('a session that resolves the last unresolved disease auto-closes the treatm
     // Second session resolves the last one — the treatment auto-closes.
     $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-21',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $diseaseB->id, 'outcome' => 'not_cured'],
         ],
@@ -202,6 +213,7 @@ test('a treatment with one actively tracked and one non-tracked disease auto-clo
     // never given an outcome at all, and must not be waited on.
     $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $trackedDisease->id, 'outcome' => 'cured'],
         ],
@@ -221,6 +233,7 @@ test('a session marking a disease as still ongoing does not close the treatment'
 
     $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
         'disease_progress' => [
             ['disease_id' => $disease->id, 'outcome' => 'ongoing'],
         ],
@@ -237,6 +250,7 @@ test('manager cannot create a session on a treatment from another center', funct
 
     $response = $this->actingAs($manager)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
     ]);
 
     $response->assertForbidden();
@@ -249,6 +263,7 @@ test('manager can create a session on a treatment in their own center', function
 
     $response = $this->actingAs($manager)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-08-20',
+        'modality' => 'in_person',
     ]);
 
     $response->assertRedirect();
@@ -335,6 +350,7 @@ test('creating a session with an appointment_id marks the appointment completed 
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-09-10',
+        'modality' => 'in_person',
         'appointment_id' => $appointment->id,
     ]);
 
@@ -364,10 +380,47 @@ test('creating a session with an appointment_id belonging to another patient is 
 
     $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
         'session_date' => '2026-09-10',
+        'modality' => 'in_person',
         'appointment_id' => $appointment->id,
     ]);
 
     $response->assertForbidden();
     expect($treatment->sessions()->count())->toBe(0);
     expect($appointment->fresh()->status)->toBe('scheduled');
+});
+
+test('a session persists its modality', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'modality' => 'remote',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $treatment->patient_id));
+    expect($treatment->sessions()->firstOrFail()->modality)->toBe('remote');
+});
+
+test('modality is required when creating a session', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+    ]);
+
+    $response->assertSessionHasErrors('modality');
+});
+
+test('an invalid modality value is rejected', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $treatment = Treatment::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.treatments.sessions.store', $treatment), [
+        'session_date' => '2026-08-20',
+        'modality' => 'by_carrier_pigeon',
+    ]);
+
+    $response->assertSessionHasErrors('modality');
 });

@@ -3,10 +3,12 @@ import AppButton from '@/Components/App/AppButton.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
+import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { http } from '@/lib/http';
 import { toLocalDateString } from '@/utils/date';
+import { modalityOptions } from '@/utils/modality';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -50,6 +52,8 @@ interface AppointmentToEdit {
     practitioner_id: number;
     starts_at: string;
     duration_minutes: number;
+    modality: string | null;
+    meeting_link: string | null;
     reason: string | null;
 }
 
@@ -100,6 +104,8 @@ const form = useForm({
     treatment_id: null as number | null,
     starts_at: null as string | null,
     duration_minutes: 30,
+    modality: 'in_person' as string,
+    meeting_link: null as string | null,
     reason: null as string | null,
 });
 
@@ -122,6 +128,8 @@ function resetForm() {
     form.practitioner_id = props.appointment?.practitioner_id ?? null;
     form.treatment_id = null;
     form.duration_minutes = props.appointment?.duration_minutes ?? 30;
+    form.modality = props.appointment?.modality ?? 'in_person';
+    form.meeting_link = props.appointment?.meeting_link ?? null;
     form.reason = props.appointment?.reason ?? null;
 
     const initialDate = props.appointment ? new Date(props.appointment.starts_at) : null;
@@ -187,6 +195,8 @@ function save() {
                 practitioner_id: data.practitioner_id,
                 starts_at: data.starts_at,
                 duration_minutes: data.duration_minutes,
+                modality: data.modality,
+                meeting_link: data.meeting_link,
                 reason: data.reason,
             }))
             .put(route('admin.appointments.update', props.appointment.id), options);
@@ -253,6 +263,23 @@ function save() {
             />
 
             <AppInputNumber v-model="form.duration_minutes" label="Durée (minutes)" :min="5" :max="480" :error="form.errors.duration_minutes" />
+
+            <AppSelect
+                v-model="form.modality"
+                :options="modalityOptions"
+                option-label="label"
+                option-value="value"
+                label="Modalité"
+                :error="form.errors.modality"
+            />
+
+            <AppInputText
+                v-if="form.modality === 'remote'"
+                v-model="form.meeting_link"
+                label="Lien / contact de visio"
+                placeholder="https://..."
+                :error="form.errors.meeting_link ?? undefined"
+            />
 
             <AppTextarea v-model="form.reason" label="Motif" :rows="2" :error="form.errors.reason ?? undefined" />
 
