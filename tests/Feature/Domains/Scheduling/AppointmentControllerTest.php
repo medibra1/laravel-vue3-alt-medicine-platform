@@ -31,6 +31,7 @@ test('super admin can create an appointment', function () {
         'practitioner_id' => $practitioner->id,
         'starts_at' => '2026-09-10 10:00:00',
         'duration_minutes' => 30,
+        'modality' => 'in_person',
         'reason' => 'Suivi',
     ]);
 
@@ -61,6 +62,7 @@ test('creating an appointment is rejected on a conflicting slot', function () {
         'practitioner_id' => $practitioner->id,
         'starts_at' => '2026-09-10 10:15:00',
         'duration_minutes' => 30,
+        'modality' => 'in_person',
     ]);
 
     $response->assertSessionHasErrors('starts_at');
@@ -94,6 +96,7 @@ test('rescheduling is rejected when it conflicts with another appointment', func
         'practitioner_id' => $practitioner->id,
         'starts_at' => '2026-09-10 10:00:00',
         'duration_minutes' => 30,
+        'modality' => 'in_person',
     ]);
 
     $response->assertSessionHasErrors('starts_at');
@@ -118,6 +121,7 @@ test('rescheduling to the same slot the appointment already occupies is allowed'
         'practitioner_id' => $practitioner->id,
         'starts_at' => '2026-09-10 10:00:00',
         'duration_minutes' => 45,
+        'modality' => 'in_person',
         'reason' => 'Durée rallongée',
     ]);
 
@@ -137,6 +141,7 @@ test('a manager cannot create an appointment for a patient outside their own cen
         'practitioner_id' => $practitioner->id,
         'starts_at' => '2026-09-10 10:00:00',
         'duration_minutes' => 30,
+        'modality' => 'in_person',
     ]);
 
     $response->assertSessionHasErrors('patient_id');
@@ -186,6 +191,82 @@ test('cancelling an appointment with a reason succeeds', function () {
     $fresh = $appointment->fresh();
     expect($fresh->status)->toBe('cancelled');
     expect($fresh->cancellation_reason)->toBe('Patient indisponible');
+});
+
+test('modality is required when creating an appointment', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+    ]);
+
+    $response->assertSessionHasErrors('modality');
+});
+
+test('an invalid modality value is rejected', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'by_carrier_pigeon',
+    ]);
+
+    $response->assertSessionHasErrors('modality');
+});
+
+test('a meeting_link is accepted when the appointment is remote', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'remote',
+        'meeting_link' => 'https://meet.example.com/abc-def',
+    ]);
+
+    $response->assertRedirect(route('admin.patients.edit', $patient->id));
+    $appointment = Appointment::query()->where('patient_id', $patient->id)->firstOrFail();
+    expect($appointment->modality)->toBe('remote');
+    expect($appointment->meeting_link)->toBe('https://meet.example.com/abc-def');
+});
+
+test('a malformed meeting_link is rejected', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $response = $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'remote',
+        'meeting_link' => 'not-a-url',
+    ]);
+
+    $response->assertSessionHasErrors('meeting_link');
 });
 
 test('available-slots returns the free slots for a practitioner on a given day', function () {

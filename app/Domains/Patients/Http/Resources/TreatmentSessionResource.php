@@ -18,6 +18,7 @@ class TreatmentSessionResource extends JsonResource
             'id' => $this->id,
             'session_date' => $this->session_date,
             'duration_minutes' => $this->duration_minutes,
+            'modality' => $this->modality,
             'notes' => $this->notes,
             'care_items' => CareItemResource::collection($this->whenLoaded('careItems')),
             'disease_progress' => DiseaseProgressResource::collection($this->whenLoaded('diseaseProgress')),

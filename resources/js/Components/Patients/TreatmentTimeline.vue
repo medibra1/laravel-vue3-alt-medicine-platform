@@ -2,6 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import { outcomeColor, outcomeIcon, outcomeLabel } from '@/utils/diseaseOutcome';
+import { modalityIcon, modalityLabel } from '@/utils/modality';
 
 interface TreatmentDisease {
     id: number;
@@ -14,6 +15,7 @@ interface TreatmentSessionSummary {
     id: number;
     session_date: string | null;
     duration_minutes: number | null;
+    modality: string | null;
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
@@ -94,6 +96,10 @@ function careItemGroups(session: TreatmentSessionSummary): CareItemGroup[] {
                         <p class="text-body-2 font-weight-medium mb-0" style="min-width: 0">
                             {{ formatSessionDate(session) }}
                             <span v-if="session.duration_minutes" class="text-medium-emphasis font-weight-regular"> — {{ session.duration_minutes }} min</span>
+                            <v-chip size="x-small" variant="tonal" class="ml-1">
+                                <v-icon :icon="modalityIcon(session.modality)" size="12" start />
+                                {{ modalityLabel(session.modality) }}
+                            </v-chip>
                         </p>
 
                         <div class="d-flex ga-1 flex-shrink-0">

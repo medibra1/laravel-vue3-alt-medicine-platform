@@ -583,7 +583,9 @@ pas de `client_uuid`/draft/confirm/`HasStatuses`).
 
 id · treatment_id (fk) · practitioner_id (fk, nullable, peut différer
 si réassignation) · session_date, nullable · duration_minutes,
-nullable · notes · created_by · timestamps
+nullable · modality (string(20), défaut `in_person` — valeurs
+`in_person`/`remote`, ajoutée 2026-09-09, voir "Modalité présentiel/à
+distance" plus bas) · notes · created_by · timestamps
 
 ### `treatment_session_disease_progress` — **implémenté** (2026-08-20)
 Cœur du modèle de suivi de cette session : une ligne par maladie suivie
@@ -1155,10 +1157,30 @@ en cours) · treatment_session_id (fk, nullable, **unique** — renseigné
 uniquement à la conversion, voir plus bas, jamais à la création) ·
 starts_at (datetime) · duration_minutes · status (string(20), défaut
 `scheduled` — valeurs `scheduled`/`confirmed`/`completed`/`cancelled`/
-`no_show`) · reason, nullable · cancellation_reason, nullable ·
-created_by (fk `users`) · timestamps. Index `[practitioner_id,
-starts_at]` (détection de conflit) et `[center_id, starts_at]` (vue
-agenda par centre).
+`no_show`) · modality (string(20), défaut `in_person` — valeurs
+`in_person`/`remote`, ajoutée 2026-09-09, voir "Modalité présentiel/à
+distance" plus bas) · meeting_link, nullable (lien/contact de visio,
+pertinent seulement si `modality = remote` mais jamais imposé — le
+praticien peut le renseigner plus tard) · reason, nullable ·
+cancellation_reason, nullable · created_by (fk `users`) · timestamps.
+Index `[practitioner_id, starts_at]` (détection de conflit) et
+`[center_id, starts_at]` (vue agenda par centre).
+
+### Modalité présentiel/à distance — **implémenté** (2026-09-09,
+`feature/remote-modality`)
+
+`modality` sur `appointments`/`treatment_sessions` — même choix de
+string-enum à deux valeurs déjà pratiqué pour `status`/`outcome`/
+`closure_reason` ailleurs dans ce projet, pas de PHP enum. Attribut
+simple, **sans aucune contrainte croisée avec les soins sélectionnés**
+(`CareItem`) dans cette version — un soin qui suppose une présence
+physique reste sélectionnable sur une séance/un RDV `remote` sans
+validation ni avertissement. À revoir plus tard si un vrai besoin
+apparaît. Options/labels/icônes centralisés dans
+`resources/js/utils/modality.ts` (même pattern que `diseaseOutcome.ts`).
+Sur l'agenda (`AppWeekCalendar`), un RDV `remote` porte une icône
+`mdi-video` distincte sur son bloc ; `TreatmentTimeline` affiche un chip
+de modalité sur chaque séance de l'historique.
 
 ### Détection de conflit — `AppointmentConflictChecker`
 
