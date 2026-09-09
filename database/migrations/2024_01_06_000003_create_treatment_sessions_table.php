@@ -14,6 +14,9 @@ return new class extends Migration
             $table->foreignId('practitioner_id')->nullable()->constrained('practitioners')->nullOnDelete(); // may differ from the treatment's practitioner on reassignment
             $table->date('session_date')->nullable();
             $table->unsignedSmallInteger('duration_minutes')->nullable();
+            // Same string-enum choice as Appointment.modality — two
+            // values, no PHP enum needed.
+            $table->string('modality', 20)->default('in_person');
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();

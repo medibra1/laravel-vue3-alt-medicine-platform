@@ -11,6 +11,7 @@ import AppTextarea from '@/Components/App/AppTextarea.vue';
 import CareItemsPicker from '@/Components/Patients/CareItemsPicker.vue';
 import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { outcomeOptions } from '@/utils/diseaseOutcome';
+import { modalityOptions } from '@/utils/modality';
 import { router } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
@@ -52,6 +53,7 @@ interface Session {
     id: number;
     session_date: string | null;
     duration_minutes: number | null;
+    modality: string | null;
     notes: string | null;
     care_items: { id: number }[];
     disease_progress: { disease_id: number; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
@@ -141,6 +143,7 @@ const activeSessionTab = ref<string>('care');
 const form = reactive({
     session_date: null as string | null,
     duration_minutes: null as number | null,
+    modality: 'in_person' as string,
     notes: null as string | null,
 });
 
@@ -221,6 +224,7 @@ function resetForm() {
     activeSessionTab.value = 'care';
     form.session_date = props.session?.session_date ?? toLocalDateString(new Date());
     form.duration_minutes = props.session?.duration_minutes ?? null;
+    form.modality = props.session?.modality ?? 'in_person';
     form.notes = props.session?.notes ?? null;
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
     pendingMedicalFiles.value = [];
@@ -373,6 +377,16 @@ function uploadMedicalDocuments() {
                         label="Durée (minutes)"
                         :min="1"
                         :error="errors.duration_minutes"
+                    />
+                </v-col>
+                <v-col cols="12" md="6">
+                    <AppSelect
+                        v-model="form.modality"
+                        :options="modalityOptions"
+                        option-label="label"
+                        option-value="value"
+                        label="Modalité"
+                        :error="errors.modality"
                     />
                 </v-col>
             </v-row>

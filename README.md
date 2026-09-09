@@ -68,7 +68,7 @@ il tourne contre la DB de dev locale (`database/database.sqlite`), pas
 une DB isolée comme Pest (sqlite `:memory:`), donc à éviter en même
 temps qu'un usage manuel actif de cette DB.
 
-## État d'avancement (2026-09-07)
+## État d'avancement (2026-09-09)
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
@@ -78,7 +78,7 @@ temps qu'un usage manuel actif de cette DB.
 | Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
 | Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
-| Scheduling (RDV, campagnes) | RDV **fait** — calendrier praticien/centre, disponibilités récurrentes, détection de conflit, conversion RDV→séance automatique. Campagnes (tournées) pas commencé |
+| Scheduling (RDV, campagnes) | RDV **fait** — calendrier praticien/centre, disponibilités récurrentes, détection de conflit, conversion RDV→séance automatique, modalité présentiel/à distance (RDV et séances). Campagnes (tournées) pas commencé |
 | Catalog (produits, stock) | Pas commencé |
 | Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
 | Reporting (stats signées) | Pas commencé |
@@ -459,3 +459,9 @@ correspondant aux 2 photos importées). Données de test nettoyées.
   Ghostscript (pour les miniatures PDF) — voir
   `docs/schema-donnees.md` "Documents patient" pour le détail
   d'installation.
+- Agenda : le filtre `to` de `AppointmentController::index()` compare
+  `starts_at <= $request->date('to')` (minuit du jour `to`), donc un
+  RDV l'après-midi du jour `to` lui-même n'apparaît pas dans la vue
+  calendrier (repéré en vérification de la session "Modalité
+  présentiel/à distance", préexistant, pas corrigé) — probablement
+  `<= $to->endOfDay()`.

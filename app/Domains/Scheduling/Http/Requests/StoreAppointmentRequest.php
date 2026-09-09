@@ -45,6 +45,10 @@ class StoreAppointmentRequest extends FormRequest
             'treatment_id' => ['nullable', 'integer', 'exists:treatments,id'],
             'starts_at' => ['required', 'date', new NoAppointmentConflict($this)],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:480'],
+            'modality' => ['required', Rule::in(['in_person', 'remote'])],
+            // Not required even when modality is 'remote' — the
+            // practitioner may add it later, this is a convenience field.
+            'meeting_link' => ['nullable', 'url', 'max:255'],
             'reason' => ['nullable', 'string'],
         ];
     }

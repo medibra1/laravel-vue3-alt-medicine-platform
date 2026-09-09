@@ -27,6 +27,7 @@ class UpdateTreatmentSessionRequest extends FormRequest
             'practitioner_id' => ['nullable', 'integer', 'exists:practitioners,id'],
             'session_date' => ['required', 'date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
+            'modality' => ['required', Rule::in(['in_person', 'remote'])],
             'notes' => ['nullable', 'string'],
             'care_item_ids' => ['nullable', 'array'],
             'care_item_ids.*' => ['integer', 'exists:care_items,id'],

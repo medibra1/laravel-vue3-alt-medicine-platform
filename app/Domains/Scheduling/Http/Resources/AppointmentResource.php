@@ -25,6 +25,8 @@ class AppointmentResource extends JsonResource
             'ends_at' => $this->ends_at,
             'duration_minutes' => $this->duration_minutes,
             'status' => $this->status,
+            'modality' => $this->modality,
+            'meeting_link' => $this->meeting_link,
             'reason' => $this->reason,
             'cancellation_reason' => $this->cancellation_reason,
             'patient' => $this->whenLoaded('patient', fn () => [

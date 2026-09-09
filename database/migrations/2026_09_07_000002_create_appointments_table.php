@@ -24,6 +24,10 @@ return new class extends Migration
             // already made for Treatment.outcome/closure_reason: few values,
             // no need for a history trail on top of updated_at.
             $table->string('status', 20)->default('scheduled');
+            // Same string-enum choice as status/outcome/closure_reason
+            // elsewhere in the project — two values, no PHP enum needed.
+            $table->string('modality', 20)->default('in_person');
+            $table->string('meeting_link')->nullable();
             $table->text('reason')->nullable();
             $table->text('cancellation_reason')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();

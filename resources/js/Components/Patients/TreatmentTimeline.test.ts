@@ -10,6 +10,7 @@ const sessions = [
         id: 1,
         session_date: '2026-08-01',
         duration_minutes: 30,
+        modality: 'in_person',
         notes: null,
         care_items: [{ id: 1, label: 'Ointment', category_label: 'Ointment' }],
         disease_progress: [
@@ -21,6 +22,7 @@ const sessions = [
         id: 2,
         session_date: '2026-08-15',
         duration_minutes: 45,
+        modality: 'in_person',
         notes: null,
         care_items: [],
         disease_progress: [
@@ -78,6 +80,7 @@ describe('TreatmentTimeline', () => {
                 id: 3,
                 session_date: '2026-08-20',
                 duration_minutes: 20,
+                modality: 'in_person',
                 notes: null,
                 care_items: [
                     { id: 10, label: 'Tête', category_label: 'Ventouses' },
@@ -100,8 +103,9 @@ describe('TreatmentTimeline', () => {
         expect(wrapper.text()).toContain('Pied');
         expect(wrapper.text()).toContain('S21 v30 (Cadenas)');
 
+        // 3 care item chips + 1 modality badge added to the session's header.
         const chips = wrapper.findAllComponents({ name: 'VChip' });
-        expect(chips).toHaveLength(3);
+        expect(chips).toHaveLength(4);
     });
 });
 
