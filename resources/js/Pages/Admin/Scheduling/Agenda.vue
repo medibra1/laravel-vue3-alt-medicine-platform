@@ -8,6 +8,7 @@ import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { http } from '@/lib/http';
 import { toLocalDateString } from '@/utils/date';
+import { modalityIcon } from '@/utils/modality';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -40,6 +41,8 @@ interface AppointmentEntry {
     ends_at: string;
     duration_minutes: number;
     status: string;
+    modality: string | null;
+    meeting_link: string | null;
     reason: string | null;
     cancellation_reason: string | null;
     patient?: { id: number; first_name: string | null; last_name: string | null };
@@ -166,6 +169,7 @@ const events = computed<AppCalendarEvent[]>(() =>
         title: `${appointment.patient?.first_name ?? ''} ${appointment.patient?.last_name ?? ''}`.trim(),
         subtitle: mode.value === 'week' ? undefined : appointment.practitioner ? `${appointment.practitioner.first_name} ${appointment.practitioner.last_name}` : undefined,
         color: statusColor[appointment.status] ?? 'primary',
+        icon: appointment.modality === 'remote' ? modalityIcon(appointment.modality) : undefined,
     })),
 );
 
@@ -279,6 +283,8 @@ function openNewAppointment() {
                           practitioner_id: editingAppointment.practitioner_id,
                           starts_at: editingAppointment.starts_at,
                           duration_minutes: editingAppointment.duration_minutes,
+                          modality: editingAppointment.modality,
+                          meeting_link: editingAppointment.meeting_link,
                           reason: editingAppointment.reason,
                       }
                     : null

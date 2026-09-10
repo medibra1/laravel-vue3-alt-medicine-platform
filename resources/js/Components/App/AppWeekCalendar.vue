@@ -17,6 +17,8 @@ export interface AppCalendarEvent {
     title: string;
     subtitle?: string;
     color?: string;
+    /** mdi icon name shown next to the title — e.g. to flag a remote appointment. */
+    icon?: string;
 }
 
 const props = withDefaults(
@@ -112,7 +114,9 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                     :style="{ ...eventStyle(event), backgroundColor: `rgb(var(--v-theme-${event.color ?? 'primary'}))` }"
                     @click.stop="emit('event-click', event)"
                 >
-                    <p class="app-week-calendar-event-title">{{ event.title }}</p>
+                    <p class="app-week-calendar-event-title">
+                        <v-icon v-if="event.icon" :icon="event.icon" size="12" class="mr-1" />{{ event.title }}
+                    </p>
                     <p v-if="event.subtitle" class="app-week-calendar-event-subtitle">{{ event.subtitle }}</p>
                 </div>
             </div>

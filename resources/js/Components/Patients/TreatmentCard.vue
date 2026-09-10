@@ -16,6 +16,7 @@ interface TreatmentSessionSummary {
     id: number;
     session_date: string | null;
     duration_minutes: number | null;
+    modality: string | null;
     notes: string | null;
     care_items: { id: number; label: string; category_label: string }[];
     disease_progress: { disease_id: number; disease_label: string; outcome: string | null; outcome_percentage: number | null; notes: string | null }[];
