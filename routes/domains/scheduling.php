@@ -16,5 +16,7 @@ Route::middleware(['auth', 'verified', 'center.access'])
         Route::post('appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
         Route::post('appointments/{appointment}/no-show', [AppointmentController::class, 'markNoShow'])->name('appointments.no-show');
 
+        Route::put('practitioners/availabilities/bulk-sync', [PractitionerAvailabilityController::class, 'bulkSync'])->name('practitioners.availabilities.bulk-sync');
+        Route::put('practitioners/{practitioner}/availabilities', [PractitionerAvailabilityController::class, 'sync'])->name('practitioners.availabilities.sync');
         Route::resource('availabilities', PractitionerAvailabilityController::class)->except(['show', 'create', 'edit']);
     });

@@ -1149,6 +1149,23 @@ day_of_week]`. **Pas de gestion des congés/exceptions ponctuelles**
 (jours fériés, absence imprévue) dans cette V1 — horaire récurrent
 uniquement, à ajouter plus tard si le besoin se confirme.
 
+**Synchronisation en masse (2026-09-28)** : en plus du CRUD ligne par
+ligne (inchangé), `PUT admin/practitioners/{practitioner}/availabilities`
+(`SyncPractitionerAvailabilitiesAction`) remplace tout le planning d'un
+praticien, et `PUT admin/practitioners/availabilities/bulk-sync`
+(`BulkSyncPractitionerAvailabilitiesAction`) applique le même planning à
+plusieurs praticiens (tout ou rien, une transaction englobante).
+Stratégie = **remplacement intégral** (delete + recreate en
+transaction), pas un diff ligne par ligne — sûr parce qu'aucune clé
+étrangère ne pointe vers `practitioner_availabilities.id`
+(`AvailableSlotsResolver`/`appointments` interrogent par
+`practitioner_id` + `day_of_week`, jamais par id). Aucune notion de
+gabarit/groupe en base : chaque praticien reçoit ses propres lignes
+indépendantes, modifiables individuellement ensuite. Les plages qui se
+chevauchent le même jour sont rejetées à la validation (trait
+`ValidatesWeeklySlots`, partagé par les deux FormRequests) ; des plages
+jointives (12h-14h puis 14h-18h) restent acceptées.
+
 ### `appointments`
 
 id · center_id (fk) · practitioner_id (fk) · patient_id (fk) ·
