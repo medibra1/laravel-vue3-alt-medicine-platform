@@ -3,6 +3,9 @@
 namespace App\Domains\Scheduling\Http\Controllers\Admin;
 
 use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
+use App\Domains\Core\Http\Resources\CenterOperatingHoursResource;
+use App\Domains\Core\Models\Center;
+use App\Domains\Core\Models\CenterOperatingHours;
 use App\Domains\Patients\Http\Resources\PatientOptionResource;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
@@ -41,7 +44,21 @@ class AppointmentController extends Controller
 
         $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
 
+        // Opening hours of every center the user can display, shipped once
+        // so switching weeks/centers never needs another request. Keyed by
+        // center_id; they only set the grid's display range (see Agenda.vue).
+        $visibleCenterIds = $centerId !== null
+            ? [$centerId]
+            : Center::query()->pluck('id')->all();
+
         return Inertia::render('Admin/Scheduling/Agenda', [
+            'activeCenterId' => $centerId,
+            'centerOperatingHours' => (object) CenterOperatingHours::query()
+                ->whereIn('center_id', $visibleCenterIds)
+                ->get()
+                ->groupBy('center_id')
+                ->map(fn ($hours) => CenterOperatingHoursResource::collection($hours)->resolve())
+                ->all(),
             'centers' => $this->centerOptions($request),
             'practitioners' => $this->practitionerOptions($request),
             'patients' => PatientOptionResource::collection(

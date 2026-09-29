@@ -7,7 +7,9 @@ import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '
 import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { http } from '@/lib/http';
+import { computeGridHours } from '@/utils/agendaGridHours';
 import { toLocalDateString } from '@/utils/date';
+import type { WeeklySlot } from '@/utils/weeklySchedule';
 import { modalityIcon } from '@/utils/modality';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -53,6 +55,8 @@ const props = defineProps<{
     centers: Center[];
     practitioners: PractitionerOption[];
     patients: PatientOption[];
+    activeCenterId: number | null;
+    centerOperatingHours: Record<number, WeeklySlot[]>;
 }>();
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
@@ -172,23 +176,17 @@ const statusColor: Record<string, string> = {
     no_show: 'error',
 };
 
-// Widen the grid (never narrow it below 8h-19h) so appointments outside the
-// default range render at their real position instead of being clamped.
-const gridHours = computed<{ startHour: number; endHour: number }>(() => {
-    if (appointments.value.length === 0) {
-        return { startHour: 8, endHour: 19 };
-    }
+// Grid range = the displayed center's opening hours for the shown weekdays,
+// widened to fit any loaded appointment (see computeGridHours()).
+const displayedCenterId = computed(() => (isSuperAdmin.value ? selectedCenterId.value : props.activeCenterId));
 
-    const hours = appointments.value.flatMap((a) => {
-        const start = new Date(a.starts_at);
-        // Measured from the start's midnight so an appointment ending at
-        // 00:00 the next day counts as 24, not 0.
-        const endHours = start.getHours() + (new Date(a.ends_at).getTime() - start.getTime()) / 3_600_000 + start.getMinutes() / 60;
-        return [start.getHours(), Math.ceil(endHours)];
-    });
-
-    return { startHour: Math.min(8, ...hours), endHour: Math.min(24, Math.max(19, ...hours)) };
-});
+const gridHours = computed(() =>
+    computeGridHours(
+        props.centerOperatingHours[displayedCenterId.value ?? 0] ?? [],
+        rangeDates.value.map((d) => d.getDay()),
+        appointments.value,
+    ),
+);
 
 const events = computed<AppCalendarEvent[]>(() =>
     appointments.value.map((appointment) => ({

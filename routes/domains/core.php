@@ -10,6 +10,8 @@ Route::middleware(['auth', 'verified', 'center.access'])
     ->as('admin.')
     ->group(function () {
         Route::get('centers/next-code', [CenterController::class, 'nextCode'])->name('centers.next-code');
+        Route::put('centers/{center}/operating-hours', [CenterController::class, 'syncOperatingHours'])
+            ->name('centers.operating-hours.sync');
         Route::resource('centers', CenterController::class)
             ->only(['index', 'store', 'update', 'destroy']);
 

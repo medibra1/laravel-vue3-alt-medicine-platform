@@ -2,6 +2,8 @@
 
 namespace App\Domains\Scheduling\Http\Controllers\Admin;
 
+use App\Domains\Core\Http\Resources\CenterOperatingHoursResource;
+use App\Domains\Core\Models\Center;
 use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Scheduling\Http\Requests\BulkSyncPractitionerAvailabilitiesRequest;
@@ -38,7 +40,30 @@ class PractitionerAvailabilityController extends Controller
         return Inertia::render('Admin/Scheduling/Availabilities/Index', [
             'availabilities' => PractitionerAvailabilityResource::collection($availabilities),
             'practitioners' => $this->practitionerOptions($request),
+            'editableCenters' => $this->editableCenters($request),
         ]);
+    }
+
+    /**
+     * Centers whose opening hours this user may edit from this page:
+     * every center for super_admin/admin, the active one for a manager.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function editableCenters(Request $request): array
+    {
+        $user = $request->user();
+
+        $centers = $user->isSuperAdmin() || $user->isAdmin()
+            ? Center::query()->with('operatingHours')->orderBy('name')->get()
+            : Center::query()->with('operatingHours')->whereKey(getPermissionsTeamId())->get()
+                ->filter(fn (Center $center) => $user->can('manageOperatingHours', $center));
+
+        return $centers->map(fn (Center $center) => [
+            'id' => $center->id,
+            'name' => $center->name,
+            'operating_hours' => CenterOperatingHoursResource::collection($center->operatingHours)->resolve(),
+        ])->values()->all();
     }
 
     public function store(StorePractitionerAvailabilityRequest $request): RedirectResponse

@@ -15,7 +15,9 @@ class CenterPolicy
 {
     public function before(User $user, string $ability): ?bool
     {
-        return $user->isSuperAdmin() || $user->isAdmin() ? true : false;
+        // null (not false) for everyone else so manageOperatingHours() below
+        // still runs; every other ability returns false on its own.
+        return $user->isSuperAdmin() || $user->isAdmin() ? true : null;
     }
 
     public function viewAny(User $user): bool
@@ -41,5 +43,15 @@ class CenterPolicy
     public function delete(User $user, Center $center): bool
     {
         return false;
+    }
+
+    /**
+     * Opening hours are the one center setting a manager may edit — only
+     * for the center they manage and currently have active.
+     */
+    public function manageOperatingHours(User $user, Center $center): bool
+    {
+        return $center->id === getPermissionsTeamId()
+            && in_array($center->id, $user->managedCenterIds(), true);
     }
 }
