@@ -10,7 +10,9 @@ import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import CenterOperatingHoursDialog from '@/Components/Scheduling/CenterOperatingHoursDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import type { WeeklySlot } from '@/utils/weeklySchedule';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref, watch } from 'vue';
 
@@ -31,6 +33,7 @@ interface Center {
     email: string | null;
     active: boolean;
     country?: { id: number; name: string; code: string };
+    operating_hours?: WeeklySlot[];
 }
 
 const props = defineProps<{
@@ -169,6 +172,14 @@ function submitEdit() {
     );
 }
 
+const hoursCenter = ref<Center | null>(null);
+const hoursDialogVisible = ref(false);
+
+function openOperatingHours(center: Center) {
+    hoursCenter.value = center;
+    hoursDialogVisible.value = true;
+}
+
 function destroy(center: Center) {
     if (!confirm(`Supprimer le centre ${center.name} ?`)) {
         return;
@@ -222,6 +233,13 @@ function destroy(center: Center) {
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
+                            />
+                            <AppButton
+                                label="Horaires d'ouverture"
+                                icon="mdi-clock-outline"
+                                severity="secondary"
+                                size="small"
+                                @click="openOperatingHours(item)"
                             />
                             <AppButton
                                 label="Supprimer"
@@ -325,5 +343,11 @@ function destroy(center: Center) {
                 </div>
             </form>
         </AppDialog>
+
+        <CenterOperatingHoursDialog
+            v-model:visible="hoursDialogVisible"
+            :center="hoursCenter"
+            :initial-slots="hoursCenter?.operating_hours ?? []"
+        />
     </AuthenticatedLayout>
 </template>

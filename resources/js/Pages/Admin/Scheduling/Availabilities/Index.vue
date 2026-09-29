@@ -6,10 +6,11 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import BulkApplyScheduleDialog from '@/Components/Scheduling/BulkApplyScheduleDialog.vue';
+import CenterOperatingHoursDialog from '@/Components/Scheduling/CenterOperatingHoursDialog.vue';
 import PractitionerWeeklyScheduleDialog from '@/Components/Scheduling/PractitionerWeeklyScheduleDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { dayLabels, displayDayOrder, shortDayLabels, summarizeSchedule } from '@/utils/weeklySchedule';
+import { type WeeklySlot, dayLabels, displayDayOrder, shortDayLabels, summarizeSchedule } from '@/utils/weeklySchedule';
 import { computed, ref } from 'vue';
 
 interface Practitioner {
@@ -31,7 +32,12 @@ interface Availability {
 const props = defineProps<{
     availabilities: Availability[];
     practitioners: Practitioner[];
+    editableCenters: { id: number; name: string; operating_hours: WeeklySlot[] }[];
 }>();
+
+const hoursDialogVisible = ref(false);
+const hoursCenterId = ref<number | null>(props.editableCenters[0]?.id ?? null);
+const hoursCenter = computed(() => props.editableCenters.find((c) => c.id === hoursCenterId.value) ?? null);
 
 const dayOptions = dayLabels.map((label, id) => ({ id, name: label }));
 
@@ -109,6 +115,21 @@ function destroy(availability: Availability) {
     <AuthenticatedLayout>
         <AppPageHeader title="Disponibilités" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Disponibilités' }]">
             <template #actions>
+                <AppSelect
+                    v-if="editableCenters.length > 1"
+                    v-model="hoursCenterId"
+                    :options="editableCenters"
+                    option-label="name"
+                    option-value="id"
+                    label="Centre"
+                />
+                <AppButton
+                    v-if="hoursCenter"
+                    label="Horaires du centre"
+                    icon="mdi-clock-outline"
+                    severity="secondary"
+                    @click="hoursDialogVisible = true"
+                />
                 <AppButton label="Appliquer un planning à plusieurs praticiens" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
                 <AppButton label="Nouveau créneau" icon="mdi-plus" @click="openCreate" />
             </template>
@@ -172,5 +193,10 @@ function destroy(availability: Availability) {
                 </div>
             </form>
         </AppDialog>
+        <CenterOperatingHoursDialog
+            v-model:visible="hoursDialogVisible"
+            :center="hoursCenter"
+            :initial-slots="hoursCenter?.operating_hours ?? []"
+        />
     </AuthenticatedLayout>
 </template>

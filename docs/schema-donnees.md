@@ -1138,6 +1138,28 @@ besoin de RDV de tournée partagés se confirme (le schéma actuel n'en
 bloque pas l'ajout : `campaign_id` nullable pourrait être ajouté à
 `appointments` sans rien casser).
 
+### `center_operating_hours` (2026-09-29)
+
+id · center_id (fk `centers`, cascade) · day_of_week (0 = dimanche … 6 =
+samedi, même convention que `practitioner_availabilities`) · start_time ·
+end_time · timestamps · index `[center_id, day_of_week]`. Même forme que
+`practitioner_availabilities` : plusieurs plages par jour possibles, un
+jour **sans ligne = centre fermé** (pas de valeur spéciale "closed").
+Édité uniquement par remplacement intégral (`PUT
+admin/centers/{center}/operating-hours`, `SyncCenterOperatingHoursAction`,
+validation via le même trait `ValidatesWeeklySlots`). Accès :
+super_admin/admin sur tous les centres (page Centres et page
+Disponibilités avec sélecteur de centre) et manager pour son centre actif
+uniquement (page Disponibilités, `CenterPolicy::manageOperatingHours`).
+
+**Distinct des disponibilités praticien, les deux coexistent sans se
+déduire l'un de l'autre** : les horaires du centre disent *quand le centre
+reçoit du public* et ne servent qu'à la plage affichée par la grille de
+l'agenda ; les disponibilités disent *quand ce praticien peut être
+réservé* et restent la seule source d'`AvailableSlotsResolver`/de la
+détection de conflit. Un RDV hors horaires du centre n'est ni bloqué ni
+masqué (la grille s'élargit pour l'afficher).
+
 ### `practitioner_availabilities`
 
 id · practitioner_id (fk `practitioners`, cascade) · day_of_week

@@ -25,6 +25,7 @@ class CenterResource extends JsonResource
             'email' => $this->email,
             'active' => $this->active,
             'payroll_mode' => $this->payroll_mode->value,
+            'operating_hours' => $this->whenLoaded('operatingHours', fn () => CenterOperatingHoursResource::collection($this->operatingHours)),
             'country' => $this->whenLoaded('country', fn () => [
                 'id' => $this->country->id,
                 'code' => $this->country->code,
