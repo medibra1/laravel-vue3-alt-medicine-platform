@@ -3,6 +3,7 @@ import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import { type TimeOff, timeOffCovering, timeOffReasonLabel } from '@/utils/timeOff';
 import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '@/Components/App/AppWeekCalendar.vue';
 import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -57,6 +58,7 @@ const props = defineProps<{
     patients: PatientOption[];
     activeCenterId: number | null;
     centerOperatingHours: Record<number, WeeklySlot[]>;
+    timeOffs: TimeOff[];
 }>();
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
@@ -108,23 +110,36 @@ const rangeDates = computed<Date[]>(() => {
 
 const dayLabelFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 
+// Visual hint only — the server rejects bookings on a time off day anyway
+// (NoTimeOffConflict).
+function blockedLabel(practitionerId: number | null, isoDate: string): string | undefined {
+    const timeOff = timeOffCovering(props.timeOffs, practitionerId, isoDate);
+    return timeOff ? timeOffReasonLabel(timeOff.reason) : undefined;
+}
+
 const columns = computed<AppCalendarColumn[]>(() => {
     if (mode.value === 'day') {
         // props.practitioners is already scoped server-side for a
         // non-super_admin (see ResolvesPractitionerOptions) — no client
         // filtering needed on top of it.
+        const date = toLocalDateString(anchorDate.value);
         return props.practitioners.map((practitioner) => ({
             id: practitioner.id,
             label: `${practitioner.first_name} ${practitioner.last_name}`,
-            date: toLocalDateString(anchorDate.value),
+            date,
+            blockedLabel: blockedLabel(practitioner.id, date),
         }));
     }
 
-    return rangeDates.value.map((date) => ({
-        id: toLocalDateString(date),
-        label: dayLabelFormatter.format(date),
-        date: toLocalDateString(date),
-    }));
+    return rangeDates.value.map((d) => {
+        const date = toLocalDateString(d);
+        return {
+            id: date,
+            label: dayLabelFormatter.format(d),
+            date,
+            blockedLabel: blockedLabel(selectedPractitionerId.value, date),
+        };
+    });
 });
 
 const appointments = ref<AppointmentEntry[]>([]);

@@ -1619,3 +1619,31 @@ file_path (PDF stocké) · timestamps
   différents, pas encore assez de règles partagées pour justifier une
   abstraction (voir CLAUDE.md "Services — Action classes, pas de CRUD
   wrapper générique").
+
+### `practitioner_time_offs` (2026-09-29)
+
+Exception ponctuelle datée (congé, arrêt maladie, formation...) —
+distincte du planning récurrent `practitioner_availabilities`.
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | bigint | |
+| `practitioner_id` | fk `practitioners` | cascade delete |
+| `starts_on` | date | |
+| `ends_on` | date | **inclusif** — congé d'un jour : `starts_on = ends_on` |
+| `reason` | string(30), nullable | `vacation`/`sick_leave`/`training`/`other` (string, pas d'enum PHP) |
+| `notes` | text, nullable | |
+| `created_by` | fk `users` | |
+| timestamps | | |
+
+Index `(practitioner_id, starts_on, ends_on)`. Journées entières
+uniquement (V1, pas de demi-journée). Pas d'`update` : modifier = supprimer
+puis recréer.
+
+**Sémantique bloquante** (à l'inverse des disponibilités hors horaires
+centre, qui restent non bloquantes) : `AvailableSlotsResolver` ne renvoie
+aucun créneau un jour couvert, et `NoTimeOffConflict` (sur `starts_at` de
+`Store`/`UpdateAppointmentRequest`) refuse le RDV. Poser un congé
+**n'annule jamais** les RDV déjà planifiés sur la période : le contrôleur
+compte ceux non `cancelled`/`no_show`/`completed` et renvoie le nombre en
+flash (`flash.time_off_affected_appointments`) pour avertir.

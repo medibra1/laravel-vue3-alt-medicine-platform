@@ -2,6 +2,7 @@
 
 use App\Domains\Scheduling\Http\Controllers\Admin\AppointmentController;
 use App\Domains\Scheduling\Http\Controllers\Admin\PractitionerAvailabilityController;
+use App\Domains\Scheduling\Http\Controllers\Admin\PractitionerTimeOffController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'center.access'])
@@ -18,5 +19,8 @@ Route::middleware(['auth', 'verified', 'center.access'])
 
         Route::put('practitioners/availabilities/bulk-sync', [PractitionerAvailabilityController::class, 'bulkSync'])->name('practitioners.availabilities.bulk-sync');
         Route::put('practitioners/{practitioner}/availabilities', [PractitionerAvailabilityController::class, 'sync'])->name('practitioners.availabilities.sync');
+        Route::get('practitioners/{practitioner}/time-offs', [PractitionerTimeOffController::class, 'index'])->name('practitioners.time-offs.index');
+        Route::post('practitioners/{practitioner}/time-offs', [PractitionerTimeOffController::class, 'store'])->name('practitioners.time-offs.store');
+        Route::delete('time-offs/{timeOff}', [PractitionerTimeOffController::class, 'destroy'])->name('time-offs.destroy');
         Route::resource('availabilities', PractitionerAvailabilityController::class)->except(['show', 'create', 'edit']);
     });

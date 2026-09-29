@@ -11,7 +11,9 @@ use App\Domains\Scheduling\Http\Requests\StorePractitionerAvailabilityRequest;
 use App\Domains\Scheduling\Http\Requests\SyncPractitionerAvailabilitiesRequest;
 use App\Domains\Scheduling\Http\Requests\UpdatePractitionerAvailabilityRequest;
 use App\Domains\Scheduling\Http\Resources\PractitionerAvailabilityResource;
+use App\Domains\Scheduling\Http\Resources\PractitionerTimeOffResource;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use App\Domains\Scheduling\Services\BulkSyncPractitionerAvailabilitiesAction;
 use App\Domains\Scheduling\Services\SyncPractitionerAvailabilitiesAction;
 use App\Http\Controllers\Controller;
@@ -37,8 +39,16 @@ class PractitionerAvailabilityController extends Controller
 
         $availabilities = $query->orderBy('practitioner_id')->orderBy('day_of_week')->get();
 
+        // Current and upcoming time offs only — past ones are history.
+        $timeOffs = PractitionerTimeOff::query()
+            ->whereDate('ends_on', '>=', today())
+            ->when(! $request->user()->isSuperAdmin(), fn ($q) => $q->whereHas('practitioner', fn ($q) => $q->where('center_id', getPermissionsTeamId())))
+            ->orderBy('starts_on')
+            ->get();
+
         return Inertia::render('Admin/Scheduling/Availabilities/Index', [
             'availabilities' => PractitionerAvailabilityResource::collection($availabilities),
+            'timeOffs' => PractitionerTimeOffResource::collection($timeOffs),
             'practitioners' => $this->practitionerOptions($request),
             'editableCenters' => $this->editableCenters($request),
         ]);
