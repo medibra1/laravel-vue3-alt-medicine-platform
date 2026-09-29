@@ -24,6 +24,7 @@ class AppointmentResource extends JsonResource
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
             'duration_minutes' => $this->duration_minutes,
+            'reminder_sent_at' => $this->reminder_sent_at,
             'status' => $this->status,
             'modality' => $this->modality,
             'meeting_link' => $this->meeting_link,

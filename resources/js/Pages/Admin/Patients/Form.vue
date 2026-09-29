@@ -183,6 +183,7 @@ interface NextAppointment {
     treatment_id: number | null;
     starts_at: string;
     duration_minutes: number;
+    reminder_sent_at: string | null;
     status: string;
     modality: string | null;
     meeting_link: string | null;
@@ -614,6 +615,9 @@ function onStatusChipClick() {
                                     </p>
                                     <p v-if="nextAppointment.practitioner" class="text-body-2 text-medium-emphasis mb-0">
                                         Avec {{ nextAppointment.practitioner.first_name }} {{ nextAppointment.practitioner.last_name }}
+                                    </p>
+                                    <p v-if="nextAppointment.reminder_sent_at" class="text-caption text-medium-emphasis mb-0">
+                                        Rappel envoyé le {{ new Date(nextAppointment.reminder_sent_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}
                                     </p>
                                 </div>
                                 <div class="d-flex ga-2">
