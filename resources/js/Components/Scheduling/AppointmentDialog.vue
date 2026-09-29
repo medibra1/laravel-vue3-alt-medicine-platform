@@ -7,7 +7,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { http } from '@/lib/http';
-import { toLocalDateString } from '@/utils/date';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { modalityOptions } from '@/utils/modality';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -57,6 +57,19 @@ interface AppointmentToEdit {
     reason: string | null;
 }
 
+/**
+ * Context of a click on an empty agenda cell. Only applied to a brand-new
+ * booking — a reschedule always keeps its own values.
+ */
+export interface AppointmentPrefill {
+    centerId: number | null;
+    practitionerId: number | null;
+    /** 'YYYY-MM-DD' */
+    date: string | null;
+    hour: number | null;
+    minute: number | null;
+}
+
 const props = withDefaults(
     defineProps<{
         visible: boolean;
@@ -69,8 +82,9 @@ const props = withDefaults(
         practitioners: PractitionerOption[];
         /** Open (non-closed) treatments of the currently selected patient. */
         treatments?: TreatmentOption[];
+        prefill?: AppointmentPrefill | null;
     }>(),
-    { appointment: null, patientId: null, centers: () => [], treatments: () => [] },
+    { appointment: null, patientId: null, centers: () => [], treatments: () => [], prefill: null },
 );
 
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
@@ -123,16 +137,19 @@ const slotOptions = computed(() =>
 
 function resetForm() {
     form.clearErrors();
-    form.center_id = null;
+    const prefill = props.appointment ? null : props.prefill;
+    form.center_id = prefill?.centerId ?? null;
     form.patient_id = props.appointment ? null : (props.patientId ?? null);
-    form.practitioner_id = props.appointment?.practitioner_id ?? null;
+    form.practitioner_id = props.appointment?.practitioner_id ?? prefill?.practitionerId ?? null;
     form.treatment_id = null;
     form.duration_minutes = props.appointment?.duration_minutes ?? 30;
     form.modality = props.appointment?.modality ?? 'in_person';
     form.meeting_link = props.appointment?.meeting_link ?? null;
     form.reason = props.appointment?.reason ?? null;
 
-    const initialDate = props.appointment ? new Date(props.appointment.starts_at) : null;
+    const initialDate = props.appointment
+        ? new Date(props.appointment.starts_at)
+        : fromLocalDateString(prefill?.date ?? null);
     selectedDate.value = initialDate;
     selectedTime.value = props.appointment?.starts_at ?? null;
     slots.value = [];
@@ -170,6 +187,25 @@ async function fetchSlots() {
 }
 
 watch([() => form.practitioner_id, selectedDate, () => form.duration_minutes], fetchSlots);
+
+// Pre-select the first *actually available* slot at or after the clicked
+// time — never inject the raw clicked time, which may not be bookable.
+watch(slots, (value) => {
+    const prefill = props.appointment ? null : props.prefill;
+    if (prefill?.hour == null || selectedTime.value) {
+        return;
+    }
+
+    const clickedMinutes = prefill.hour * 60 + (prefill.minute ?? 0);
+    const match = value.find((slot) => {
+        const start = new Date(slot.starts_at);
+        return start.getHours() * 60 + start.getMinutes() >= clickedMinutes;
+    });
+
+    if (match) {
+        selectedTime.value = match.starts_at;
+    }
+});
 
 watch(selectedTime, (value) => {
     form.starts_at = value;

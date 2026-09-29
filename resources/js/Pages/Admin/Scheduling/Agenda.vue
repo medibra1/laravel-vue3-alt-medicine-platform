@@ -6,7 +6,7 @@ import AppSelect from '@/Components/App/AppSelect.vue';
 import { type CenterClosure, closureCovering } from '@/utils/centerClosure';
 import { type TimeOff, timeOffCovering, timeOffReasonLabel } from '@/utils/timeOff';
 import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '@/Components/App/AppWeekCalendar.vue';
-import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
+import AppointmentDialog, { type AppointmentPrefill } from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { http } from '@/lib/http';
 import { computeGridHours } from '@/utils/agendaGridHours';
@@ -254,12 +254,18 @@ function goToToday() {
 // --- Booking dialog ---
 const dialogVisible = ref(false);
 const editingAppointment = ref<AppointmentEntry | null>(null);
-const prefill = ref<{ practitionerId: number | null; date: string | null } | null>(null);
+const prefill = ref<AppointmentPrefill | null>(null);
 
 function onSlotClick(payload: { columnId: string | number; date: string; hour: number; minute: number }) {
     editingAppointment.value = null;
     const practitionerId = mode.value === 'day' ? Number(payload.columnId) : selectedPractitionerId.value;
-    prefill.value = { practitionerId, date: payload.date };
+    prefill.value = {
+        centerId: displayedCenterId.value,
+        practitionerId,
+        date: payload.date,
+        hour: payload.hour,
+        minute: payload.minute,
+    };
     dialogVisible.value = true;
 }
 
@@ -353,6 +359,7 @@ function openNewAppointment() {
                       }
                     : null
             "
+            :prefill="prefill"
             :centers="centers"
             :patients="patients"
             :practitioners="practitioners"
