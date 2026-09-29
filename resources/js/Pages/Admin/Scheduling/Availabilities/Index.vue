@@ -200,7 +200,7 @@ function destroy(availability: Availability) {
                         </div>
                     </div>
                     <div v-if="slots.length" class="d-flex flex-wrap ga-1 mt-3">
-                        <v-chip v-for="slot in slots" :key="slot.id" size="small" closable @click:close="destroy(slot)">
+                        <v-chip v-for="slot in slots" :key="slot.id" size="small" closable :model-value="true" @update:model-value="() => {}" @click:close="destroy(slot)">
                             {{ shortDayLabels[slot.day_of_week] }} {{ slot.start_time }}-{{ slot.end_time }}
                         </v-chip>
                     </div>
@@ -215,6 +215,8 @@ function destroy(availability: Availability) {
                                 variant="tonal"
                                 prepend-icon="mdi-beach"
                                 closable
+                                :model-value="true"
+                                @update:model-value="() => {}"
                                 :title="timeOff.notes ?? undefined"
                                 @click:close="destroyTimeOff(timeOff)"
                             >
