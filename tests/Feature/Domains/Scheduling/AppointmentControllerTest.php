@@ -289,3 +289,30 @@ test('available-slots returns the free slots for a practitioner on a given day',
     $response->assertOk();
     expect($response->json('slots'))->toHaveCount(2);
 });
+
+test('index includes late appointments on the last requested day and excludes the next day', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $base = [
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ];
+    $lateLastDay = Appointment::query()->create([...$base, 'starts_at' => '2026-10-11 23:00:00']);
+    $nextDay = Appointment::query()->create([...$base, 'starts_at' => '2026-10-12 09:00:00']);
+
+    // `to` is exclusive: the day after the last displayed day (Sunday 11th).
+    $response = $this->actingAs($superAdmin)->getJson(route('admin.appointments.index', [
+        'center_id' => $center->id,
+        'from' => '2026-10-05',
+        'to' => '2026-10-12',
+    ]));
+
+    $ids = collect($response->assertOk()->json())->pluck('id');
+    expect($ids)->toContain($lateLastDay->id)->not->toContain($nextDay->id);
+});

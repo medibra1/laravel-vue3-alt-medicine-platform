@@ -61,10 +61,18 @@ const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_
 // active center, and a "Semaine" view scoped to one practitioner —
 // covers both "who's free right now at this center" and "what does this
 // practitioner's week look like" without building two separate pages.
-const mode = ref<'day' | 'week'>('day');
-const anchorDate = ref(new Date());
+// Deep link from the patient file ("Voir dans l'agenda"): land directly on
+// the targeted practitioner's week. Read once at setup, same convention as
+// Patients/Form.vue's ?tab= handling.
+const query = new URLSearchParams(window.location.search);
+const queryPractitionerId = Number(query.get('practitioner_id')) || null;
+const queryDate = query.get('date') ? new Date(query.get('date') as string) : null;
+const hasDeepLink = queryPractitionerId !== null && queryDate !== null && !Number.isNaN(queryDate.getTime());
+
+const mode = ref<'day' | 'week'>(hasDeepLink ? 'week' : 'day');
+const anchorDate = ref(hasDeepLink ? (queryDate as Date) : new Date());
 const selectedCenterId = ref<number | null>(props.centers[0]?.id ?? null);
-const selectedPractitionerId = ref<number | null>(props.practitioners[0]?.id ?? null);
+const selectedPractitionerId = ref<number | null>(hasDeepLink ? queryPractitionerId : (props.practitioners[0]?.id ?? null));
 
 const centerOptions = computed(() => props.centers.map((c) => ({ id: c.id, name: `${c.name} (${c.code})` })));
 const practitionerOptions = computed(() =>
@@ -122,8 +130,12 @@ async function reload() {
     loading.value = true;
 
     const from = mode.value === 'day' ? anchorDate.value : startOfWeek(anchorDate.value);
+    // Exclusive upper bound: the day after the last displayed day. A bare
+    // YYYY-MM-DD is parsed server-side as midnight, so sending the last
+    // day itself would cut off everything after 00:00 on it (and turn the
+    // day view into a zero-width window).
     const to = new Date(rangeDates.value[rangeDates.value.length - 1]);
-    to.setHours(23, 59, 59);
+    to.setDate(to.getDate() + 1);
 
     const params: Record<string, string> = {
         from: toLocalDateString(from),
@@ -159,6 +171,24 @@ const statusColor: Record<string, string> = {
     cancelled: 'secondary',
     no_show: 'error',
 };
+
+// Widen the grid (never narrow it below 8h-19h) so appointments outside the
+// default range render at their real position instead of being clamped.
+const gridHours = computed<{ startHour: number; endHour: number }>(() => {
+    if (appointments.value.length === 0) {
+        return { startHour: 8, endHour: 19 };
+    }
+
+    const hours = appointments.value.flatMap((a) => {
+        const start = new Date(a.starts_at);
+        // Measured from the start's midnight so an appointment ending at
+        // 00:00 the next day counts as 24, not 0.
+        const endHours = start.getHours() + (new Date(a.ends_at).getTime() - start.getTime()) / 3_600_000 + start.getMinutes() / 60;
+        return [start.getHours(), Math.ceil(endHours)];
+    });
+
+    return { startHour: Math.min(8, ...hours), endHour: Math.min(24, Math.max(19, ...hours)) };
+});
 
 const events = computed<AppCalendarEvent[]>(() =>
     appointments.value.map((appointment) => ({
@@ -270,7 +300,11 @@ function openNewAppointment() {
                 <div v-if="loading" class="d-flex justify-center pa-8">
                     <v-progress-circular indeterminate color="primary" />
                 </div>
-                <AppWeekCalendar v-else :columns="columns" :events="events" @slot-click="onSlotClick" @event-click="onEventClick" />
+                <AppWeekCalendar
+                    v-else
+                    :start-hour="gridHours.startHour"
+                    :end-hour="gridHours.endHour"
+                    :columns="columns" :events="events" @slot-click="onSlotClick" @event-click="onEventClick" />
             </v-card-text>
         </AppCard>
 

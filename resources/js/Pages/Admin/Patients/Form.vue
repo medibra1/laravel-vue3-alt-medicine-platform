@@ -621,7 +621,7 @@ function onStatusChipClick() {
                                         label="Voir dans l'agenda"
                                         severity="secondary"
                                         size="small"
-                                        :href="route('admin.agenda')"
+                                        :href="route('admin.agenda', { practitioner_id: nextAppointment.practitioner_id, date: nextAppointment.starts_at })"
                                         as="a"
                                     />
                                     <AppButton
