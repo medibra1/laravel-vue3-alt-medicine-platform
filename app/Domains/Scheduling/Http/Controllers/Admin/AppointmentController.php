@@ -152,6 +152,11 @@ class AppointmentController extends Controller
 
         $this->assertPractitionerVisibleOnCenter($request, $validated['practitioner_id'], $appointment->center_id);
 
+        // A reminder already sent was for the old time slot — send a new one.
+        if (! CarbonImmutable::parse($validated['starts_at'])->eq($appointment->starts_at)) {
+            $validated['reminder_sent_at'] = null;
+        }
+
         $appointment->update($validated);
 
         $this->notifyPractitioner($appointment);
