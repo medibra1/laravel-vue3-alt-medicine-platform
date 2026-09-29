@@ -399,3 +399,33 @@ test('a center closure blocks appointments for every practitioner of that center
 
     expect(Appointment::query()->pluck('center_id')->all())->toBe([$otherCenter->id]);
 });
+
+test('rescheduling resets reminder_sent_at, other edits keep it', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $appointment = Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'reminder_sent_at' => '2026-09-09 10:00:00',
+        'created_by' => $superAdmin->id,
+    ]);
+    $payload = [
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'in_person',
+        'reason' => 'Nouveau motif',
+    ];
+
+    $this->actingAs($superAdmin)->put(route('admin.appointments.update', $appointment), $payload)->assertRedirect();
+    expect($appointment->fresh()->reminder_sent_at)->not->toBeNull();
+
+    $this->actingAs($superAdmin)->put(route('admin.appointments.update', $appointment), [...$payload, 'starts_at' => '2026-09-10 11:00:00'])->assertRedirect();
+    expect($appointment->fresh()->reminder_sent_at)->toBeNull();
+});

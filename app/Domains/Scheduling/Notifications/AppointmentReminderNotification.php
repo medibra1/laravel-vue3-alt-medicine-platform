@@ -6,12 +6,11 @@ use App\Domains\Scheduling\Models\Appointment;
 use Illuminate\Notifications\Notification;
 
 /**
- * Sent (database channel only, same V1 scope as ManagerAssignedNotification
- * — see CLAUDE.md) to the practitioner assigned to an appointment, on
- * both creation and reschedule. Pre-appointment reminders are handled
- * separately by appointments:send-reminders (AppointmentReminderNotification).
+ * Sent by appointments:send-reminders to the assigned practitioner
+ * (database channel only, same V1 scope as AppointmentAssignedNotification).
+ * Not queued on purpose — QUEUE_CONNECTION=sync by default in this project.
  */
-class AppointmentAssignedNotification extends Notification
+class AppointmentReminderNotification extends Notification
 {
     public function __construct(private readonly Appointment $appointment) {}
 
@@ -25,8 +24,8 @@ class AppointmentAssignedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'type' => 'appointment_assigned',
-            'title' => __('Nouveau rendez-vous'),
+            'type' => 'appointment_reminder',
+            'title' => __('Rappel de rendez-vous'),
             'message' => __('Rendez-vous le :date avec :patient.', [
                 'date' => $this->appointment->starts_at->translatedFormat('d F Y à H:i'),
                 'patient' => trim($this->appointment->patient->first_name.' '.$this->appointment->patient->last_name),

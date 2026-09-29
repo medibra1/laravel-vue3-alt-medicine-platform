@@ -1204,6 +1204,32 @@ praticien peut le renseigner plus tard) · reason, nullable ·
 cancellation_reason, nullable · created_by (fk `users`) · timestamps.
 Index `[practitioner_id, starts_at]` (détection de conflit) et
 `[center_id, starts_at]` (vue agenda par centre).
+`reminder_sent_at` (timestamp, nullable — ajouté 2026-09-29, voir
+"Rappels programmés" ci-dessous).
+
+### Rappels programmés — **implémenté** (2026-09-29,
+`feature/appointment-reminders`)
+
+Commande `appointments:send-reminders`
+(`App\Domains\Scheduling\Console\Commands\SendAppointmentReminders`),
+planifiée toutes les 15 min dans `bootstrap/app.php` (`withSchedule`,
+commande enregistrée via `withCommands` — pas d'auto-discovery hors
+`app/Console`). Cible les RDV `scheduled`/`confirmed` avec
+`now() < starts_at <= now() + APPOINTMENT_REMINDER_HOURS_BEFORE` (config
+`scheduling.appointment_reminder_hours_before`, défaut 24, valeur globale
+V1) et `reminder_sent_at` nul. Envoie un e-mail on-demand au patient
+(`PatientAppointmentReminderNotification`, seulement si `email`
+renseigné — pas de SMS en V1) et une notification `database` au
+praticien (`AppointmentReminderNotification`).
+- `reminder_sent_at` = **verrou d'idempotence** (pas de table de log) :
+  posé seulement si tout l'envoi a réussi ; un échec (`report()`) laisse
+  `null` → retenté au passage suivant tant que le RDV n'est pas passé.
+- Remis à `null` par `AppointmentController::update()` si `starts_at`
+  change (le rappel envoyé visait l'ancien horaire).
+- Synchrone (pas de `ShouldQueue`), cohérent avec `QUEUE_CONNECTION=sync`.
+- **Prérequis infra** : cron serveur
+  `* * * * * php artisan schedule:run >> /dev/null 2>&1` — sans lui,
+  rien ne s'exécute.
 
 ### Modalité présentiel/à distance — **implémenté** (2026-09-09,
 `feature/remote-modality`)

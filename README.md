@@ -53,6 +53,19 @@ npm run dev
 Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 103 maladies / 19 sous-cas de blocage, en français et en anglais.
 
+### Production — tâches planifiées (obligatoire)
+
+Les rappels de rendez-vous (`appointments:send-reminders`, toutes les
+15 min) passent par le scheduler Laravel, qui ne s'exécute **jamais**
+tout seul. Ajouter sur le serveur :
+
+```cron
+* * * * * cd /chemin/du/projet && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Délai du rappel : `APPOINTMENT_REMINDER_HOURS_BEFORE` (défaut 24 h).
+Vérifier : `php artisan schedule:list`.
+
 ## Tests
 
 ```bash
@@ -437,6 +450,15 @@ deux sources". Vérifié : 302 tests Pest (5 nouveaux, zéro régression),
 `pint`/Larastan/build/`vue-tsc` clean, golden path navigateur réel sur
 les deux sources (PDF fusionné inspecté directement, 2 pages
 correspondant aux 2 photos importées). Données de test nettoyées.
+
+**Rappels programmés de rendez-vous** (2026-09-29,
+`feature/appointment-reminders`) : e-mail au patient (si e-mail
+renseigné) + notification au praticien, X heures avant chaque RDV
+`scheduled`/`confirmed`, une seule fois (`reminder_sent_at`, remis à zéro
+si le RDV est déplacé). Nécessite le cron `schedule:run` (voir
+Démarrage). Indicateur « Rappel envoyé le … » sur la carte Prochain
+rendez-vous. Vérifié : 389 tests Pest (11 nouveaux), Pint, Larastan,
+`vue-tsc`, Vitest. Pas de vérification navigateur.
 
 ## Points ouverts connus
 
