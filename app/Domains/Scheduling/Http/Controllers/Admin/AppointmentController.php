@@ -79,7 +79,10 @@ class AppointmentController extends Controller
         }
 
         if ($request->filled('to')) {
-            $query->where('starts_at', '<=', $request->date('to'));
+            // `to` is an exclusive bound (the day after the last displayed
+            // day) — a bare date parses as midnight, so `<=` would drop
+            // everything after 00:00 on the last day.
+            $query->where('starts_at', '<', $request->date('to'));
         }
 
         return AppointmentResource::collection($query->orderBy('starts_at')->get());

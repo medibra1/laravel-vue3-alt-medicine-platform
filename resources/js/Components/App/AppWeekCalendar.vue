@@ -165,6 +165,7 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
 .app-week-calendar-column {
     position: relative;
     flex: 1 0 140px;
+    overflow: hidden;
     border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
