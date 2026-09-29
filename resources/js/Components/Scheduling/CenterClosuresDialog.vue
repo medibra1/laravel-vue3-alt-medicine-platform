@@ -92,6 +92,9 @@ function destroy(closure: CenterClosure) {
                 <div class="text-subtitle-2 mb-2">En cours et à venir</div>
                 <p v-if="!closures.length" class="text-body-2 text-medium-emphasis">Aucune fermeture prévue.</p>
                 <div v-else class="d-flex flex-wrap ga-2">
+                    <!-- Controlled (model-value + update listener): an uncontrolled
+                         closable chip hides itself on click, even when the
+                         delete confirm() is cancelled. -->
                     <v-chip
                         v-for="closure in closures"
                         :key="closure.id"
@@ -99,6 +102,8 @@ function destroy(closure: CenterClosure) {
                         variant="tonal"
                         prepend-icon="mdi-store-off-outline"
                         closable
+                        :model-value="true"
+                        @update:model-value="() => {}"
                         @click:close="destroy(closure)"
                     >
                         {{ closure.label }} · {{ formatTimeOffPeriod(closure) }}

@@ -21,6 +21,19 @@ test('the agenda page renders for an authorized user', function () {
     $response->assertOk();
 });
 
+test('the agenda ships each practitioner\'s visible centers so the day view only lists the displayed center', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $centerA = Center::factory()->create();
+    $centerB = Center::factory()->create();
+    $inA = Practitioner::factory()->for($centerA, 'center')->create();
+    $inB = Practitioner::factory()->for($centerB, 'center')->create();
+
+    $this->actingAs($superAdmin)->get(route('admin.agenda'))
+        ->assertInertia(fn ($page) => $page
+            ->where("practitionerCenterIds.{$inA->id}", [$centerA->id])
+            ->where("practitionerCenterIds.{$inB->id}", [$centerB->id]));
+});
+
 test('super admin can create an appointment', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();

@@ -6,7 +6,7 @@ import AppSelect from '@/Components/App/AppSelect.vue';
 import { type CenterClosure, closureCovering } from '@/utils/centerClosure';
 import { type TimeOff, timeOffCovering, timeOffReasonLabel } from '@/utils/timeOff';
 import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '@/Components/App/AppWeekCalendar.vue';
-import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
+import AppointmentDialog, { type AppointmentPrefill } from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { http } from '@/lib/http';
 import { computeGridHours } from '@/utils/agendaGridHours';
@@ -61,6 +61,7 @@ const props = defineProps<{
     centerOperatingHours: Record<number, WeeklySlot[]>;
     timeOffs: TimeOff[];
     centerClosures: CenterClosure[];
+    practitionerCenterIds: Record<number, number[]>;
 }>();
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
@@ -130,10 +131,15 @@ function closedLabel(isoDate: string): string | undefined {
 const columns = computed<AppCalendarColumn[]>(() => {
     if (mode.value === 'day') {
         // props.practitioners is already scoped server-side for a
-        // non-super_admin (see ResolvesPractitionerOptions) — no client
-        // filtering needed on top of it.
+        // non-super_admin (see ResolvesPractitionerOptions). A
+        // super_admin's list spans every center — keep only the
+        // practitioners visible on the displayed one.
         const date = toLocalDateString(anchorDate.value);
-        return props.practitioners.map((practitioner) => ({
+        const centerId = displayedCenterId.value;
+        const practitioners = isSuperAdmin.value && centerId !== null
+            ? props.practitioners.filter((p) => props.practitionerCenterIds[p.id]?.includes(centerId))
+            : props.practitioners;
+        return practitioners.map((practitioner) => ({
             id: practitioner.id,
             label: `${practitioner.first_name} ${practitioner.last_name}`,
             date,
@@ -248,12 +254,18 @@ function goToToday() {
 // --- Booking dialog ---
 const dialogVisible = ref(false);
 const editingAppointment = ref<AppointmentEntry | null>(null);
-const prefill = ref<{ practitionerId: number | null; date: string | null } | null>(null);
+const prefill = ref<AppointmentPrefill | null>(null);
 
 function onSlotClick(payload: { columnId: string | number; date: string; hour: number; minute: number }) {
     editingAppointment.value = null;
     const practitionerId = mode.value === 'day' ? Number(payload.columnId) : selectedPractitionerId.value;
-    prefill.value = { practitionerId, date: payload.date };
+    prefill.value = {
+        centerId: displayedCenterId.value,
+        practitionerId,
+        date: payload.date,
+        hour: payload.hour,
+        minute: payload.minute,
+    };
     dialogVisible.value = true;
 }
 
@@ -347,6 +359,7 @@ function openNewAppointment() {
                       }
                     : null
             "
+            :prefill="prefill"
             :centers="centers"
             :patients="patients"
             :practitioners="practitioners"

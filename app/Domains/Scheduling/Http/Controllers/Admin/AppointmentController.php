@@ -84,6 +84,13 @@ class AppointmentController extends Controller
                 ->all(),
             'centers' => $this->centerOptions($request),
             'practitioners' => $practitioners,
+            // practitioner_id → centers they're visible on (same rule as
+            // Practitioner::visibleOnCenter()). A super_admin's list isn't
+            // center-scoped, so the Day view filters its columns with this
+            // when the displayed center changes client-side — otherwise a
+            // practitioner of another center gets a column, greyed out by
+            // a closure that doesn't concern them.
+            'practitionerCenterIds' => (object) $this->practitionerCenterIds($visibleCenterIds),
             'patients' => PatientOptionResource::collection(
                 Patient::query()
                     ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
@@ -91,6 +98,23 @@ class AppointmentController extends Controller
                     ->get(),
             ),
         ]);
+    }
+
+    /**
+     * @param  array<int, int>  $centerIds
+     * @return array<int, array<int, int>> practitioner_id → center ids
+     */
+    private function practitionerCenterIds(array $centerIds): array
+    {
+        $map = [];
+
+        foreach ($centerIds as $centerId) {
+            foreach (Practitioner::query()->visibleOnCenter($centerId)->pluck('id') as $practitionerId) {
+                $map[$practitionerId][] = $centerId;
+            }
+        }
+
+        return $map;
     }
 
     /**
