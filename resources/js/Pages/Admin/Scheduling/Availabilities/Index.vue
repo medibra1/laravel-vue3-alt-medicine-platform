@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
-import AppDataTable, { type AppDataTableColumn } from '@/Components/App/AppDataTable.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import BulkApplyScheduleDialog from '@/Components/Scheduling/BulkApplyScheduleDialog.vue';
+import PractitionerWeeklyScheduleDialog from '@/Components/Scheduling/PractitionerWeeklyScheduleDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { dayLabels, displayDayOrder, shortDayLabels, summarizeSchedule } from '@/utils/weeklySchedule';
+import { computed, ref } from 'vue';
 
 interface Practitioner {
     id: number;
@@ -31,26 +33,44 @@ const props = defineProps<{
     practitioners: Practitioner[];
 }>();
 
-const dayLabels = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const dayOptions = dayLabels.map((label, id) => ({ id, name: label }));
 
 const practitionerOptions = props.practitioners.map((practitioner) => ({
     id: practitioner.id,
-    name: `${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code})`,
+    name: practitionerName(practitioner),
 }));
 
-const columns: AppDataTableColumn[] = [
-    { field: 'practitioner', header: 'Praticien' },
-    { field: 'day_of_week', header: 'Jour' },
-    { field: 'start_time', header: 'Début' },
-    { field: 'end_time', header: 'Fin' },
-    { field: 'actions', header: 'Actions' },
-];
-
-function practitionerLabel(availability: Availability): string {
-    const practitioner = availability.practitioner;
-    return practitioner ? `${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code})` : '';
+function practitionerName(practitioner: Practitioner): string {
+    return `${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code})`;
 }
+
+/**
+ * One row per practitioner (including those with no hours yet), slots
+ * sorted Monday → Sunday then by start time.
+ */
+const schedules = computed(() =>
+    props.practitioners.map((practitioner) => ({
+        practitioner,
+        slots: props.availabilities
+            .filter((availability) => availability.practitioner_id === practitioner.id)
+            .sort(
+                (a, b) =>
+                    displayDayOrder.indexOf(a.day_of_week) - displayDayOrder.indexOf(b.day_of_week) ||
+                    a.start_time.localeCompare(b.start_time),
+            ),
+    })),
+);
+
+const editingPractitioner = ref<Practitioner | null>(null);
+const isEditingSchedule = ref(false);
+const editingSlots = computed(() => (editingPractitioner.value ? schedules.value.find((s) => s.practitioner.id === editingPractitioner.value!.id)?.slots ?? [] : []));
+
+function openSchedule(practitioner: Practitioner) {
+    editingPractitioner.value = practitioner;
+    isEditingSchedule.value = true;
+}
+
+const isBulkApplying = ref(false);
 
 const isCreating = ref(false);
 
@@ -89,21 +109,33 @@ function destroy(availability: Availability) {
     <AuthenticatedLayout>
         <AppPageHeader title="Disponibilités" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Disponibilités' }]">
             <template #actions>
+                <AppButton label="Appliquer un planning à plusieurs praticiens" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
                 <AppButton label="Nouveau créneau" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
-        <AppCard variant="elevated" elevation="1">
-            <AppDataTable :value="availabilities" :columns="columns" :rows="availabilities.length" :total-records="availabilities.length" :page="1">
-                <template #column-practitioner="{ item }">{{ practitionerLabel(item) }}</template>
-                <template #column-day_of_week="{ item }">{{ dayLabels[item.day_of_week] }}</template>
-                <template #column-start_time="{ item }">{{ item.start_time }}</template>
-                <template #column-end_time="{ item }">{{ item.end_time }}</template>
-                <template #actions="{ item }">
-                    <AppButton label="Supprimer" severity="danger" size="small" @click="destroy(item)" />
-                </template>
-            </AppDataTable>
-        </AppCard>
+        <div class="d-flex flex-column ga-3">
+            <p v-if="!schedules.length" class="text-medium-emphasis">Aucun praticien.</p>
+            <AppCard v-for="{ practitioner, slots } in schedules" :key="practitioner.id" variant="elevated" elevation="1">
+                <v-card-text>
+                    <div class="d-flex justify-space-between align-start flex-wrap ga-2">
+                        <div style="min-width: 0">
+                            <div class="text-subtitle-1 font-weight-medium">{{ practitionerName(practitioner) }}</div>
+                            <div class="text-body-2 text-medium-emphasis">{{ slots.length ? summarizeSchedule(slots) : 'Aucune disponibilité' }}</div>
+                        </div>
+                        <AppButton label="Gérer le planning" icon="mdi-calendar-edit" size="small" @click="openSchedule(practitioner)" />
+                    </div>
+                    <div v-if="slots.length" class="d-flex flex-wrap ga-1 mt-3">
+                        <v-chip v-for="slot in slots" :key="slot.id" size="small" closable @click:close="destroy(slot)">
+                            {{ shortDayLabels[slot.day_of_week] }} {{ slot.start_time }}-{{ slot.end_time }}
+                        </v-chip>
+                    </div>
+                </v-card-text>
+            </AppCard>
+        </div>
+
+        <PractitionerWeeklyScheduleDialog v-model:visible="isEditingSchedule" :practitioner="editingPractitioner" :initial-slots="editingSlots" />
+        <BulkApplyScheduleDialog v-model:visible="isBulkApplying" :practitioner-options="practitionerOptions" />
 
         <AppDialog v-model:visible="isCreating" header="Nouveau créneau de disponibilité">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">

@@ -3,10 +3,15 @@
 namespace App\Domains\Scheduling\Http\Controllers\Admin;
 
 use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Scheduling\Http\Requests\BulkSyncPractitionerAvailabilitiesRequest;
 use App\Domains\Scheduling\Http\Requests\StorePractitionerAvailabilityRequest;
+use App\Domains\Scheduling\Http\Requests\SyncPractitionerAvailabilitiesRequest;
 use App\Domains\Scheduling\Http\Requests\UpdatePractitionerAvailabilityRequest;
 use App\Domains\Scheduling\Http\Resources\PractitionerAvailabilityResource;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Services\BulkSyncPractitionerAvailabilitiesAction;
+use App\Domains\Scheduling\Services\SyncPractitionerAvailabilitiesAction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,6 +60,28 @@ class PractitionerAvailabilityController extends Controller
         Gate::authorize('delete', $availability);
 
         $availability->delete();
+
+        return redirect()->route('admin.availabilities.index');
+    }
+
+    /**
+     * Replaces one practitioner's whole weekly schedule.
+     */
+    public function sync(SyncPractitionerAvailabilitiesRequest $request, Practitioner $practitioner, SyncPractitionerAvailabilitiesAction $action): RedirectResponse
+    {
+        $action->handle($practitioner, $request->validated('slots'));
+
+        return redirect()->route('admin.availabilities.index');
+    }
+
+    /**
+     * Applies one weekly schedule to several practitioners at once.
+     */
+    public function bulkSync(BulkSyncPractitionerAvailabilitiesRequest $request, BulkSyncPractitionerAvailabilitiesAction $action): RedirectResponse
+    {
+        $practitioners = Practitioner::query()->whereIn('id', $request->validated('practitioner_ids'))->get();
+
+        $action->handle($practitioners, $request->validated('slots'));
 
         return redirect()->route('admin.availabilities.index');
     }

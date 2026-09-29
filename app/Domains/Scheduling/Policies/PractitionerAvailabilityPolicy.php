@@ -3,6 +3,7 @@
 namespace App\Domains\Scheduling\Policies;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
 
 class PractitionerAvailabilityPolicy
@@ -44,6 +45,16 @@ class PractitionerAvailabilityPolicy
     public function delete(User $user, PractitionerAvailability $availability): bool
     {
         return $user->can('appointments.update') && $this->managesCenter($availability->practitioner->center_id);
+    }
+
+    /**
+     * Replacing a practitioner's whole weekly schedule — same gate as
+     * update()/delete(), scoped on the practitioner itself since there
+     * may be no availability row yet.
+     */
+    public function sync(User $user, Practitioner $practitioner): bool
+    {
+        return $user->can('appointments.update') && $this->managesCenter($practitioner->center_id);
     }
 
     /**
