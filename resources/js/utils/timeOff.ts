@@ -34,7 +34,8 @@ export function timeOffCovering(timeOffs: TimeOff[], practitionerId: number | nu
 
 const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
-export function formatTimeOffPeriod(timeOff: TimeOff): string {
+/** Also used for center closures — only the date bounds matter. */
+export function formatTimeOffPeriod(timeOff: Pick<TimeOff, 'starts_on' | 'ends_on'>): string {
     const format = (iso: string) => dateFormatter.format(new Date(`${iso}T00:00:00`));
     return timeOff.starts_on === timeOff.ends_on ? format(timeOff.starts_on) : `${format(timeOff.starts_on)} → ${format(timeOff.ends_on)}`;
 }

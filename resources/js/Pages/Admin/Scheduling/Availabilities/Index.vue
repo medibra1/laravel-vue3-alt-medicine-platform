@@ -6,6 +6,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import BulkApplyScheduleDialog from '@/Components/Scheduling/BulkApplyScheduleDialog.vue';
+import CenterClosuresDialog from '@/Components/Scheduling/CenterClosuresDialog.vue';
 import CenterOperatingHoursDialog from '@/Components/Scheduling/CenterOperatingHoursDialog.vue';
 import PractitionerTimeOffDialog from '@/Components/Scheduling/PractitionerTimeOffDialog.vue';
 import PractitionerWeeklyScheduleDialog from '@/Components/Scheduling/PractitionerWeeklyScheduleDialog.vue';
@@ -40,6 +41,7 @@ const props = defineProps<{
 }>();
 
 const hoursDialogVisible = ref(false);
+const closuresDialogVisible = ref(false);
 const hoursCenterId = ref<number | null>(props.editableCenters[0]?.id ?? null);
 const hoursCenter = computed(() => props.editableCenters.find((c) => c.id === hoursCenterId.value) ?? null);
 
@@ -158,6 +160,13 @@ function destroy(availability: Availability) {
                     severity="secondary"
                     @click="hoursDialogVisible = true"
                 />
+                <AppButton
+                    v-if="hoursCenter"
+                    label="Fermetures du centre"
+                    icon="mdi-store-off-outline"
+                    severity="secondary"
+                    @click="closuresDialogVisible = true"
+                />
                 <AppButton label="Appliquer un planning à plusieurs praticiens" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
                 <AppButton label="Nouveau créneau" icon="mdi-plus" @click="openCreate" />
             </template>
@@ -261,5 +270,7 @@ function destroy(availability: Availability) {
             :center="hoursCenter"
             :initial-slots="hoursCenter?.operating_hours ?? []"
         />
+
+        <CenterClosuresDialog v-model:visible="closuresDialogVisible" :center="hoursCenter" />
     </AuthenticatedLayout>
 </template>

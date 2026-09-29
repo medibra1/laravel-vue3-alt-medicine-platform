@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Core\Models\Center;
+use App\Domains\Core\Models\CenterClosure;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Scheduling\Models\Appointment;
@@ -363,4 +364,38 @@ test('an appointment booked before a time off is never removed when the time off
     ])->assertSessionHas('time_off_affected_appointments', 1);
 
     expect(Appointment::query()->sole()->status)->toBe('scheduled');
+});
+
+test('a center closure blocks appointments for every practitioner of that center only', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $otherCenter = Center::factory()->create();
+    $closure = fn () => CenterClosure::query()->create([
+        'center_id' => $center->id,
+        'starts_on' => '2026-09-10',
+        'ends_on' => '2026-09-10',
+        'label' => 'Travaux',
+        'created_by' => $superAdmin->id,
+    ]);
+    $closure();
+
+    $book = function (Center $c) use ($superAdmin) {
+        $practitioner = Practitioner::factory()->for($c, 'center')->create();
+        $patient = Patient::factory()->create(['intake_center_id' => $c->id]);
+
+        return $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+            'center_id' => $c->id,
+            'patient_id' => $patient->id,
+            'practitioner_id' => $practitioner->id,
+            'starts_at' => '2026-09-10 10:00:00',
+            'duration_minutes' => 30,
+            'modality' => 'in_person',
+        ]);
+    };
+
+    $book($center)->assertSessionHasErrors('starts_at');
+    $book($center)->assertSessionHasErrors('starts_at');
+    $book($otherCenter)->assertSessionHasNoErrors();
+
+    expect(Appointment::query()->pluck('center_id')->all())->toBe([$otherCenter->id]);
 });

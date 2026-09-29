@@ -3,8 +3,10 @@
 namespace App\Domains\Scheduling\Http\Controllers\Admin;
 
 use App\Domains\Core\Http\Concerns\ResolvesCenterOptions;
+use App\Domains\Core\Http\Resources\CenterClosureResource;
 use App\Domains\Core\Http\Resources\CenterOperatingHoursResource;
 use App\Domains\Core\Models\Center;
+use App\Domains\Core\Models\CenterClosure;
 use App\Domains\Core\Models\CenterOperatingHours;
 use App\Domains\Patients\Http\Resources\PatientOptionResource;
 use App\Domains\Patients\Models\Patient;
@@ -63,6 +65,14 @@ class AppointmentController extends Controller
             'timeOffs' => PractitionerTimeOffResource::collection(
                 PractitionerTimeOff::query()
                     ->whereIn('practitioner_id', $practitioners->collection->pluck('id'))
+                    ->whereDate('ends_on', '>=', today()->subMonths(3))
+                    ->get(),
+            ),
+            // Same window, for whole-center closures — they grey out every
+            // column of the displayed center, not just one practitioner's.
+            'centerClosures' => CenterClosureResource::collection(
+                CenterClosure::query()
+                    ->whereIn('center_id', $visibleCenterIds)
                     ->whereDate('ends_on', '>=', today()->subMonths(3))
                     ->get(),
             ),

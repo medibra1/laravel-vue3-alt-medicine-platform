@@ -11,6 +11,11 @@ export interface AppCalendarColumn {
      * empty slots stop emitting slot-click (e.g. a practitioner time off).
      */
     blockedLabel?: string;
+    /**
+     * Same blocking as blockedLabel but for a whole-center closure — shown
+     * with a distinct badge so it isn't mistaken for a personal time off.
+     */
+    closedLabel?: string;
 }
 
 export interface AppCalendarEvent {
@@ -75,7 +80,7 @@ function eventsForColumn(columnId: string | number): AppCalendarEvent[] {
 }
 
 function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent) {
-    if (column.blockedLabel) return;
+    if (column.blockedLabel || column.closedLabel) return;
 
     // Coarse half-hour precision from the click's vertical position within
     // the hour row — good enough to prefill AppointmentDialog, the exact
@@ -98,6 +103,9 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                 <v-chip v-if="column.blockedLabel" size="x-small" color="warning" variant="tonal" prepend-icon="mdi-beach" class="ml-1">
                     {{ column.blockedLabel }}
                 </v-chip>
+                <v-chip v-if="column.closedLabel" size="x-small" color="error" variant="tonal" prepend-icon="mdi-store-off-outline" class="ml-1">
+                    Fermé — {{ column.closedLabel }}
+                </v-chip>
             </div>
         </div>
 
@@ -112,7 +120,7 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                 v-for="column in columns"
                 :key="column.id"
                 class="app-week-calendar-column"
-                :class="{ 'app-week-calendar-column--blocked': column.blockedLabel }"
+                :class="{ 'app-week-calendar-column--blocked': column.blockedLabel || column.closedLabel }"
             >
                 <div
                     v-for="hour in hours"
