@@ -63,11 +63,26 @@ function minutesFromStart(iso: string): number {
     return (date.getHours() - props.startHour) * 60 + date.getMinutes();
 }
 
+function eventHeight(event: AppCalendarEvent): number {
+    const durationMinutes = (new Date(event.endsAt).getTime() - new Date(event.startsAt).getTime()) / 60000;
+    return (durationMinutes / 60) * props.hourHeight;
+}
+
+// Title + subtitle on two lines need ~40px; a shorter block (e.g. a 30 min
+// appointment) renders them on a single line instead of clipping the subtitle.
+const COMPACT_EVENT_MAX_HEIGHT = 40;
+
+function isCompact(event: AppCalendarEvent): boolean {
+    return eventHeight(event) < COMPACT_EVENT_MAX_HEIGHT;
+}
+
+function eventTooltip(event: AppCalendarEvent): string {
+    return event.subtitle ? `${event.title} — ${event.subtitle}` : event.title;
+}
+
 function eventStyle(event: AppCalendarEvent): Record<string, string> {
     const top = (minutesFromStart(event.startsAt) / 60) * props.hourHeight;
-    const start = new Date(event.startsAt);
-    const end = new Date(event.endsAt);
-    const height = ((end.getTime() - start.getTime()) / 60000 / 60) * props.hourHeight;
+    const height = eventHeight(event);
 
     return {
         top: `${Math.max(top, 0)}px`,
@@ -134,13 +149,21 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                     v-for="event in eventsForColumn(column.id)"
                     :key="event.id"
                     class="app-week-calendar-event"
+                    :class="{ 'app-week-calendar-event--compact': isCompact(event) }"
+                    :title="eventTooltip(event)"
                     :style="{ ...eventStyle(event), backgroundColor: `rgb(var(--v-theme-${event.color ?? 'primary'}))` }"
                     @click.stop="emit('event-click', event)"
                 >
-                    <p class="app-week-calendar-event-title">
-                        <v-icon v-if="event.icon" :icon="event.icon" size="12" class="mr-1" />{{ event.title }}
+                    <p v-if="isCompact(event)" class="app-week-calendar-event-title">
+                        <v-icon v-if="event.icon" :icon="event.icon" size="12" class="mr-1" />{{ event.title
+                        }}<span v-if="event.subtitle" class="app-week-calendar-event-inline-subtitle"> · {{ event.subtitle }}</span>
                     </p>
-                    <p v-if="event.subtitle" class="app-week-calendar-event-subtitle">{{ event.subtitle }}</p>
+                    <template v-else>
+                        <p class="app-week-calendar-event-title">
+                            <v-icon v-if="event.icon" :icon="event.icon" size="12" class="mr-1" />{{ event.title }}
+                        </p>
+                        <p v-if="event.subtitle" class="app-week-calendar-event-subtitle">{{ event.subtitle }}</p>
+                    </template>
                 </div>
             </div>
         </div>
@@ -226,6 +249,21 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
     overflow: hidden;
     cursor: pointer;
     color: rgb(var(--v-theme-on-primary));
+}
+
+.app-week-calendar-event--compact {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+}
+
+.app-week-calendar-event--compact .app-week-calendar-event-title {
+    line-height: 1.2;
+}
+
+.app-week-calendar-event-inline-subtitle {
+    font-weight: 400;
+    opacity: 0.9;
 }
 
 .app-week-calendar-event-title {
