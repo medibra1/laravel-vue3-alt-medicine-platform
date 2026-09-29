@@ -135,3 +135,45 @@ test('manager cannot delete a center', function () {
     $response->assertForbidden();
     expect(Center::query()->whereKey($ownCenter->id)->exists())->toBeTrue();
 });
+
+test('super admin can sync opening hours of a center', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->put(route('admin.centers.operating-hours.sync', $center), [
+        'slots' => [
+            ['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00'],
+            ['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00'],
+        ],
+    ]);
+
+    $response->assertRedirect(route('admin.centers.index'));
+    expect($center->operatingHours()->orderBy('day_of_week')->pluck('day_of_week')->all())->toBe([1, 6]);
+});
+
+test('overlapping opening hours on the same day are rejected', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+
+    $response = $this->actingAs($superAdmin)->put(route('admin.centers.operating-hours.sync', $center), [
+        'slots' => [
+            ['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00'],
+            ['day_of_week' => 1, 'start_time' => '11:00', 'end_time' => '14:00'],
+        ],
+    ]);
+
+    $response->assertSessionHasErrors('slots.1.start_time');
+    expect($center->operatingHours()->count())->toBe(0);
+});
+
+test('manager cannot sync opening hours of a center', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+
+    $response = $this->actingAs($manager)->put(route('admin.centers.operating-hours.sync', $center), [
+        'slots' => [['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00']],
+    ]);
+
+    $response->assertForbidden();
+    expect($center->operatingHours()->count())->toBe(0);
+});

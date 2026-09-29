@@ -3,11 +3,13 @@
 namespace App\Domains\Core\Http\Controllers\Admin;
 
 use App\Domains\Core\Http\Requests\StoreCenterRequest;
+use App\Domains\Core\Http\Requests\SyncCenterOperatingHoursRequest;
 use App\Domains\Core\Http\Requests\UpdateCenterRequest;
 use App\Domains\Core\Http\Resources\CenterResource;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\Country;
 use App\Domains\Core\Services\CenterCodeGenerator;
+use App\Domains\Core\Services\SyncCenterOperatingHoursAction;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +26,7 @@ class CenterController extends Controller
     {
         Gate::authorize('viewAny', Center::class);
 
-        $query = Center::query()->with('country');
+        $query = Center::query()->with(['country', 'operatingHours']);
 
         $centers = QueryBuilder::for($query)
             ->allowedFilters(
@@ -75,6 +77,16 @@ class CenterController extends Controller
     public function update(UpdateCenterRequest $request, Center $center): RedirectResponse
     {
         $center->update($request->validated());
+
+        return redirect()->route('admin.centers.index');
+    }
+
+    public function syncOperatingHours(SyncCenterOperatingHoursRequest $request, Center $center, SyncCenterOperatingHoursAction $action): RedirectResponse
+    {
+        /** @var array<int, array{day_of_week: int, start_time: string, end_time: string}> $slots */
+        $slots = $request->validated('slots');
+
+        $action->handle($center, $slots);
 
         return redirect()->route('admin.centers.index');
     }
