@@ -292,7 +292,7 @@ test('the patient file exposes its soonest scheduled or confirmed appointment', 
         'center_id' => $center->id,
         'practitioner_id' => $practitioner->id,
         'patient_id' => $patient->id,
-        'starts_at' => '2026-09-10 09:00:00',
+        'starts_at' => now()->addDays(2)->setTime(9, 0),
         'duration_minutes' => 30,
         'status' => 'scheduled',
         'created_by' => $superAdmin->id,
@@ -301,7 +301,7 @@ test('the patient file exposes its soonest scheduled or confirmed appointment', 
         'center_id' => $center->id,
         'practitioner_id' => $practitioner->id,
         'patient_id' => $patient->id,
-        'starts_at' => '2026-09-15 09:00:00',
+        'starts_at' => now()->addDays(7)->setTime(9, 0),
         'duration_minutes' => 30,
         'status' => 'scheduled',
         'created_by' => $superAdmin->id,
@@ -310,7 +310,7 @@ test('the patient file exposes its soonest scheduled or confirmed appointment', 
         'center_id' => $center->id,
         'practitioner_id' => $practitioner->id,
         'patient_id' => $patient->id,
-        'starts_at' => '2026-09-05 09:00:00',
+        'starts_at' => now()->addDay()->setTime(9, 0),
         'duration_minutes' => 30,
         'status' => 'cancelled',
         'created_by' => $superAdmin->id,
@@ -330,4 +330,41 @@ test('the patient file exposes no next appointment when none is scheduled', func
 
     $response->assertOk();
     expect($response->inertiaPage()['props']['nextAppointment'])->toBeNull();
+});
+
+test('the next appointment ignores a stale past appointment still marked scheduled', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $base = [
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ];
+    Appointment::query()->create([...$base, 'starts_at' => now()->subDays(10)]);
+    $upcoming = Appointment::query()->create([...$base, 'starts_at' => now()->addDays(3)]);
+
+    expect($patient->nextAppointment()?->id)->toBe($upcoming->id);
+});
+
+test('the next appointment is null when only past scheduled appointments exist', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    Appointment::query()->create([
+        'center_id' => $center->id,
+        'practitioner_id' => $practitioner->id,
+        'patient_id' => $patient->id,
+        'starts_at' => now()->subDay(),
+        'duration_minutes' => 30,
+        'status' => 'scheduled',
+        'created_by' => $superAdmin->id,
+    ]);
+
+    expect($patient->nextAppointment())->toBeNull();
 });

@@ -88,6 +88,10 @@ class Patient extends Model implements HasMedia
     {
         return $this->appointments()
             ->whereIn('status', ['scheduled', 'confirmed'])
+            // A past appointment never marked completed/cancelled/no_show
+            // stays "scheduled" forever — without this bound it would
+            // shadow every real upcoming appointment.
+            ->where('starts_at', '>=', now())
             ->orderBy('starts_at')
             ->first();
     }
