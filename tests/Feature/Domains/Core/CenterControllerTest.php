@@ -198,14 +198,16 @@ test('availabilities page exposes the manager active center hours', function () 
 
     $props = $this->actingAs($manager)->get(route('admin.availabilities.index'))->inertiaPage()['props'];
 
-    expect($props['activeCenter']['id'])->toBe($center->id);
-    expect($props['activeCenter']['operating_hours'][0]['start_time'])->toBe('08:00');
+    expect($props['editableCenters'])->toHaveCount(1);
+    expect($props['editableCenters'][0]['id'])->toBe($center->id);
+    expect($props['editableCenters'][0]['operating_hours'][0]['start_time'])->toBe('08:00');
 });
 
-test('availabilities page exposes no editable center for super admin', function () {
+test('availabilities page exposes every center for super admin', function () {
     $superAdmin = actingAsSuperAdmin();
+    Center::factory()->count(2)->create();
 
     $props = $this->actingAs($superAdmin)->get(route('admin.availabilities.index'))->inertiaPage()['props'];
 
-    expect($props['activeCenter'])->toBeNull();
+    expect($props['editableCenters'])->toHaveCount(Center::query()->count());
 });

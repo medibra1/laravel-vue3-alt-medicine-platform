@@ -1148,7 +1148,8 @@ jour **sans ligne = centre fermé** (pas de valeur spéciale "closed").
 Édité uniquement par remplacement intégral (`PUT
 admin/centers/{center}/operating-hours`, `SyncCenterOperatingHoursAction`,
 validation via le même trait `ValidatesWeeklySlots`). Accès :
-super_admin/admin (page Centres) et manager pour son centre actif
+super_admin/admin sur tous les centres (page Centres et page
+Disponibilités avec sélecteur de centre) et manager pour son centre actif
 uniquement (page Disponibilités, `CenterPolicy::manageOperatingHours`).
 
 **Distinct des disponibilités praticien, les deux coexistent sans se

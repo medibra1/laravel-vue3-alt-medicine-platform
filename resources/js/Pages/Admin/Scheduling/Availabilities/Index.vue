@@ -32,10 +32,12 @@ interface Availability {
 const props = defineProps<{
     availabilities: Availability[];
     practitioners: Practitioner[];
-    activeCenter: { id: number; name: string; operating_hours: WeeklySlot[] } | null;
+    editableCenters: { id: number; name: string; operating_hours: WeeklySlot[] }[];
 }>();
 
 const hoursDialogVisible = ref(false);
+const hoursCenterId = ref<number | null>(props.editableCenters[0]?.id ?? null);
+const hoursCenter = computed(() => props.editableCenters.find((c) => c.id === hoursCenterId.value) ?? null);
 
 const dayOptions = dayLabels.map((label, id) => ({ id, name: label }));
 
@@ -113,8 +115,16 @@ function destroy(availability: Availability) {
     <AuthenticatedLayout>
         <AppPageHeader title="Disponibilités" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Disponibilités' }]">
             <template #actions>
+                <AppSelect
+                    v-if="editableCenters.length > 1"
+                    v-model="hoursCenterId"
+                    :options="editableCenters"
+                    option-label="name"
+                    option-value="id"
+                    label="Centre"
+                />
                 <AppButton
-                    v-if="activeCenter"
+                    v-if="hoursCenter"
                     label="Horaires du centre"
                     icon="mdi-clock-outline"
                     severity="secondary"
@@ -184,10 +194,9 @@ function destroy(availability: Availability) {
             </form>
         </AppDialog>
         <CenterOperatingHoursDialog
-            v-if="activeCenter"
             v-model:visible="hoursDialogVisible"
-            :center="activeCenter"
-            :initial-slots="activeCenter.operating_hours"
+            :center="hoursCenter"
+            :initial-slots="hoursCenter?.operating_hours ?? []"
         />
     </AuthenticatedLayout>
 </template>

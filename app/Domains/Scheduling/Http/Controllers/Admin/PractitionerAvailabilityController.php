@@ -40,31 +40,30 @@ class PractitionerAvailabilityController extends Controller
         return Inertia::render('Admin/Scheduling/Availabilities/Index', [
             'availabilities' => PractitionerAvailabilityResource::collection($availabilities),
             'practitioners' => $this->practitionerOptions($request),
-            'activeCenter' => $this->editableActiveCenter($request),
+            'editableCenters' => $this->editableCenters($request),
         ]);
     }
 
     /**
-     * The manager's active center with its opening hours, so they can edit
-     * them next to the practitioner schedules. super_admin/admin edit hours
-     * from the centers page instead (they have no single active center).
+     * Centers whose opening hours this user may edit from this page:
+     * every center for super_admin/admin, the active one for a manager.
      *
-     * @return array<string, mixed>|null
+     * @return array<int, array<string, mixed>>
      */
-    private function editableActiveCenter(Request $request): ?array
+    private function editableCenters(Request $request): array
     {
-        $center = Center::query()->with('operatingHours')->find(getPermissionsTeamId());
+        $user = $request->user();
 
-        if ($center === null || $request->user()->isSuperAdmin() || $request->user()->isAdmin()
-            || ! $request->user()->can('manageOperatingHours', $center)) {
-            return null;
-        }
+        $centers = $user->isSuperAdmin() || $user->isAdmin()
+            ? Center::query()->with('operatingHours')->orderBy('name')->get()
+            : Center::query()->with('operatingHours')->whereKey(getPermissionsTeamId())->get()
+                ->filter(fn (Center $center) => $user->can('manageOperatingHours', $center));
 
-        return [
+        return $centers->map(fn (Center $center) => [
             'id' => $center->id,
             'name' => $center->name,
             'operating_hours' => CenterOperatingHoursResource::collection($center->operatingHours)->resolve(),
-        ];
+        ])->values()->all();
     }
 
     public function store(StorePractitionerAvailabilityRequest $request): RedirectResponse
