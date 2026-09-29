@@ -140,7 +140,7 @@ test('super admin can sync opening hours of a center', function () {
     $superAdmin = actingAsSuperAdmin();
     $center = Center::factory()->create();
 
-    $response = $this->actingAs($superAdmin)->put(route('admin.centers.operating-hours.sync', $center), [
+    $response = $this->actingAs($superAdmin)->from(route('admin.centers.index'))->put(route('admin.centers.operating-hours.sync', $center), [
         'slots' => [
             ['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00'],
             ['day_of_week' => 6, 'start_time' => '09:00', 'end_time' => '13:00'],
@@ -166,14 +166,46 @@ test('overlapping opening hours on the same day are rejected', function () {
     expect($center->operatingHours()->count())->toBe(0);
 });
 
-test('manager cannot sync opening hours of a center', function () {
+test('manager can sync opening hours of their own center', function () {
     $center = Center::factory()->create();
     $manager = actingAsManagerOf($center);
 
-    $response = $this->actingAs($manager)->put(route('admin.centers.operating-hours.sync', $center), [
+    $response = $this->actingAs($manager)->from(route('admin.availabilities.index'))->put(route('admin.centers.operating-hours.sync', $center), [
+        'slots' => [['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00']],
+    ]);
+
+    $response->assertRedirect(route('admin.availabilities.index'));
+    expect($center->operatingHours()->count())->toBe(1);
+});
+
+test('manager cannot sync opening hours of another center', function () {
+    $ownCenter = Center::factory()->create();
+    $otherCenter = Center::factory()->create();
+    $manager = actingAsManagerOf($ownCenter);
+
+    $response = $this->actingAs($manager)->put(route('admin.centers.operating-hours.sync', $otherCenter), [
         'slots' => [['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00']],
     ]);
 
     $response->assertForbidden();
-    expect($center->operatingHours()->count())->toBe(0);
+    expect($otherCenter->operatingHours()->count())->toBe(0);
+});
+
+test('availabilities page exposes the manager active center hours', function () {
+    $center = Center::factory()->create();
+    $center->operatingHours()->create(['day_of_week' => 1, 'start_time' => '08:00', 'end_time' => '12:00']);
+    $manager = actingAsManagerOf($center);
+
+    $props = $this->actingAs($manager)->get(route('admin.availabilities.index'))->inertiaPage()['props'];
+
+    expect($props['activeCenter']['id'])->toBe($center->id);
+    expect($props['activeCenter']['operating_hours'][0]['start_time'])->toBe('08:00');
+});
+
+test('availabilities page exposes no editable center for super admin', function () {
+    $superAdmin = actingAsSuperAdmin();
+
+    $props = $this->actingAs($superAdmin)->get(route('admin.availabilities.index'))->inertiaPage()['props'];
+
+    expect($props['activeCenter'])->toBeNull();
 });

@@ -88,7 +88,8 @@ class CenterController extends Controller
 
         $action->handle($center, $slots);
 
-        return redirect()->route('admin.centers.index');
+        // Managers edit their hours from the availabilities page.
+        return back();
     }
 
     public function destroy(Center $center): RedirectResponse

@@ -12,7 +12,7 @@ class SyncCenterOperatingHoursRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('center')) ?? false;
+        return $this->user()?->can('manageOperatingHours', $this->route('center')) ?? false;
     }
 
     /** @return array<string, mixed> */

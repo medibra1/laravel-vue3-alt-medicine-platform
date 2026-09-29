@@ -1147,8 +1147,9 @@ end_time · timestamps · index `[center_id, day_of_week]`. Même forme que
 jour **sans ligne = centre fermé** (pas de valeur spéciale "closed").
 Édité uniquement par remplacement intégral (`PUT
 admin/centers/{center}/operating-hours`, `SyncCenterOperatingHoursAction`,
-validation via le même trait `ValidatesWeeklySlots`). Accès : même règle
-que le reste du CRUD centres (`CenterPolicy::update`, super_admin/admin).
+validation via le même trait `ValidatesWeeklySlots`). Accès :
+super_admin/admin (page Centres) et manager pour son centre actif
+uniquement (page Disponibilités, `CenterPolicy::manageOperatingHours`).
 
 **Distinct des disponibilités praticien, les deux coexistent sans se
 déduire l'un de l'autre** : les horaires du centre disent *quand le centre
