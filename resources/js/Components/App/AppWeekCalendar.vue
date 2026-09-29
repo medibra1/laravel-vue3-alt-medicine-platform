@@ -6,6 +6,16 @@ export interface AppCalendarColumn {
     label: string;
     /** ISO date this column represents — used to position a slot click's date. */
     date: string;
+    /**
+     * When set, the column is greyed out with this label as a badge and
+     * empty slots stop emitting slot-click (e.g. a practitioner time off).
+     */
+    blockedLabel?: string;
+    /**
+     * Same blocking as blockedLabel but for a whole-center closure — shown
+     * with a distinct badge so it isn't mistaken for a personal time off.
+     */
+    closedLabel?: string;
 }
 
 export interface AppCalendarEvent {
@@ -70,6 +80,8 @@ function eventsForColumn(columnId: string | number): AppCalendarEvent[] {
 }
 
 function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent) {
+    if (column.blockedLabel || column.closedLabel) return;
+
     // Coarse half-hour precision from the click's vertical position within
     // the hour row — good enough to prefill AppointmentDialog, the exact
     // time is still adjustable there via the slot picker.
@@ -88,6 +100,12 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
             <div class="app-week-calendar-gutter" />
             <div v-for="column in columns" :key="column.id" class="app-week-calendar-column-header">
                 {{ column.label }}
+                <v-chip v-if="column.blockedLabel" size="x-small" color="warning" variant="tonal" prepend-icon="mdi-beach" class="ml-1">
+                    {{ column.blockedLabel }}
+                </v-chip>
+                <v-chip v-if="column.closedLabel" size="x-small" color="error" variant="tonal" prepend-icon="mdi-store-off-outline" class="ml-1">
+                    Fermé — {{ column.closedLabel }}
+                </v-chip>
             </div>
         </div>
 
@@ -98,7 +116,12 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                 </div>
             </div>
 
-            <div v-for="column in columns" :key="column.id" class="app-week-calendar-column">
+            <div
+                v-for="column in columns"
+                :key="column.id"
+                class="app-week-calendar-column"
+                :class="{ 'app-week-calendar-column--blocked': column.blockedLabel || column.closedLabel }"
+            >
                 <div
                     v-for="hour in hours"
                     :key="hour"
@@ -167,6 +190,22 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
     flex: 1 0 140px;
     overflow: hidden;
     border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.app-week-calendar-column--blocked {
+    background: repeating-linear-gradient(
+        -45deg,
+        rgba(var(--v-theme-on-surface), 0.06) 0 6px,
+        transparent 6px 12px
+    );
+}
+
+.app-week-calendar-column--blocked .app-week-calendar-hour-slot {
+    cursor: not-allowed;
+}
+
+.app-week-calendar-column--blocked .app-week-calendar-hour-slot:hover {
+    background-color: transparent;
 }
 
 .app-week-calendar-hour-slot {

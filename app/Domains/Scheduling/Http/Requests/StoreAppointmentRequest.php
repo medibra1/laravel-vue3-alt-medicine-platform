@@ -4,6 +4,8 @@ namespace App\Domains\Scheduling\Http\Requests;
 
 use App\Domains\Scheduling\Models\Appointment;
 use App\Domains\Scheduling\Rules\NoAppointmentConflict;
+use App\Domains\Scheduling\Rules\NoCenterClosureConflict;
+use App\Domains\Scheduling\Rules\NoTimeOffConflict;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -43,7 +45,7 @@ class StoreAppointmentRequest extends FormRequest
             // domain.
             'practitioner_id' => ['required', 'integer', 'exists:practitioners,id'],
             'treatment_id' => ['nullable', 'integer', 'exists:treatments,id'],
-            'starts_at' => ['required', 'date', new NoAppointmentConflict($this)],
+            'starts_at' => ['required', 'date', new NoAppointmentConflict($this), new NoTimeOffConflict($this), new NoCenterClosureConflict($this)],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:480'],
             'modality' => ['required', Rule::in(['in_person', 'remote'])],
             // Not required even when modality is 'remote' — the

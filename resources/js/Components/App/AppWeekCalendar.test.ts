@@ -16,6 +16,26 @@ function topOf(wrapper: ReturnType<typeof mount>, title: string): number {
 }
 
 describe('AppWeekCalendar', () => {
+    it('greys out a blocked column, shows its badge and ignores slot clicks', async () => {
+        const wrapper = mount(AppWeekCalendar, {
+            props: {
+                columns: [{ id: 'c1', label: 'Lun', date: '2026-10-05', blockedLabel: 'Congés' }, { id: 'c2', label: 'Mar', date: '2026-10-06' }],
+                events: [],
+            },
+            global: { plugins: [vuetify] },
+        });
+
+        const [blocked, open] = wrapper.findAll('.app-week-calendar-column');
+        expect(blocked.classes()).toContain('app-week-calendar-column--blocked');
+        expect(wrapper.find('.app-week-calendar-header').text()).toContain('Congés');
+
+        await blocked.find('.app-week-calendar-hour-slot').trigger('click');
+        expect(wrapper.emitted('slot-click')).toBeUndefined();
+
+        await open.find('.app-week-calendar-hour-slot').trigger('click');
+        expect(wrapper.emitted('slot-click')).toHaveLength(1);
+    });
+
     it('renders events outside the default range without crashing', () => {
         const wrapper = mount(AppWeekCalendar, {
             props: {

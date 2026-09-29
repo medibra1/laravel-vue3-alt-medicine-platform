@@ -6,11 +6,14 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import BulkApplyScheduleDialog from '@/Components/Scheduling/BulkApplyScheduleDialog.vue';
+import CenterClosuresDialog from '@/Components/Scheduling/CenterClosuresDialog.vue';
 import CenterOperatingHoursDialog from '@/Components/Scheduling/CenterOperatingHoursDialog.vue';
+import PractitionerTimeOffDialog from '@/Components/Scheduling/PractitionerTimeOffDialog.vue';
 import PractitionerWeeklyScheduleDialog from '@/Components/Scheduling/PractitionerWeeklyScheduleDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { type WeeklySlot, dayLabels, displayDayOrder, shortDayLabels, summarizeSchedule } from '@/utils/weeklySchedule';
+import { type TimeOff, formatTimeOffPeriod, timeOffReasonLabel } from '@/utils/timeOff';
 import { computed, ref } from 'vue';
 
 interface Practitioner {
@@ -31,11 +34,14 @@ interface Availability {
 
 const props = defineProps<{
     availabilities: Availability[];
+    /** Current and upcoming only. */
+    timeOffs: TimeOff[];
     practitioners: Practitioner[];
     editableCenters: { id: number; name: string; operating_hours: WeeklySlot[] }[];
 }>();
 
 const hoursDialogVisible = ref(false);
+const closuresDialogVisible = ref(false);
 const hoursCenterId = ref<number | null>(props.editableCenters[0]?.id ?? null);
 const hoursCenter = computed(() => props.editableCenters.find((c) => c.id === hoursCenterId.value) ?? null);
 
@@ -64,6 +70,7 @@ const schedules = computed(() =>
                     displayDayOrder.indexOf(a.day_of_week) - displayDayOrder.indexOf(b.day_of_week) ||
                     a.start_time.localeCompare(b.start_time),
             ),
+        timeOffs: props.timeOffs.filter((timeOff) => timeOff.practitioner_id === practitioner.id),
     })),
 );
 
@@ -77,6 +84,29 @@ function openSchedule(practitioner: Practitioner) {
 }
 
 const isBulkApplying = ref(false);
+
+// --- Time offs ---
+const timeOffPractitioner = ref<{ id: number; label: string } | null>(null);
+const isAddingTimeOff = ref(false);
+const affectedAppointmentsWarning = ref<number | null>(null);
+
+function openTimeOff(practitioner: Practitioner) {
+    timeOffPractitioner.value = { id: practitioner.id, label: `${practitioner.first_name} ${practitioner.last_name}` };
+    affectedAppointmentsWarning.value = null;
+    isAddingTimeOff.value = true;
+}
+
+function onTimeOffCreated(affected: number) {
+    affectedAppointmentsWarning.value = affected > 0 ? affected : null;
+}
+
+function destroyTimeOff(timeOff: TimeOff) {
+    if (!confirm('Supprimer ce congé ?')) {
+        return;
+    }
+
+    router.delete(route('admin.time-offs.destroy', timeOff.id), { preserveScroll: true });
+}
 
 const isCreating = ref(false);
 
@@ -130,32 +160,74 @@ function destroy(availability: Availability) {
                     severity="secondary"
                     @click="hoursDialogVisible = true"
                 />
+                <AppButton
+                    v-if="hoursCenter"
+                    label="Fermetures du centre"
+                    icon="mdi-store-off-outline"
+                    severity="secondary"
+                    @click="closuresDialogVisible = true"
+                />
                 <AppButton label="Appliquer un planning à plusieurs praticiens" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
                 <AppButton label="Nouveau créneau" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
         <div class="d-flex flex-column ga-3">
+            <v-alert
+                v-if="affectedAppointmentsWarning"
+                type="warning"
+                variant="tonal"
+                closable
+                @click:close="affectedAppointmentsWarning = null"
+            >
+                {{
+                    affectedAppointmentsWarning > 1
+                        ? `${affectedAppointmentsWarning} rendez-vous existants tombent dans cette période — pensez à les reprogrammer ou les annuler.`
+                        : `1 rendez-vous existant tombe dans cette période — pensez à le reprogrammer ou l'annuler.`
+                }}
+            </v-alert>
             <p v-if="!schedules.length" class="text-medium-emphasis">Aucun praticien.</p>
-            <AppCard v-for="{ practitioner, slots } in schedules" :key="practitioner.id" variant="elevated" elevation="1">
+            <AppCard v-for="{ practitioner, slots, timeOffs: practitionerTimeOffs } in schedules" :key="practitioner.id" variant="elevated" elevation="1">
                 <v-card-text>
                     <div class="d-flex justify-space-between align-start flex-wrap ga-2">
                         <div style="min-width: 0">
                             <div class="text-subtitle-1 font-weight-medium">{{ practitionerName(practitioner) }}</div>
                             <div class="text-body-2 text-medium-emphasis">{{ slots.length ? summarizeSchedule(slots) : 'Aucune disponibilité' }}</div>
                         </div>
-                        <AppButton label="Gérer le planning" icon="mdi-calendar-edit" size="small" @click="openSchedule(practitioner)" />
+                        <div class="d-flex flex-wrap ga-2">
+                            <AppButton label="Ajouter un congé" icon="mdi-beach" size="small" severity="secondary" @click="openTimeOff(practitioner)" />
+                            <AppButton label="Gérer le planning" icon="mdi-calendar-edit" size="small" @click="openSchedule(practitioner)" />
+                        </div>
                     </div>
                     <div v-if="slots.length" class="d-flex flex-wrap ga-1 mt-3">
                         <v-chip v-for="slot in slots" :key="slot.id" size="small" closable @click:close="destroy(slot)">
                             {{ shortDayLabels[slot.day_of_week] }} {{ slot.start_time }}-{{ slot.end_time }}
                         </v-chip>
                     </div>
+                    <div v-if="practitionerTimeOffs.length" class="mt-3">
+                        <div class="text-caption text-medium-emphasis mb-1">Congés</div>
+                        <div class="d-flex flex-wrap ga-1">
+                            <v-chip
+                                v-for="timeOff in practitionerTimeOffs"
+                                :key="timeOff.id"
+                                size="small"
+                                color="warning"
+                                variant="tonal"
+                                prepend-icon="mdi-beach"
+                                closable
+                                :title="timeOff.notes ?? undefined"
+                                @click:close="destroyTimeOff(timeOff)"
+                            >
+                                {{ timeOffReasonLabel(timeOff.reason) }} · {{ formatTimeOffPeriod(timeOff) }}
+                            </v-chip>
+                        </div>
+                    </div>
                 </v-card-text>
             </AppCard>
         </div>
 
         <PractitionerWeeklyScheduleDialog v-model:visible="isEditingSchedule" :practitioner="editingPractitioner" :initial-slots="editingSlots" />
+        <PractitionerTimeOffDialog v-model:visible="isAddingTimeOff" :practitioner="timeOffPractitioner" @created="onTimeOffCreated" />
         <BulkApplyScheduleDialog v-model:visible="isBulkApplying" :practitioner-options="practitionerOptions" />
 
         <AppDialog v-model:visible="isCreating" header="Nouveau créneau de disponibilité">
@@ -198,5 +270,7 @@ function destroy(availability: Availability) {
             :center="hoursCenter"
             :initial-slots="hoursCenter?.operating_hours ?? []"
         />
+
+        <CenterClosuresDialog v-model:visible="closuresDialogVisible" :center="hoursCenter" />
     </AuthenticatedLayout>
 </template>

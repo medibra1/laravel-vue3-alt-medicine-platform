@@ -1,9 +1,12 @@
 <?php
 
+use App\Domains\Auth\Models\User;
+use App\Domains\Core\Models\CenterClosure;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Scheduling\Models\Appointment;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use App\Domains\Scheduling\Services\AvailableSlotsResolver;
 use Carbon\CarbonImmutable;
 
@@ -55,4 +58,44 @@ test('returns an empty array when the practitioner has no availability that day'
     $slots = (new AvailableSlotsResolver)->resolve($practitioner->id, CarbonImmutable::parse('2026-09-10'), 30);
 
     expect($slots)->toBe([]);
+});
+
+test('a day covered by a time off has no slots even with weekly availability', function () {
+    $practitioner = Practitioner::factory()->create();
+    PractitionerAvailability::query()->create([
+        'practitioner_id' => $practitioner->id,
+        'day_of_week' => 4,
+        'start_time' => '09:00',
+        'end_time' => '10:00',
+    ]);
+    PractitionerTimeOff::query()->create([
+        'practitioner_id' => $practitioner->id,
+        'starts_on' => '2026-09-09',
+        'ends_on' => '2026-09-10',
+        'created_by' => User::factory()->create()->id,
+    ]);
+
+    expect((new AvailableSlotsResolver)->resolve($practitioner->id, CarbonImmutable::parse('2026-09-10'), 30))->toBe([]);
+    // The day after the (inclusive) end is bookable again.
+    expect((new AvailableSlotsResolver)->resolve($practitioner->id, CarbonImmutable::parse('2026-09-17'), 30))->toHaveCount(2);
+});
+
+test('a center closure day has no slots for any practitioner of that center', function () {
+    $practitioner = Practitioner::factory()->create();
+    PractitionerAvailability::query()->create([
+        'practitioner_id' => $practitioner->id,
+        'day_of_week' => 4,
+        'start_time' => '09:00',
+        'end_time' => '10:00',
+    ]);
+    CenterClosure::query()->create([
+        'center_id' => $practitioner->center_id,
+        'starts_on' => '2026-09-10',
+        'ends_on' => '2026-09-10',
+        'label' => 'Fête nationale',
+        'created_by' => User::factory()->create()->id,
+    ]);
+
+    expect((new AvailableSlotsResolver)->resolve($practitioner->id, CarbonImmutable::parse('2026-09-10'), 30))->toBe([]);
+    expect((new AvailableSlotsResolver)->resolve($practitioner->id, CarbonImmutable::parse('2026-09-17'), 30))->toHaveCount(2);
 });

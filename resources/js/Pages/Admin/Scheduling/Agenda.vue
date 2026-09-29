@@ -3,6 +3,8 @@ import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import { type CenterClosure, closureCovering } from '@/utils/centerClosure';
+import { type TimeOff, timeOffCovering, timeOffReasonLabel } from '@/utils/timeOff';
 import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '@/Components/App/AppWeekCalendar.vue';
 import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -57,6 +59,8 @@ const props = defineProps<{
     patients: PatientOption[];
     activeCenterId: number | null;
     centerOperatingHours: Record<number, WeeklySlot[]>;
+    timeOffs: TimeOff[];
+    centerClosures: CenterClosure[];
 }>();
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
@@ -108,23 +112,46 @@ const rangeDates = computed<Date[]>(() => {
 
 const dayLabelFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
 
+// Visual hint only — the server rejects bookings on a time off day anyway
+// (NoTimeOffConflict).
+function blockedLabel(practitionerId: number | null, isoDate: string): string | undefined {
+    const timeOff = timeOffCovering(props.timeOffs, practitionerId, isoDate);
+    return timeOff ? timeOffReasonLabel(timeOff.reason) : undefined;
+}
+
+const displayedCenterId = computed(() => (isSuperAdmin.value ? selectedCenterId.value : props.activeCenterId));
+
+// A center closure greys out every column of the displayed center
+// (server-side: NoCenterClosureConflict).
+function closedLabel(isoDate: string): string | undefined {
+    return closureCovering(props.centerClosures, displayedCenterId.value, isoDate)?.label;
+}
+
 const columns = computed<AppCalendarColumn[]>(() => {
     if (mode.value === 'day') {
         // props.practitioners is already scoped server-side for a
         // non-super_admin (see ResolvesPractitionerOptions) — no client
         // filtering needed on top of it.
+        const date = toLocalDateString(anchorDate.value);
         return props.practitioners.map((practitioner) => ({
             id: practitioner.id,
             label: `${practitioner.first_name} ${practitioner.last_name}`,
-            date: toLocalDateString(anchorDate.value),
+            date,
+            blockedLabel: blockedLabel(practitioner.id, date),
+            closedLabel: closedLabel(date),
         }));
     }
 
-    return rangeDates.value.map((date) => ({
-        id: toLocalDateString(date),
-        label: dayLabelFormatter.format(date),
-        date: toLocalDateString(date),
-    }));
+    return rangeDates.value.map((d) => {
+        const date = toLocalDateString(d);
+        return {
+            id: date,
+            label: dayLabelFormatter.format(d),
+            date,
+            blockedLabel: blockedLabel(selectedPractitionerId.value, date),
+            closedLabel: closedLabel(date),
+        };
+    });
 });
 
 const appointments = ref<AppointmentEntry[]>([]);
@@ -178,7 +205,6 @@ const statusColor: Record<string, string> = {
 
 // Grid range = the displayed center's opening hours for the shown weekdays,
 // widened to fit any loaded appointment (see computeGridHours()).
-const displayedCenterId = computed(() => (isSuperAdmin.value ? selectedCenterId.value : props.activeCenterId));
 
 const gridHours = computed(() =>
     computeGridHours(

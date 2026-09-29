@@ -1619,3 +1619,71 @@ file_path (PDF stocké) · timestamps
   différents, pas encore assez de règles partagées pour justifier une
   abstraction (voir CLAUDE.md "Services — Action classes, pas de CRUD
   wrapper générique").
+
+### `practitioner_time_offs` (2026-09-29)
+
+Exception ponctuelle datée (congé, arrêt maladie, formation...) —
+distincte du planning récurrent `practitioner_availabilities`.
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | bigint | |
+| `practitioner_id` | fk `practitioners` | cascade delete |
+| `starts_on` | date | |
+| `ends_on` | date | **inclusif** — congé d'un jour : `starts_on = ends_on` |
+| `reason` | string(30), nullable | `vacation`/`sick_leave`/`training`/`other` (string, pas d'enum PHP) |
+| `notes` | text, nullable | |
+| `created_by` | fk `users` | |
+| timestamps | | |
+
+Index `(practitioner_id, starts_on, ends_on)`. Journées entières
+uniquement (V1, pas de demi-journée). Pas d'`update` : modifier = supprimer
+puis recréer.
+
+**Sémantique bloquante** (à l'inverse des disponibilités hors horaires
+centre, qui restent non bloquantes) : `AvailableSlotsResolver` ne renvoie
+aucun créneau un jour couvert, et `NoTimeOffConflict` (sur `starts_at` de
+`Store`/`UpdateAppointmentRequest`) refuse le RDV. Poser un congé
+**n'annule jamais** les RDV déjà planifiés sur la période : le contrôleur
+compte ceux non `cancelled`/`no_show`/`completed` et renvoie le nombre en
+flash (`flash.time_off_affected_appointments`) pour avertir.
+
+### `center_closures` (2026-09-29)
+
+Fermeture exceptionnelle d'un centre entier (jour férié, travaux,
+événement) — pendant centre de `practitioner_time_offs`.
+
+| Colonne | Type | Notes |
+|---|---|---|
+| `id` | bigint | |
+| `center_id` | fk `centers` | cascade delete |
+| `starts_on` | date | |
+| `ends_on` | date | **inclusif** |
+| `label` | string | texte libre (motifs trop variés pour une liste fermée), affiché tel quel dans l'agenda |
+| `notes` | text, nullable | |
+| `created_by` | fk `users` | |
+| timestamps | | |
+
+Index `(center_id, starts_on, ends_on)`. Journées entières uniquement, pas
+d'`update`. **Bloquant pour tous les praticiens du centre** :
+`AvailableSlotsResolver` (centre résolu depuis le praticien) et
+`NoCenterClosureConflict` (sur `starts_at`). N'annule jamais les RDV
+existants : le décompte flashé (`flash.time_off_affected_appointments`,
+même clé que les congés) porte sur **tous** les RDV actifs du centre dans
+la période. Autorisations (`CenterClosurePolicy`) : super_admin/admin sur
+tout centre, manager sur son centre actif — mêmes règles que les horaires
+d'ouverture (`CenterPolicy::manageOperatingHours()`).
+
+### Récapitulatif — quatre notions de disponibilité
+
+| Notion | Table | Portée | Contrainte | Rôle |
+|---|---|---|---|---|
+| Horaires du centre | `center_operating_hours` | centre, récurrent hebdo | **non bloquante** | plage d'affichage de la grille agenda uniquement |
+| Disponibilité praticien | `practitioner_availabilities` | praticien, récurrent hebdo | source des créneaux | seule source de ce qui est réservable ; peut dépasser les horaires du centre (visio tardive...) |
+| Congé praticien | `practitioner_time_offs` | un praticien, plage de dates | **bloquante** | absent, aucun cas où le laisser réservable serait valide |
+| Fermeture centre | `center_closures` | tout le centre, plage de dates | **bloquante** | centre fermé, donc aucun praticien réservable ce jour-là |
+
+Les notions récurrentes décrivent un fonctionnement normal (on laisse les
+exceptions passer) ; les notions datées décrivent une absence réelle (on
+bloque). Aucune ne se déduit d'une autre. Aucune notion bloquante n'annule
+un RDV déjà pris — elle avertit, un humain tranche.

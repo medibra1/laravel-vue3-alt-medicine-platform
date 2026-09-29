@@ -36,6 +36,12 @@ class Center extends Model
         return $this->hasMany(CenterOperatingHours::class);
     }
 
+    /** @return HasMany<CenterClosure, $this> */
+    public function closures(): HasMany
+    {
+        return $this->hasMany(CenterClosure::class);
+    }
+
     /** @return HasMany<Employment, $this> */
     public function employments(): HasMany
     {
