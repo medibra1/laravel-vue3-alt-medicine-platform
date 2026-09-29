@@ -4,6 +4,7 @@ namespace App\Domains\Scheduling\Services;
 
 use App\Domains\Scheduling\Models\Appointment;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use Carbon\CarbonImmutable;
 
 /**
@@ -11,7 +12,8 @@ use Carbon\CarbonImmutable;
  * fixed-length slots, dropping any that overlap an already-booked
  * appointment. No day found in practitioner_availabilities for that
  * weekday simply means the practitioner doesn't work that day — an
- * empty result, not an error.
+ * empty result, not an error. A day covered by a PractitionerTimeOff
+ * returns no slots either, whatever the weekly availability says.
  */
 class AvailableSlotsResolver
 {
@@ -20,6 +22,10 @@ class AvailableSlotsResolver
      */
     public function resolve(int $practitionerId, CarbonImmutable $date, int $durationMinutes): array
     {
+        if (PractitionerTimeOff::query()->covering($practitionerId, $date)->exists()) {
+            return [];
+        }
+
         $dayAvailabilities = PractitionerAvailability::query()
             ->where('practitioner_id', $practitionerId)
             ->where('day_of_week', $date->dayOfWeek)

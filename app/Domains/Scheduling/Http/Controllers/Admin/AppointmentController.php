@@ -14,7 +14,9 @@ use App\Domains\Scheduling\Http\Requests\CancelAppointmentRequest;
 use App\Domains\Scheduling\Http\Requests\StoreAppointmentRequest;
 use App\Domains\Scheduling\Http\Requests\UpdateAppointmentRequest;
 use App\Domains\Scheduling\Http\Resources\AppointmentResource;
+use App\Domains\Scheduling\Http\Resources\PractitionerTimeOffResource;
 use App\Domains\Scheduling\Models\Appointment;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use App\Domains\Scheduling\Notifications\AppointmentAssignedNotification;
 use App\Domains\Scheduling\Services\AvailableSlotsResolver;
 use App\Http\Controllers\Controller;
@@ -51,8 +53,19 @@ class AppointmentController extends Controller
             ? [$centerId]
             : Center::query()->pluck('id')->all();
 
+        $practitioners = $this->practitionerOptions($request);
+
         return Inertia::render('Admin/Scheduling/Agenda', [
             'activeCenterId' => $centerId,
+            // Time offs of the listed practitioners that end within the last
+            // 3 months or later — enough for normal back-and-forth navigation
+            // without another request. Greys out covered days in the grid.
+            'timeOffs' => PractitionerTimeOffResource::collection(
+                PractitionerTimeOff::query()
+                    ->whereIn('practitioner_id', $practitioners->collection->pluck('id'))
+                    ->whereDate('ends_on', '>=', today()->subMonths(3))
+                    ->get(),
+            ),
             'centerOperatingHours' => (object) CenterOperatingHours::query()
                 ->whereIn('center_id', $visibleCenterIds)
                 ->get()
@@ -60,7 +73,7 @@ class AppointmentController extends Controller
                 ->map(fn ($hours) => CenterOperatingHoursResource::collection($hours)->resolve())
                 ->all(),
             'centers' => $this->centerOptions($request),
-            'practitioners' => $this->practitionerOptions($request),
+            'practitioners' => $practitioners,
             'patients' => PatientOptionResource::collection(
                 Patient::query()
                     ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))

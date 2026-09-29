@@ -12,6 +12,7 @@ use App\Domains\Core\Models\Grade;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Scheduling\Models\Appointment;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -86,6 +87,12 @@ class Practitioner extends Model
     public function availabilities(): HasMany
     {
         return $this->hasMany(PractitionerAvailability::class);
+    }
+
+    /** @return HasMany<PractitionerTimeOff, $this> */
+    public function timeOffs(): HasMany
+    {
+        return $this->hasMany(PractitionerTimeOff::class);
     }
 
     /** @return HasMany<Appointment, $this> */

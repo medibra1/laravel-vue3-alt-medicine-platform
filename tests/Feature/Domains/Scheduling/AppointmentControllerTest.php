@@ -5,6 +5,7 @@ use App\Domains\Patients\Models\Patient;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Scheduling\Models\Appointment;
 use App\Domains\Scheduling\Models\PractitionerAvailability;
+use App\Domains\Scheduling\Models\PractitionerTimeOff;
 
 test('guests are redirected to login', function () {
     $this->get(route('admin.appointments.index'))
@@ -315,4 +316,51 @@ test('index includes late appointments on the last requested day and excludes th
 
     $ids = collect($response->assertOk()->json())->pluck('id');
     expect($ids)->toContain($lateLastDay->id)->not->toContain($nextDay->id);
+});
+
+test('an appointment cannot be booked on a practitioner time off day', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    PractitionerTimeOff::query()->create([
+        'practitioner_id' => $practitioner->id,
+        'starts_on' => '2026-09-10',
+        'ends_on' => '2026-09-10',
+        'created_by' => $superAdmin->id,
+    ]);
+
+    $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'in_person',
+    ])->assertSessionHasErrors('starts_at');
+
+    expect(Appointment::query()->count())->toBe(0);
+});
+
+test('an appointment booked before a time off is never removed when the time off is added', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $practitioner = Practitioner::factory()->for($center, 'center')->create();
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $this->actingAs($superAdmin)->post(route('admin.appointments.store'), [
+        'center_id' => $center->id,
+        'patient_id' => $patient->id,
+        'practitioner_id' => $practitioner->id,
+        'starts_at' => '2026-09-10 10:00:00',
+        'duration_minutes' => 30,
+        'modality' => 'in_person',
+    ])->assertSessionHasNoErrors();
+
+    $this->actingAs($superAdmin)->post(route('admin.practitioners.time-offs.store', $practitioner), [
+        'starts_on' => '2026-09-10',
+        'ends_on' => '2026-09-11',
+    ])->assertSessionHas('time_off_affected_appointments', 1);
+
+    expect(Appointment::query()->sole()->status)->toBe('scheduled');
 });

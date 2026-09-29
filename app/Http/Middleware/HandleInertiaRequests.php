@@ -54,6 +54,10 @@ class HandleInertiaRequests extends Middleware
                     : [],
                 'active_center_id' => $accessibleCenterIds !== [] ? $request->session()->get('active_center_id') : null,
             ],
+            'flash' => [
+                // Set by PractitionerTimeOffController::store().
+                'time_off_affected_appointments' => fn () => $request->session()->get('time_off_affected_appointments'),
+            ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
