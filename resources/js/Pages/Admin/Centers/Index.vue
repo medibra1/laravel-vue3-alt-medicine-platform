@@ -10,6 +10,7 @@ import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import CenterClosuresDialog from '@/Components/Scheduling/CenterClosuresDialog.vue';
 import CenterOperatingHoursDialog from '@/Components/Scheduling/CenterOperatingHoursDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import type { WeeklySlot } from '@/utils/weeklySchedule';
@@ -180,6 +181,14 @@ function openOperatingHours(center: Center) {
     hoursDialogVisible.value = true;
 }
 
+const closuresCenter = ref<Center | null>(null);
+const closuresDialogVisible = ref(false);
+
+function openClosures(center: Center) {
+    closuresCenter.value = center;
+    closuresDialogVisible.value = true;
+}
+
 function destroy(center: Center) {
     if (!confirm(`Supprimer le centre ${center.name} ?`)) {
         return;
@@ -240,6 +249,13 @@ function destroy(center: Center) {
                                 severity="secondary"
                                 size="small"
                                 @click="openOperatingHours(item)"
+                            />
+                            <AppButton
+                                label="Fermetures"
+                                icon="mdi-store-off-outline"
+                                severity="secondary"
+                                size="small"
+                                @click="openClosures(item)"
                             />
                             <AppButton
                                 label="Supprimer"
@@ -349,5 +365,7 @@ function destroy(center: Center) {
             :center="hoursCenter"
             :initial-slots="hoursCenter?.operating_hours ?? []"
         />
+
+        <CenterClosuresDialog v-model:visible="closuresDialogVisible" :center="closuresCenter" />
     </AuthenticatedLayout>
 </template>

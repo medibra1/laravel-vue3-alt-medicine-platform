@@ -3,6 +3,7 @@ import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import { type CenterClosure, closureCovering } from '@/utils/centerClosure';
 import { type TimeOff, timeOffCovering, timeOffReasonLabel } from '@/utils/timeOff';
 import AppWeekCalendar, { type AppCalendarColumn, type AppCalendarEvent } from '@/Components/App/AppWeekCalendar.vue';
 import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
@@ -59,6 +60,7 @@ const props = defineProps<{
     activeCenterId: number | null;
     centerOperatingHours: Record<number, WeeklySlot[]>;
     timeOffs: TimeOff[];
+    centerClosures: CenterClosure[];
 }>();
 
 const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
@@ -117,6 +119,14 @@ function blockedLabel(practitionerId: number | null, isoDate: string): string | 
     return timeOff ? timeOffReasonLabel(timeOff.reason) : undefined;
 }
 
+const displayedCenterId = computed(() => (isSuperAdmin.value ? selectedCenterId.value : props.activeCenterId));
+
+// A center closure greys out every column of the displayed center
+// (server-side: NoCenterClosureConflict).
+function closedLabel(isoDate: string): string | undefined {
+    return closureCovering(props.centerClosures, displayedCenterId.value, isoDate)?.label;
+}
+
 const columns = computed<AppCalendarColumn[]>(() => {
     if (mode.value === 'day') {
         // props.practitioners is already scoped server-side for a
@@ -128,6 +138,7 @@ const columns = computed<AppCalendarColumn[]>(() => {
             label: `${practitioner.first_name} ${practitioner.last_name}`,
             date,
             blockedLabel: blockedLabel(practitioner.id, date),
+            closedLabel: closedLabel(date),
         }));
     }
 
@@ -138,6 +149,7 @@ const columns = computed<AppCalendarColumn[]>(() => {
             label: dayLabelFormatter.format(d),
             date,
             blockedLabel: blockedLabel(selectedPractitionerId.value, date),
+            closedLabel: closedLabel(date),
         };
     });
 });
@@ -193,7 +205,6 @@ const statusColor: Record<string, string> = {
 
 // Grid range = the displayed center's opening hours for the shown weekdays,
 // widened to fit any loaded appointment (see computeGridHours()).
-const displayedCenterId = computed(() => (isSuperAdmin.value ? selectedCenterId.value : props.activeCenterId));
 
 const gridHours = computed(() =>
     computeGridHours(
