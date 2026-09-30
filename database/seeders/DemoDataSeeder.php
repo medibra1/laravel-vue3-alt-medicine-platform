@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders\Demo;
+namespace Database\Seeders;
 
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Support\CenterScopedRoleAssigner;
@@ -25,15 +25,6 @@ use App\Domains\Scheduling\Models\PractitionerAvailability;
 use App\Domains\Scheduling\Models\PractitionerTimeOff;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
-use Database\Seeders\CareCategorySeeder;
-use Database\Seeders\CountrySeeder;
-use Database\Seeders\DiseaseCategorySeeder;
-use Database\Seeders\EnumOptionSeeder;
-use Database\Seeders\GradeSeeder;
-use Database\Seeders\RolesAndPermissionsSeeder;
-use Database\Seeders\SessionMeasurementTypesSeeder;
-use Database\Seeders\SuperAdminSeeder;
-use Database\Seeders\ZoneSeeder;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -43,12 +34,10 @@ use Spatie\ModelStatus\Status;
 
 /**
  * Realistic demo dataset covering every shipped feature (agenda, time
- * offs, closures, reminders, consents, documents, measurements). Never
- * called from DatabaseSeeder — run explicitly:
- *   php artisan app:seed-demo
- *   php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
- *
- * Refuses to run in production.
+ * offs, closures, reminders, consents, documents, measurements). Called
+ * by DatabaseSeeder outside production only (the production guard lives
+ * there); can also run alone:
+ *   php artisan db:seed --class="Database\Seeders\DemoDataSeeder"
  *
  * Idempotence — delete-then-recreate, targeted: every demo center is
  * named "[Démo] ...", every demo account/patient email ends in
@@ -64,7 +53,7 @@ use Spatie\ModelStatus\Status;
  *
  * Demo accounts all use the password "password".
  */
-class DemoSeeder extends Seeder
+class DemoDataSeeder extends Seeder
 {
     public const CENTER_PREFIX = '[Démo] ';
 
@@ -74,12 +63,6 @@ class DemoSeeder extends Seeder
 
     public function run(): void
     {
-        if (app()->environment('production')) {
-            $this->command->error('Refusing to seed demo data in a production environment.');
-
-            return;
-        }
-
         $this->call([
             EnumOptionSeeder::class,
             SessionMeasurementTypesSeeder::class,

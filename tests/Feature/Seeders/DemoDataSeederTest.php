@@ -4,7 +4,7 @@ use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\Consent;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Scheduling\Models\Appointment;
-use Database\Seeders\Demo\DemoSeeder;
+use Database\Seeders\DemoDataSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,7 +21,7 @@ function demoCounts(): array
 }
 
 test('seeds centers, patients, appointments and every derived patient status', function () {
-    $this->seed(DemoSeeder::class);
+    $this->seed(DemoDataSeeder::class);
 
     expect(Center::query()->where('name', 'like', '[Démo]%')->count())->toBe(2)
         ->and(Patient::count())->toBeGreaterThanOrEqual(20)
@@ -37,22 +37,28 @@ test('seeds centers, patients, appointments and every derived patient status', f
 });
 
 test('running it twice leaves the same row counts', function () {
-    $this->seed(DemoSeeder::class);
+    $this->seed(DemoDataSeeder::class);
     $first = demoCounts();
 
-    $this->seed(DemoSeeder::class);
+    $this->seed(DemoDataSeeder::class);
 
     expect(demoCounts())->toBe($first);
 });
 
-test('refuses to create anything in production', function () {
+test('DatabaseSeeder calls the demo seeder outside production', function () {
+    $this->seed();
+
+    expect(Center::query()->where('name', 'like', '[Démo]%')->count())->toBe(2)
+        ->and(DB::table('countries')->count())->toBe(46);
+});
+
+test('DatabaseSeeder skips the demo seeder in production', function () {
     app()->detectEnvironment(fn () => 'production');
 
-    $this->artisan('db:seed', ['--class' => DemoSeeder::class, '--force' => true])
-        ->expectsOutputToContain('Refusing to seed demo data')
-        ->assertSuccessful();
+    // --force: db:seed asks for confirmation in production otherwise.
+    $this->artisan('db:seed', ['--force' => true])->assertSuccessful();
 
     expect(Center::count())->toBe(0)
         ->and(Patient::count())->toBe(0)
-        ->and(DB::table('users')->count())->toBe(0);
+        ->and(DB::table('countries')->count())->toBe(46);
 });

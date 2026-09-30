@@ -53,23 +53,24 @@ npm run dev
 Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 103 maladies / 19 sous-cas de blocage, en français et en anglais.
 
-### Jeu de données de démonstration (optionnel)
+### Jeu de données de démonstration
 
-`db:seed` ne crée que les données de référence. Pour une démo ou un
-test manuel (2 centres `[Démo] …`, managers dont un multi-centres,
+Hors production, `php artisan db:seed` (ou `migrate:fresh --seed`) crée
+aussi un jeu de démo (2 centres `[Démo] …`, managers dont un multi-centres,
 praticiens avec/sans compte, disponibilités, congés, fermeture de
 centre, ~26 patients couvrant tous les statuts, séances avec mesures,
-RDV passés/à venir dont un dans les 24 h, consentements, documents) :
+RDV passés/à venir dont un dans les 24 h, consentements, documents).
+Pour ne rejouer que la démo :
 
 ```bash
-php artisan app:seed-demo
-# équivalent : php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
+php artisan db:seed --class="Database\Seeders\DemoDataSeeder"
 ```
 
 Comptes `*@demo.local`, mot de passe `password` (ex.
 `manager.multi@demo.local`). Rejouable : supprime d'abord les données
 démo précédentes (centres `[Démo]`, e-mails `@demo.local`) avant de les
-recréer. **Refuse de s'exécuter si `APP_ENV=production`.**
+recréer. **Jamais exécuté par `db:seed` quand `APP_ENV=production`**
+(garde-fou dans `DatabaseSeeder`).
 
 ### Production — tâches planifiées (obligatoire)
 
@@ -479,8 +480,8 @@ rendez-vous. Vérifié : 389 tests Pest (11 nouveaux), Pint, Larastan,
 `vue-tsc`, Vitest. Pas de vérification navigateur.
 
 **Seeder de démonstration** (2026-09-30, `feature/demo-seeder`) :
-`php artisan app:seed-demo` (voir Démarrage), jamais appelé par
-`DatabaseSeeder`, garde-fou production, rejouable à comptes identiques.
+`DemoDataSeeder`, appelé par `DatabaseSeeder` hors production
+uniquement (même pattern que Geneva Bengal, voir Démarrage), rejouable à comptes identiques.
 Factories ajoutées : `Appointment`, `PractitionerAvailability`,
 `PractitionerTimeOff`, `CenterOperatingHours`, `CenterClosure`,
 `ConsentTemplate`. Vérifié : 393 tests Pest (3 nouveaux), Pint,

@@ -10,6 +10,9 @@ class DatabaseSeeder extends Seeder
      * Order matters: EnumOptionSeeder must run before
      * DiseaseCategorySeeder (which references the ILLNESS/BLOCKAGE
      * types), ZoneSeeder before CountrySeeder (which references zones).
+     * DemoDataSeeder (demo centers, practitioners, patients,
+     * appointments, consents...) is dev/demo content only — never in
+     * production, same convention as the Geneva Bengal project.
      */
     public function run(): void
     {
@@ -24,5 +27,9 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             SuperAdminSeeder::class,
         ]);
+
+        if (! app()->isProduction()) {
+            $this->call(DemoDataSeeder::class);
+        }
     }
 }
