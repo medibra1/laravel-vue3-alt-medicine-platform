@@ -6,6 +6,7 @@ use App\Domains\Auth\Models\User;
 use App\Domains\Practitioners\Models\Practitioner;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PractitionerTimeOff extends Model
 {
+    use HasFactory;
+
     protected $guarded = ['id'];
 
     protected $casts = [

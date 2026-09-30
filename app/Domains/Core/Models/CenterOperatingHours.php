@@ -2,6 +2,7 @@
 
 namespace App\Domains\Core\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class CenterOperatingHours extends Model
 {
+    use HasFactory;
+
     protected $table = 'center_operating_hours';
 
     protected $guarded = ['id'];
