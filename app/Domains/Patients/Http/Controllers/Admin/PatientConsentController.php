@@ -33,7 +33,7 @@ class PatientConsentController extends Controller
                 $mergeImages,
             );
         } else {
-            $recordConsent->digital($patient, $type, $data, $request->user(), $request->ip());
+            $recordConsent->digital($patient, $type, [...$data, 'locale' => $request->string('locale')->toString()], $request->user(), $request->ip());
         }
 
         return redirect()->route('admin.patients.edit', ['patient' => $patient, 'tab' => 'consent']);

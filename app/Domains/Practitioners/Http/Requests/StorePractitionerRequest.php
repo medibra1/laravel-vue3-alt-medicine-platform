@@ -104,11 +104,11 @@ class StorePractitionerRequest extends FormRequest
     {
         $validator->after(function (Validator $validator) {
             if (! $this->user()->isGlobalAdmin() && $this->centerId() === null) {
-                $validator->errors()->add('center_id', __('Vous ne gérez aucun centre.'));
+                $validator->errors()->add('center_id', __('access.no_managed_center'));
             }
 
             if ($this->boolean('grant_access') && $this->filled('email') && $this->accountStatus() === 'taken') {
-                $validator->errors()->add('email', __('Cet email est déjà utilisé par un autre compte.'));
+                $validator->errors()->add('email', __('users.email_taken'));
             }
         });
     }

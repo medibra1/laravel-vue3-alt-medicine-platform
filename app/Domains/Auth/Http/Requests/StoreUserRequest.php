@@ -94,7 +94,7 @@ class StoreUserRequest extends FormRequest
                 ->all();
 
             if ($alreadyManagedCenterIds !== []) {
-                $validator->errors()->add('center_ids', __('Ce centre a déjà un manager.'));
+                $validator->errors()->add('center_ids', __('users.center_has_manager'));
             }
         });
     }

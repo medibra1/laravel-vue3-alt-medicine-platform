@@ -30,14 +30,14 @@ class StoreCreditNoteRequest extends FormRequest
             $invoice = $this->route('invoice');
 
             if ($invoice->cancelled_at !== null) {
-                $validator->errors()->add('amount', __('Cette facture est annulée.'));
+                $validator->errors()->add('amount', __('billing.invoice_cancelled'));
 
                 return;
             }
 
             // Never credit more than what was invoiced.
             if ((float) $this->input('amount') > $invoice->netTotal() + 0.005) {
-                $validator->errors()->add('amount', __('L\'avoir dépasse le montant restant de la facture.'));
+                $validator->errors()->add('amount', __('billing.credit_exceeds_balance'));
             }
         });
     }

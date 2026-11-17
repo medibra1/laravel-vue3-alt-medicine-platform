@@ -39,12 +39,12 @@ class WelcomeSetPasswordNotification extends Notification
         ]);
 
         return (new MailMessage)
-            ->subject(__('Bienvenue — définissez votre mot de passe'))
-            ->greeting(__('Bonjour :name,', ['name' => $notifiable->name]))
-            ->line(__('Un compte vient d\'être créé pour vous.'))
-            ->line(__('Veuillez définir votre mot de passe pour y accéder.'))
-            ->action(__('Définir mon mot de passe'), $resetUrl)
-            ->line(__('Ce lien expirera dans :count minutes.', [
+            ->subject(__('notifications.welcome.subject'))
+            ->greeting(__('notifications.welcome.greeting', ['name' => $notifiable->name]))
+            ->line(__('notifications.welcome.intro'))
+            ->line(__('notifications.welcome.line'))
+            ->action(__('notifications.welcome.action'), $resetUrl)
+            ->line(__('notifications.welcome.expires', [
                 'count' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire'),
             ]));
     }

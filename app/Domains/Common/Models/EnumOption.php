@@ -5,10 +5,14 @@ namespace App\Domains\Common\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Spatie\Translatable\HasTranslations;
 
 class EnumOption extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTranslations;
+
+    /** Same mechanism as the other reference models (Disease, Zone...). */
+    public array $translatable = ['label'];
 
     protected $guarded = ['id'];
 
@@ -16,7 +20,6 @@ class EnumOption extends Model
         'active' => 'bool',
         'order' => 'int',
         'properties' => 'array',
-        'label' => 'array', // spatie/laravel-translatable can take over later for finer fallback handling
     ];
 
     public function parent()
@@ -66,20 +69,5 @@ class EnumOption extends Model
     {
         static::saved(fn (self $option) => static::flushCache($option->enum_type, $option->domain));
         static::deleted(fn (self $option) => static::flushCache($option->enum_type, $option->domain));
-    }
-
-    /**
-     * Label in the request's language, falling back to French then to
-     * the code (`label` is a plain array cast, not a translatable field).
-     */
-    public function localizedLabel(): string
-    {
-        foreach ([app()->getLocale(), 'fr'] as $locale) {
-            if (filled($this->label[$locale] ?? null)) {
-                return (string) $this->label[$locale];
-            }
-        }
-
-        return (string) $this->code;
     }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -22,7 +23,7 @@ interface EnumOption {
     enum_type: string;
     domain: string | null;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
     order: number;
     active: boolean;
 }
@@ -85,7 +86,7 @@ const createForm = useForm({
     enum_type: '',
     domain: '',
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -109,7 +110,7 @@ const editForm = useForm({
     enum_type: '',
     domain: '',
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -120,7 +121,7 @@ function openEdit(option: EnumOption) {
     editForm.enum_type = option.enum_type;
     editForm.domain = option.domain ?? '';
     editForm.code = option.code;
-    editForm.label = { fr: option.label.fr, en: option.label.en };
+    editForm.label = { ...option.label };
     editForm.order = option.order;
     editForm.active = option.active;
 }
@@ -188,7 +189,7 @@ function destroy(option: EnumOption) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
                     <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
@@ -227,7 +228,7 @@ function destroy(option: EnumOption) {
                 <AppTranslatableInput
                     v-model="createForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
@@ -267,7 +268,7 @@ function destroy(option: EnumOption) {
                 <AppTranslatableInput
                     v-model="editForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />

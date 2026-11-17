@@ -14,15 +14,15 @@ class ZoneSeeder extends Seeder
     public function run(): void
     {
         $zones = [
-            ['code' => 'MAGHREB', 'name' => ['fr' => 'Maghreb', 'en' => 'Maghreb'], 'order' => 1],
-            ['code' => 'CEDEAO', 'name' => ['fr' => 'CEDEAO (Afrique de l\'Ouest)', 'en' => 'ECOWAS (West Africa)'], 'order' => 2],
-            ['code' => 'AFRIQUE_CENTRALE', 'name' => ['fr' => 'Afrique centrale', 'en' => 'Central Africa'], 'order' => 3],
-            ['code' => 'AFRIQUE_EST', 'name' => ['fr' => 'Afrique de l\'Est', 'en' => 'East Africa'], 'order' => 4],
-            ['code' => 'AFRIQUE_AUSTRALE', 'name' => ['fr' => 'Afrique australe', 'en' => 'Southern Africa'], 'order' => 5],
-            ['code' => 'EUROPE', 'name' => ['fr' => 'Europe', 'en' => 'Europe'], 'order' => 6],
-            ['code' => 'ASIE', 'name' => ['fr' => 'Asie (y compris Australie)', 'en' => 'Asia (including Australia)'], 'order' => 7],
-            ['code' => 'AMERIQUE_NORD', 'name' => ['fr' => 'Amérique du Nord', 'en' => 'North America'], 'order' => 8],
-            ['code' => 'AMERIQUE_SUD', 'name' => ['fr' => 'Amérique centrale et sud', 'en' => 'Central & South America'], 'order' => 9],
+            ['code' => 'MAGHREB', 'name' => ['fr' => 'Maghreb', 'en' => 'Maghreb', 'ar' => 'المغرب العربي'], 'order' => 1],
+            ['code' => 'CEDEAO', 'name' => ['fr' => 'CEDEAO (Afrique de l\'Ouest)', 'en' => 'ECOWAS (West Africa)', 'ar' => 'الإيكواس (غرب أفريقيا)'], 'order' => 2],
+            ['code' => 'AFRIQUE_CENTRALE', 'name' => ['fr' => 'Afrique centrale', 'en' => 'Central Africa', 'ar' => 'وسط أفريقيا'], 'order' => 3],
+            ['code' => 'AFRIQUE_EST', 'name' => ['fr' => 'Afrique de l\'Est', 'en' => 'East Africa', 'ar' => 'شرق أفريقيا'], 'order' => 4],
+            ['code' => 'AFRIQUE_AUSTRALE', 'name' => ['fr' => 'Afrique australe', 'en' => 'Southern Africa', 'ar' => 'جنوب أفريقيا (المنطقة)'], 'order' => 5],
+            ['code' => 'EUROPE', 'name' => ['fr' => 'Europe', 'en' => 'Europe', 'ar' => 'أوروبا'], 'order' => 6],
+            ['code' => 'ASIE', 'name' => ['fr' => 'Asie (y compris Australie)', 'en' => 'Asia (including Australia)', 'ar' => 'آسيا (بما فيها أستراليا)'], 'order' => 7],
+            ['code' => 'AMERIQUE_NORD', 'name' => ['fr' => 'Amérique du Nord', 'en' => 'North America', 'ar' => 'أمريكا الشمالية'], 'order' => 8],
+            ['code' => 'AMERIQUE_SUD', 'name' => ['fr' => 'Amérique centrale et sud', 'en' => 'Central & South America', 'ar' => 'أمريكا الوسطى والجنوبية'], 'order' => 9],
         ];
 
         foreach ($zones as $zone) {

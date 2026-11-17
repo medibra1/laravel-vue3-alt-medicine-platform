@@ -1,6 +1,7 @@
 // Strings that carry a variable, confirmations and small status labels.
 export default {
     fr: {
+        consentLanguages: 'Langues', consentLanguagesHint: 'Le français est obligatoire. Remplissez le titre et le texte d\'une autre langue pour pouvoir faire signer le patient dans cette langue.', signingLanguage: 'Langue de signature :',
         confirmDeleteNamed: 'Supprimer « {name} » ?', confirmDelete: 'Confirmer la suppression ?',
         saving: 'Enregistrement…', notSavedYet: 'Pas encore enregistré', draftSavedAt: 'Brouillon enregistré à {time}',
         confirmReopen: 'Rouvrir ce traitement ? Il redeviendra « en cours » et bloquera à nouveau la création d\'un nouveau traitement pour ce patient.',
@@ -26,6 +27,7 @@ export default {
         closedWithReason: '{status} ({reason})', chooseFile: 'Choisir un fichier', noFollowUpYet: 'Pas encore de suivi', notFollowed: 'non suivie',
     },
     en: {
+        consentLanguages: 'Languages', consentLanguagesHint: 'French is required. Fill in the title and text of another language to let the patient sign in that language.', signingLanguage: 'Signing language:',
         confirmDeleteNamed: 'Delete “{name}”?', confirmDelete: 'Confirm deletion?',
         saving: 'Saving…', notSavedYet: 'Not saved yet', draftSavedAt: 'Draft saved at {time}',
         confirmReopen: 'Reopen this treatment? It will be “ongoing” again and will block the creation of a new treatment for this patient.',
@@ -51,6 +53,7 @@ export default {
         closedWithReason: '{status} ({reason})', chooseFile: 'Choose a file', noFollowUpYet: 'No follow-up yet', notFollowed: 'not followed',
     },
     ar: {
+        consentLanguages: 'اللغات', consentLanguagesHint: 'الفرنسية إلزامية. املأ العنوان والنص بلغة أخرى ليتمكن المريض من التوقيع بتلك اللغة.', signingLanguage: 'لغة التوقيع:',
         confirmDeleteNamed: 'حذف «{name}»؟', confirmDelete: 'تأكيد الحذف؟',
         saving: 'جارٍ الحفظ…', notSavedYet: 'لم يُحفظ بعد', draftSavedAt: 'حُفظت المسودة على الساعة {time}',
         confirmReopen: 'إعادة فتح هذا العلاج؟ سيعود «جارياً» وسيمنع من جديد إنشاء علاج جديد لهذا المريض.',

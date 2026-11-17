@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ app()->getLocale() }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <title>{{ $template->title }}</title>
@@ -57,22 +57,22 @@
 </head>
 <body>
     <h1>{{ $template->title }}</h1>
-    <p class="meta">Patient : {{ $patient->first_name }} {{ $patient->last_name }}</p>
+    <p class="meta">{{ __('pdf.patient') }} : {{ $patient->first_name }} {{ $patient->last_name }}</p>
 
     <div class="content">{{ $consent->content_snapshot }}</div>
 
     <div class="signature-block">
         <table class="info">
             <tr>
-                <td>Signataire</td>
+                <td>{{ __('pdf.signer') }}</td>
                 <td>{{ $consent->signer_name }}</td>
             </tr>
             <tr>
-                <td>Accepté le</td>
-                <td>{{ $consent->accepted_at->translatedFormat('d F Y à H:i') }}</td>
+                <td>{{ __('pdf.accepted_on') }}</td>
+                <td>{{ $consent->accepted_at->translatedFormat(__('formats.datetime')) }}</td>
             </tr>
             <tr>
-                <td>Version du document</td>
+                <td>{{ __('pdf.document_version') }}</td>
                 <td>v{{ $consent->version }}</td>
             </tr>
         </table>

@@ -48,7 +48,7 @@ class AuthenticatedSessionController extends Controller
             $request->session()->invalidate();
 
             throw ValidationException::withMessages([
-                'email' => __('This account has been deactivated.'),
+                'email' => __('access.account_deactivated'),
             ]);
         }
 

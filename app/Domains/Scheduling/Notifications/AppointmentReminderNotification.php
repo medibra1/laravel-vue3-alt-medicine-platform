@@ -25,11 +25,16 @@ class AppointmentReminderNotification extends Notification
     {
         return [
             'type' => 'appointment_reminder',
-            'title' => __('Rappel de rendez-vous'),
-            'message' => __('Rendez-vous le :date avec :patient.', [
-                'date' => $this->appointment->localStartsAt()->translatedFormat('d F Y à H:i'),
+            // Translation keys + params, translated when displayed (see
+            // NotificationResource). `date` is kept as an ISO string in
+            // the center's time zone and formatted for the reader's locale.
+            'title' => 'notifications.appointment_reminder.title',
+            'message' => 'notifications.appointment.message',
+            'params' => [
+                'date' => $this->appointment->localStartsAt()->toIso8601String(),
                 'patient' => trim($this->appointment->patient->first_name.' '.$this->appointment->patient->last_name),
-            ]),
+            ],
+            'date_params' => ['date'],
             'action_url' => route('admin.patients.edit', $this->appointment->patient_id),
         ];
     }

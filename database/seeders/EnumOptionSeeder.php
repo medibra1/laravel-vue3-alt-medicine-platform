@@ -19,9 +19,9 @@ class EnumOptionSeeder extends Seeder
         // (NIGHTMARE) was removed 2026-08-24 along with its category —
         // never had real source content, replaced by "Symboles".
         $categoryTypes = [
-            ['code' => 'ILLNESS', 'label' => ['fr' => 'Maladie', 'en' => 'Illness'], 'order' => 1],
-            ['code' => 'BLOCKAGE', 'label' => ['fr' => 'Blocage', 'en' => 'Blockage'], 'order' => 2],
-            ['code' => 'SYMBOL', 'label' => ['fr' => 'Symboles', 'en' => 'Symbols'], 'order' => 3],
+            ['code' => 'ILLNESS', 'label' => ['fr' => 'Maladie', 'en' => 'Illness', 'ar' => 'مرض'], 'order' => 1],
+            ['code' => 'BLOCKAGE', 'label' => ['fr' => 'Blocage', 'en' => 'Blockage', 'ar' => 'تعطيل'], 'order' => 2],
+            ['code' => 'SYMBOL', 'label' => ['fr' => 'Symboles', 'en' => 'Symbols', 'ar' => 'رموز'], 'order' => 3],
         ];
 
         foreach ($categoryTypes as $type) {
@@ -41,11 +41,11 @@ class EnumOptionSeeder extends Seeder
         // extend per-country needs by adding options here, not by
         // changing the schema.
         $organismTypes = [
-            ['code' => 'TAX', 'label' => ['fr' => 'Impôts', 'en' => 'Tax authority'], 'order' => 1],
-            ['code' => 'SOCIAL_SECURITY', 'label' => ['fr' => 'Sécurité sociale', 'en' => 'Social security'], 'order' => 2],
-            ['code' => 'PENSION', 'label' => ['fr' => 'Retraite', 'en' => 'Pension'], 'order' => 3],
-            ['code' => 'HEALTH_INSURANCE', 'label' => ['fr' => 'Assurance maladie', 'en' => 'Health insurance'], 'order' => 4],
-            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other'], 'order' => 5],
+            ['code' => 'TAX', 'label' => ['fr' => 'Impôts', 'en' => 'Tax authority', 'ar' => 'الضرائب'], 'order' => 1],
+            ['code' => 'SOCIAL_SECURITY', 'label' => ['fr' => 'Sécurité sociale', 'en' => 'Social security', 'ar' => 'الضمان الاجتماعي'], 'order' => 2],
+            ['code' => 'PENSION', 'label' => ['fr' => 'Retraite', 'en' => 'Pension', 'ar' => 'التقاعد'], 'order' => 3],
+            ['code' => 'HEALTH_INSURANCE', 'label' => ['fr' => 'Assurance maladie', 'en' => 'Health insurance', 'ar' => 'التأمين الصحي'], 'order' => 4],
+            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other', 'ar' => 'أخرى'], 'order' => 5],
         ];
 
         foreach ($organismTypes as $type) {
@@ -96,11 +96,11 @@ class EnumOptionSeeder extends Seeder
         // Patient religion — open list, extend/correct from the admin
         // EnumOptions CRUD rather than editing this seeder later.
         $religions = [
-            ['code' => 'MUSLIM', 'label' => ['fr' => 'Musulmane', 'en' => 'Muslim'], 'order' => 1],
-            ['code' => 'CHRISTIAN', 'label' => ['fr' => 'Chrétienne', 'en' => 'Christian'], 'order' => 2],
-            ['code' => 'JEWISH', 'label' => ['fr' => 'Juive', 'en' => 'Jewish'], 'order' => 3],
-            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other'], 'order' => 4],
-            ['code' => 'NONE', 'label' => ['fr' => 'Aucune / non renseignée', 'en' => 'None / undisclosed'], 'order' => 5],
+            ['code' => 'MUSLIM', 'label' => ['fr' => 'Musulmane', 'en' => 'Muslim', 'ar' => 'مسلم'], 'order' => 1],
+            ['code' => 'CHRISTIAN', 'label' => ['fr' => 'Chrétienne', 'en' => 'Christian', 'ar' => 'مسيحي'], 'order' => 2],
+            ['code' => 'JEWISH', 'label' => ['fr' => 'Juive', 'en' => 'Jewish', 'ar' => 'يهودي'], 'order' => 3],
+            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other', 'ar' => 'أخرى'], 'order' => 4],
+            ['code' => 'NONE', 'label' => ['fr' => 'Aucune / non renseignée', 'en' => 'None / undisclosed', 'ar' => 'بدون / غير مصرّح به'], 'order' => 5],
         ];
 
         foreach ($religions as $religion) {

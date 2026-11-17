@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Traits\Localizable;
 
 /**
  * Records a patient's consent, either 'digital' (electronic signature
@@ -24,8 +25,13 @@ use Illuminate\Support\Str;
  */
 class RecordPatientConsentAction
 {
+    use Localizable;
+
     /**
-     * @param  array{signer_name: string, signature_svg: ?string}  $data
+     * `locale` is the language the patient read and signed in (French
+     * when omitted); the frozen text and the generated PDF use it.
+     *
+     * @param  array{signer_name: string, signature_svg: ?string, locale?: string}  $data
      */
     public function digital(Patient $patient, string $type, array $data, User $acceptedBy, ?string $ip): Consent
     {
@@ -36,12 +42,16 @@ class RecordPatientConsentAction
 
         abort_if($template === null, 422, "No active consent template for type \"{$type}\".");
 
+        $locale = $data['locale'] ?? 'fr';
+        abort_unless(in_array($locale, $template->availableLocales(), true), 422, "Consent template not available in \"{$locale}\".");
+
         $consent = $patient->consents()->create([
             'type' => $type,
             'source' => 'digital',
             'consent_template_id' => $template->id,
             'version' => $template->version,
-            'content_snapshot' => $template->content,
+            'content_snapshot' => $template->getTranslation('content', $locale),
+            'locale' => $locale,
             'signer_name' => $data['signer_name'],
             'signature_svg' => $data['signature_svg'] ?? null,
             'accepted_at' => now(),
@@ -49,18 +59,19 @@ class RecordPatientConsentAction
             'ip_address' => $ip,
         ]);
 
-        $pdf = Pdf::loadView('pdf.consent', [
+        // The whole PDF (title, labels, dates) in the signing language.
+        $pdf = $this->withLocale($locale, fn () => Pdf::loadView('pdf.consent', [
             'template' => $template,
             'patient' => $patient,
             'consent' => $consent,
-        ])->output();
+        ])->output());
 
         $tempPath = sys_get_temp_dir().'/'.Str::uuid().'.pdf';
         file_put_contents($tempPath, $pdf);
 
         $consent->addMedia($tempPath)
             ->usingFileName('consent-'.$consent->id.'.pdf')
-            ->usingName($template->title.' — '.now()->translatedFormat('d F Y'))
+            ->usingName($template->getTranslation('title', $locale).' — '.now()->locale($locale)->translatedFormat('d F Y'))
             ->toMediaCollection('document');
 
         return $consent;

@@ -23,6 +23,7 @@ class ConsentResource extends JsonResource
             'type' => $this->type,
             'source' => $this->source,
             'version' => $this->version,
+            'locale' => $this->locale,
             // Only meaningful for source = 'digital' — an 'uploaded'
             // consent has no template to compare against, so it can
             // never be flagged "à renouveler" by version drift (see

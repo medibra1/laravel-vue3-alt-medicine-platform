@@ -154,7 +154,7 @@ class InvoiceController extends Controller
             'currency' => $center->currency,
             'catalog' => $catalog->handle($center),
             'discount_reasons' => EnumOption::query()->where('enum_type', Invoice::DISCOUNT_REASON_TYPE)->where('active', true)->orderBy('order')->get()
-                ->map(fn (EnumOption $option) => ['id' => $option->id, 'label' => $option->localizedLabel()])->all(),
+                ->map(fn (EnumOption $option) => ['id' => $option->id, 'label' => $option->label])->all(),
             // Standing discount of the patient, pre-applied to new invoices.
             'patient_discount' => [
                 'percent' => $patient->discount_percent !== null ? (float) $patient->discount_percent : null,
@@ -287,8 +287,8 @@ class InvoiceController extends Controller
 
         // An invoice that already moved money or was corrected is never
         // cancelled: it is credited (credit note) instead.
-        abort_if($invoice->payments()->exists(), 422, __('Supprimez d\'abord les paiements de cette facture.'));
-        abort_if($invoice->creditNotes()->exists(), 422, __('Cette facture a déjà un avoir.'));
+        abort_if($invoice->payments()->exists(), 422, __('billing.delete_payments_first'));
+        abort_if($invoice->creditNotes()->exists(), 422, __('billing.already_credited'));
 
         $invoice->update(['cancelled_at' => now()]);
 

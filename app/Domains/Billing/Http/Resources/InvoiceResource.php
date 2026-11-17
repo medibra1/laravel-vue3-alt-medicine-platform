@@ -25,7 +25,7 @@ class InvoiceResource extends JsonResource
             'subtotal' => (float) $this->subtotal,
             'discount_amount' => (float) $this->discount_amount,
             'discount_percent' => $this->discount_percent !== null ? (float) $this->discount_percent : null,
-            'discount_reason' => $this->whenLoaded('discountReason', fn () => $this->discountReason?->localizedLabel()),
+            'discount_reason' => $this->whenLoaded('discountReason', fn () => $this->discountReason?->label),
             'discount_note' => $this->discount_note,
             'total' => (float) $this->total,
             'paid_total' => (float) $this->paid_total,

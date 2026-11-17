@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -20,7 +21,7 @@ import { reactive, ref } from 'vue';
 interface CareCategory {
     id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
     order: number;
     active: boolean;
     pricing_mode: 'item' | 'category' | 'none';
@@ -80,7 +81,7 @@ const editingCareCategory = ref<CareCategory | null>(null);
 
 const createForm = useForm({
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
     pricing_mode: 'item' as 'item' | 'category' | 'none',
@@ -104,7 +105,7 @@ function submitCreate() {
 
 const editForm = useForm({
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
     pricing_mode: 'item' as 'item' | 'category' | 'none',
@@ -132,7 +133,7 @@ function submitEdit() {
 }
 
 function destroy(careCategory: CareCategory) {
-    if (!confirm(tr('misc.confirmDeleteNamed', { name: careCategory.label.fr }))) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(careCategory.label) }))) {
         return;
     }
 
@@ -174,7 +175,7 @@ function destroy(careCategory: CareCategory) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
                     <template #column-pricing_mode="{ item }">{{ $t(`domain.pricingMode.${item.pricing_mode}`) }}</template>
                     <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
@@ -208,7 +209,7 @@ function destroy(careCategory: CareCategory) {
                 <AppTranslatableInput
                     v-model="createForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
@@ -251,7 +252,7 @@ function destroy(careCategory: CareCategory) {
                 <AppTranslatableInput
                     v-model="editForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />

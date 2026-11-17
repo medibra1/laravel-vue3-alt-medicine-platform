@@ -2,6 +2,7 @@
 
 namespace App\Domains\Patients\Http\Requests;
 
+use App\Domains\Patients\Models\ConsentTemplate;
 use App\Domains\Patients\Models\Patient;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,6 +37,13 @@ class StorePatientConsentRequest extends FormRequest
             'signer_name' => ['required', 'string', 'max:255'],
             'signature_svg' => ['nullable', 'string'],
             'accepted' => ['required', 'accepted'],
+            // Language the patient reads and signs in — only one the
+            // active template is fully written in.
+            'locale' => [
+                Rule::requiredIf($this->input('source') === 'digital'),
+                'nullable',
+                Rule::in($this->activeTemplate()?->availableLocales() ?? []),
+            ],
             'accepted_at' => [
                 Rule::requiredIf($this->input('source') === 'uploaded'),
                 'nullable',
@@ -45,5 +53,13 @@ class StorePatientConsentRequest extends FormRequest
             'files' => [Rule::requiredIf($this->input('source') === 'uploaded'), 'array', 'min:1', 'max:10'],
             'files.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:20480'],
         ];
+    }
+
+    private function activeTemplate(): ?ConsentTemplate
+    {
+        return ConsentTemplate::query()
+            ->where('type', $this->input('type'))
+            ->where('is_active', true)
+            ->first();
     }
 }

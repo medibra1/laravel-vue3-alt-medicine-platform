@@ -36,8 +36,8 @@ test('admin can create the first template of a new type', function () {
 
     $response = $this->actingAs($admin)->post(route('admin.consent-templates.store'), [
         'type' => 'data_privacy',
-        'title' => 'RGPD',
-        'content' => 'Texte RGPD.',
+        'title' => ['fr' => 'RGPD'],
+        'content' => ['fr' => 'Texte RGPD.'],
     ]);
 
     $response->assertRedirect(route('admin.consent-templates.index'));
@@ -58,8 +58,8 @@ test('creating a template for a type that already has an active one fails valida
 
     $response = $this->actingAs($superAdmin)->post(route('admin.consent-templates.store'), [
         'type' => 'image_rights',
-        'title' => 'Doublon',
-        'content' => 'Autre texte.',
+        'title' => ['fr' => 'Doublon'],
+        'content' => ['fr' => 'Autre texte.'],
     ]);
 
     $response->assertSessionHasErrors('type');
@@ -71,8 +71,8 @@ test('manager cannot create a consent template', function () {
 
     $response = $this->actingAs($manager)->post(route('admin.consent-templates.store'), [
         'type' => 'treatment',
-        'title' => 'Consentement',
-        'content' => 'Texte.',
+        'title' => ['fr' => 'Consentement'],
+        'content' => ['fr' => 'Texte.'],
     ]);
 
     $response->assertForbidden();
@@ -90,8 +90,8 @@ test('updating a template creates a new version instead of editing the existing 
     ]);
 
     $response = $this->actingAs($superAdmin)->put(route('admin.consent-templates.update', $template), [
-        'title' => 'Nouveau titre',
-        'content' => 'Nouveau texte.',
+        'title' => ['fr' => 'Nouveau titre'],
+        'content' => ['fr' => 'Nouveau texte.'],
     ]);
 
     $response->assertRedirect(route('admin.consent-templates.index'));
@@ -115,10 +115,28 @@ test('manager cannot update a consent template', function () {
     ]);
 
     $response = $this->actingAs($manager)->put(route('admin.consent-templates.update', $template), [
-        'title' => 'Nouveau titre',
-        'content' => 'Nouveau texte.',
+        'title' => ['fr' => 'Nouveau titre'],
+        'content' => ['fr' => 'Nouveau texte.'],
     ]);
 
     $response->assertForbidden();
     expect($template->fresh()->title)->toBe('Titre');
+});
+
+test('a template language is either complete or absent', function () {
+    $superAdmin = actingAsSuperAdmin();
+
+    $this->actingAs($superAdmin)->post(route('admin.consent-templates.store'), [
+        'type' => 'treatment',
+        'title' => ['fr' => 'Consentement', 'ar' => 'الموافقة'],
+        'content' => ['fr' => 'Texte.'],
+    ])->assertSessionHasErrors('content.ar');
+
+    $this->actingAs($superAdmin)->post(route('admin.consent-templates.store'), [
+        'type' => 'treatment',
+        'title' => ['fr' => 'Consentement', 'ar' => 'الموافقة'],
+        'content' => ['fr' => 'Texte.', 'ar' => 'نص.'],
+    ])->assertSessionHasNoErrors();
+
+    expect(ConsentTemplate::query()->firstOrFail()->availableLocales())->toBe(['fr', 'ar']);
 });

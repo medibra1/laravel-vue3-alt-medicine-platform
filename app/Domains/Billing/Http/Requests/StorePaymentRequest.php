@@ -34,14 +34,14 @@ class StorePaymentRequest extends FormRequest
             $invoice = $this->route('invoice');
 
             if ($invoice->cancelled_at !== null) {
-                $validator->errors()->add('amount', __('Cette facture est annulée.'));
+                $validator->errors()->add('amount', __('billing.invoice_cancelled'));
 
                 return;
             }
 
             // +0.005: float tolerance, an exact settlement must pass.
             if ((float) $this->input('amount') > $invoice->balance() + 0.005) {
-                $validator->errors()->add('amount', __('Le montant dépasse le reste à payer.'));
+                $validator->errors()->add('amount', __('billing.payment_exceeds_balance'));
             }
         });
     }

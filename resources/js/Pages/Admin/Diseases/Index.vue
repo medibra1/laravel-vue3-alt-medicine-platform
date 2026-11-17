@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref, watch } from 'vue';
@@ -20,18 +21,18 @@ import { reactive, ref, watch } from 'vue';
 interface DiseaseCategoryOption {
     id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
 }
 
 interface Disease {
     id: number;
     disease_category_id: number;
     code: string;
-    label: { fr: string; en: string };
-    description: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
+    description: { fr: string; en: string; ar?: string };
     default_duration_months: number;
     active: boolean;
-    category?: { id: number; code: string; label: { fr: string; en: string } };
+    category?: { id: number; code: string; label: { fr: string; en: string; ar?: string } };
 }
 
 const props = defineProps<{
@@ -85,7 +86,7 @@ const columns: AppDataTableColumn[] = [
 const categoryOptions = props.categories.map((category) => ({
     id: category.id,
     code: category.code,
-    label: category.label.fr,
+    label: localized(category.label),
 }));
 
 const isCreating = ref(false);
@@ -94,8 +95,8 @@ const editingDisease = ref<Disease | null>(null);
 const createForm = useForm({
     disease_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     default_duration_months: 1,
     active: true,
 });
@@ -141,8 +142,8 @@ function submitCreate() {
 const editForm = useForm({
     disease_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     default_duration_months: 1,
     active: true,
 });
@@ -153,7 +154,7 @@ function openEdit(disease: Disease) {
     editForm.disease_category_id = disease.disease_category_id;
     editForm.code = disease.code;
     editForm.label = { ...disease.label };
-    editForm.description = { fr: disease.description?.fr ?? '', en: disease.description?.en ?? '' };
+    editForm.description = { fr: disease.description?.fr ?? '', en: disease.description?.en ?? '', ar: disease.description?.ar ?? '' };
     editForm.default_duration_months = disease.default_duration_months;
     editForm.active = disease.active;
 }
@@ -170,7 +171,7 @@ function submitEdit() {
 }
 
 function destroy(disease: Disease) {
-    if (!confirm(tr('misc.confirmDeleteNamed', { name: disease.label.fr }))) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(disease.label) }))) {
         return;
     }
 
@@ -212,8 +213,8 @@ function destroy(disease: Disease) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
-                    <template #column-category="{ item }">{{ item.category?.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
+                    <template #column-category="{ item }">{{ localized(item.category?.label) }}</template>
                     <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
@@ -257,14 +258,14 @@ function destroy(disease: Disease) {
                 <AppTranslatableInput
                     v-model="createForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.description"
                     :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'] }"
+                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'], ar: createForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber
@@ -313,14 +314,14 @@ function destroy(disease: Disease) {
                 <AppTranslatableInput
                     v-model="editForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.description"
                     :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'] }"
+                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'], ar: editForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber

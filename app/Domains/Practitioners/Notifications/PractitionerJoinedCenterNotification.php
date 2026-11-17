@@ -29,11 +29,11 @@ class PractitionerJoinedCenterNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('Vous avez rejoint un nouveau centre'))
-            ->greeting(__('Bonjour,'))
-            ->line(__('Vous avez été ajouté comme praticien sur :center.', ['center' => $this->center->name]))
-            ->line(__('Vous pouvez basculer vers ce centre depuis le sélecteur en haut de l\'application.'))
-            ->action(__('Accéder à l\'application'), route('dashboard'));
+            ->subject(__('notifications.practitioner_joined.mail_subject'))
+            ->greeting(__('notifications.practitioner_joined.mail_greeting'))
+            ->line(__('notifications.practitioner_joined.mail_line', ['center' => $this->center->name]))
+            ->line(__('notifications.practitioner_joined.mail_hint'))
+            ->action(__('notifications.practitioner_joined.mail_action'), route('dashboard'));
     }
 
     /** @return array<string, mixed> */
@@ -41,8 +41,11 @@ class PractitionerJoinedCenterNotification extends Notification
     {
         return [
             'type' => 'practitioner_joined_center',
-            'title' => __('Nouveau centre'),
-            'message' => __('Vous avez rejoint :center.', ['center' => $this->center->name]),
+            // Translation keys + params, translated when displayed (see
+            // NotificationResource) so the reader's language applies.
+            'title' => 'notifications.practitioner_joined.title',
+            'message' => 'notifications.practitioner_joined.message',
+            'params' => ['center' => $this->center->name],
             'action_url' => route('dashboard'),
         ];
     }

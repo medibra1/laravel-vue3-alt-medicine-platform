@@ -91,3 +91,16 @@ export function formatDate(value: string | Date | null | undefined, locale: stri
 
     return new Intl.DateTimeFormat(locale, options).format(date);
 }
+
+/**
+ * Resolves a {fr, en, ar} value (raw translatable JSON sent by the admin
+ * resources) for the current locale, falling back to French — the same
+ * fallback the backend applies.
+ */
+export function localized(value: { fr?: string | null; en?: string | null; ar?: string | null } | null | undefined): string {
+    if (!value) {
+        return '';
+    }
+
+    return value[currentLocale() as AppLocale] || value.fr || value.en || '';
+}

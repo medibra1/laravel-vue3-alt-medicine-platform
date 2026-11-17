@@ -30,7 +30,7 @@ class NoCenterClosureConflict implements ValidationRule
         $centerId = Practitioner::query()->whereKey($practitionerId)->value('center_id');
 
         if ($centerId && CenterClosure::query()->covering($centerId, CarbonImmutable::parse($startsAt))->exists()) {
-            $fail('Le centre est fermé à cette date.');
+            $fail(__('scheduling.center_closed'));
         }
     }
 }

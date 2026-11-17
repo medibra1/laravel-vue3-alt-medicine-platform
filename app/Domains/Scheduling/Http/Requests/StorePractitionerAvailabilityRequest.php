@@ -40,7 +40,7 @@ class StorePractitionerAvailabilityRequest extends FormRequest
             $practitioner = Practitioner::query()->find($this->integer('practitioner_id'));
 
             if ($practitioner && $practitioner->center_id !== getPermissionsTeamId()) {
-                $validator->errors()->add('practitioner_id', __('Ce praticien n\'appartient pas à votre centre.'));
+                $validator->errors()->add('practitioner_id', __('access.practitioner_not_in_center'));
             }
         });
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref, watch } from 'vue';
@@ -20,18 +21,18 @@ import { reactive, ref, watch } from 'vue';
 interface CareCategory {
     id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
 }
 
 interface CareItem {
     id: number;
     care_category_id: number;
     code: string;
-    label: { fr: string; en: string };
-    description: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
+    description: { fr: string; en: string; ar?: string };
     order: number;
     active: boolean;
-    category?: { id: number; code: string; label: { fr: string; en: string } };
+    category?: { id: number; code: string; label: { fr: string; en: string; ar?: string } };
 }
 
 const props = defineProps<{
@@ -83,7 +84,7 @@ const columns: AppDataTableColumn[] = [
 ];
 
 function categoryLabel(careItem: CareItem): string {
-    return careItem.category?.label.fr ?? '';
+    return localized(careItem.category?.label);
 }
 
 const isCreating = ref(false);
@@ -92,8 +93,8 @@ const editingCareItem = ref<CareItem | null>(null);
 const createForm = useForm({
     care_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -139,8 +140,8 @@ function submitCreate() {
 const editForm = useForm({
     care_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -168,7 +169,7 @@ function submitEdit() {
 }
 
 function destroy(careItem: CareItem) {
-    if (!confirm(tr('misc.confirmDeleteNamed', { name: careItem.label.fr }))) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(careItem.label) }))) {
         return;
     }
 
@@ -210,7 +211,7 @@ function destroy(careItem: CareItem) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
                     <template #column-category="{ item }">{{ categoryLabel(item) }}</template>
                     <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
@@ -255,14 +256,14 @@ function destroy(careItem: CareItem) {
                 <AppTranslatableInput
                     v-model="createForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.description"
                     :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'] }"
+                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'], ar: createForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
@@ -306,14 +307,14 @@ function destroy(careItem: CareItem) {
                 <AppTranslatableInput
                     v-model="editForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.description"
                     :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'] }"
+                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'], ar: editForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />

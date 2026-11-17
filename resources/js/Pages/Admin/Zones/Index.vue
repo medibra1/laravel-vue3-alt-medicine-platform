@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -12,6 +12,7 @@ import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -19,7 +20,7 @@ import { reactive, ref } from 'vue';
 interface Zone {
     id: number;
     code: string;
-    name: { fr: string; en: string };
+    name: { fr: string; en: string; ar?: string };
     order: number;
     active: boolean;
 }
@@ -71,7 +72,7 @@ const columns: AppDataTableColumn[] = [
 ];
 
 function zoneName(zone: Zone): string {
-    return zone.name.fr;
+    return localized(zone.name);
 }
 
 const isCreating = ref(false);
@@ -79,7 +80,7 @@ const editingZone = ref<Zone | null>(null);
 
 const createForm = useForm({
     code: '',
-    name: { fr: '', en: '' },
+    name: { fr: '', en: '' } as TranslatableValue,
     order: 0 as number | null,
     active: true,
 });
@@ -102,7 +103,7 @@ function submitCreate() {
 
 const editForm = useForm({
     code: '',
-    name: { fr: '', en: '' },
+    name: { fr: '', en: '' } as TranslatableValue,
     order: 0 as number | null,
     active: true,
 });
@@ -111,7 +112,7 @@ function openEdit(zone: Zone) {
     editingZone.value = zone;
     editForm.reset();
     editForm.code = zone.code;
-    editForm.name = { fr: zone.name.fr, en: zone.name.en };
+    editForm.name = { ...zone.name };
     editForm.order = zone.order;
     editForm.active = zone.active;
 }
@@ -203,7 +204,7 @@ function destroy(zone: Zone) {
                 <AppTranslatableInput
                     v-model="createForm.name"
                     :label="$t('ui.nom')"
-                    :error="{ fr: createForm.errors['name.fr'], en: createForm.errors['name.en'] }"
+                    :error="{ fr: createForm.errors['name.fr'], en: createForm.errors['name.en'], ar: createForm.errors['name.ar'] }"
                 />
 
                 <AppInputNumber
@@ -242,7 +243,7 @@ function destroy(zone: Zone) {
                 <AppTranslatableInput
                     v-model="editForm.name"
                     :label="$t('ui.nom')"
-                    :error="{ fr: editForm.errors['name.fr'], en: editForm.errors['name.en'] }"
+                    :error="{ fr: editForm.errors['name.fr'], en: editForm.errors['name.en'], ar: editForm.errors['name.ar'] }"
                 />
 
                 <AppInputNumber

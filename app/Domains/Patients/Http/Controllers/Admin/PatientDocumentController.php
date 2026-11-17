@@ -44,11 +44,11 @@ class PatientDocumentController extends Controller
             // merge has no single meaningful source filename to reuse (it
             // came from several photos), so a "<collection> du <date>"
             // label is used instead of the raw merged-*.pdf name.
-            $collectionLabels = ['identity' => "Pièce d'identité", 'medical' => 'Documents médicaux'];
+            $collectionLabels = ['identity' => __('patients.documents.identity'), 'medical' => __('patients.documents.medical')];
 
             $patient->addMedia($mergedPath)
                 ->usingFileName('merged-'.now()->format('Y-m-d-His').'.pdf')
-                ->usingName($collectionLabels[$collection].' du '.now()->translatedFormat('d F Y'))
+                ->usingName(__('patients.documents.merged_name', ['document' => $collectionLabels[$collection], 'date' => now()->translatedFormat('d F Y')]))
                 ->withCustomProperties(array_filter(['treatment_session_id' => $treatmentSessionId]))
                 ->toMediaCollection($collection);
         } else {

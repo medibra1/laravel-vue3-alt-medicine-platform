@@ -52,7 +52,7 @@ class CreateInvoiceAction
 
             // A fixed-amount discount can never exceed what is billed.
             if ($invoice->discount_percent === null && (float) $invoice->discount_amount > (float) $invoice->lines()->sum('total') + 0.005) {
-                throw ValidationException::withMessages(['discount.amount' => __('La remise dépasse le montant de la facture.')]);
+                throw ValidationException::withMessages(['discount.amount' => __('billing.discount_exceeds_total')]);
             }
 
             $invoice->refreshTotals();

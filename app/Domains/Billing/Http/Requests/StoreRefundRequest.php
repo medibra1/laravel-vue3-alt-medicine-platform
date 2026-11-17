@@ -35,7 +35,7 @@ class StoreRefundRequest extends FormRequest
 
             // Only the overpayment (after credit notes) can be given back.
             if ((float) $this->input('amount') > -$invoice->balance() + 0.005) {
-                $validator->errors()->add('amount', __('Le remboursement dépasse le trop-perçu de cette facture.'));
+                $validator->errors()->add('amount', __('billing.refund_exceeds_overpayment'));
             }
         });
     }

@@ -30,7 +30,7 @@ class SaveInstallmentsRequest extends FormRequest
             $invoice = $this->route('invoice');
 
             if ($invoice->cancelled_at !== null) {
-                $validator->errors()->add('installments', __('Cette facture est annulée.'));
+                $validator->errors()->add('installments', __('billing.invoice_cancelled'));
             }
         });
     }

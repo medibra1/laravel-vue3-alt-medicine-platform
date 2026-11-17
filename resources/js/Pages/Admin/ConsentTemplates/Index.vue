@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, { type AppDataTableColumn } from '@/Components/App/AppDataTable.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
-import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
-import AppTextarea from '@/Components/App/AppTextarea.vue';
+import AppTranslatableInput, { type TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -16,8 +15,9 @@ interface ConsentTemplate {
     id: number;
     type: string;
     version: number;
-    title: string;
-    content: string;
+    title: TranslatableValue;
+    content: TranslatableValue;
+    locales: string[];
     is_active: boolean;
     created_at: string;
 }
@@ -38,6 +38,7 @@ const columns: AppDataTableColumn[] = [
     { field: 'type', header: tr('ui.type') },
     { field: 'version', header: tr('ui.version') },
     { field: 'title', header: tr('ui.titre') },
+    { field: 'locales', header: tr('misc.consentLanguages') },
     { field: 'is_active', header: tr('ui.statut') },
     { field: 'actions', header: tr('ui.actions') },
 ];
@@ -52,10 +53,14 @@ const typesWithoutActiveTemplate = computed(() =>
 const isCreating = ref(false);
 const editingTemplate = ref<ConsentTemplate | null>(null);
 
+// French required; English/Arabic optional (a patient can then sign in
+// any language whose title and text are both filled).
+const emptyTranslation = (): TranslatableValue => ({ fr: '', en: '', ar: '' });
+
 const createForm = useForm({
     type: '',
-    title: '',
-    content: '',
+    title: emptyTranslation(),
+    content: emptyTranslation(),
 });
 
 function openCreate() {
@@ -72,15 +77,15 @@ function submitCreate() {
 }
 
 const editForm = useForm({
-    title: '',
-    content: '',
+    title: emptyTranslation(),
+    content: emptyTranslation(),
 });
 
 function openEdit(template: ConsentTemplate) {
     editingTemplate.value = template;
     editForm.reset();
-    editForm.title = template.title;
-    editForm.content = template.content;
+    editForm.title = { ...emptyTranslation(), ...template.title };
+    editForm.content = { ...emptyTranslation(), ...template.content };
 }
 
 function submitEdit() {
@@ -117,6 +122,12 @@ function submitEdit() {
         <AppCard variant="elevated" elevation="1">
             <AppDataTable :value="templates" :columns="columns" :rows="templates.length || 10" :total-records="templates.length" :page="1">
                 <template #column-type="{ item }">{{ typeLabels[item.type] ?? item.type }}</template>
+                <template #column-title="{ item }">{{ localized(item.title) }}</template>
+                <template #column-locales="{ item }">
+                    <div class="d-flex flex-wrap ga-1">
+                        <v-chip v-for="locale in item.locales" :key="locale" size="x-small" variant="tonal">{{ locale.toUpperCase() }}</v-chip>
+                    </div>
+                </template>
                 <template #column-is_active="{ item }">
                     <v-chip size="small" :color="item.is_active ? 'success' : 'secondary'" variant="tonal">
                         {{ item.is_active ? $t('common.active') : $t('misc.archived') }}
@@ -134,7 +145,7 @@ function submitEdit() {
             </AppDataTable>
         </AppCard>
 
-        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouveauModeleDeConsentement')" max-width="640px">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouveauModeleDeConsentement')" max-width="960px">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppSelect
                     v-model="createForm.type"
@@ -145,14 +156,20 @@ function submitEdit() {
                     :error="createForm.errors.type"
                 />
 
-                <AppInputText v-model="createForm.title" :label="$t('ui.titre')" :error="createForm.errors.title" />
+                <AppTranslatableInput
+                    v-model="createForm.title"
+                    :label="$t('ui.titre')"
+                    :error="{ fr: createForm.errors['title.fr'], en: createForm.errors['title.en'], ar: createForm.errors['title.ar'] }"
+                />
 
-                <AppTextarea
+                <AppTranslatableInput
                     v-model="createForm.content"
                     :label="$t('ui.textePresenteAuPatient')"
-                    :rows="8"
-                    :error="createForm.errors.content"
+                    multiline
+                    :error="{ fr: createForm.errors['content.fr'], en: createForm.errors['content.en'], ar: createForm.errors['content.ar'] }"
                 />
+
+                <p class="text-caption text-medium-emphasis mb-0">{{ $t('misc.consentLanguagesHint') }}</p>
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="isCreating = false" />
@@ -164,7 +181,7 @@ function submitEdit() {
         <AppDialog
             :visible="editingTemplate !== null"
             :header="$t('ui.modifierLeModeleNouvelleVersion')"
-            max-width="640px"
+            max-width="960px"
             @update:visible="editingTemplate = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
@@ -172,14 +189,20 @@ function submitEdit() {
                     {{ $t('misc.newVersionHint', { version: (editingTemplate?.version ?? 0) + 1 }) }}
                 </p>
 
-                <AppInputText v-model="editForm.title" :label="$t('ui.titre')" :error="editForm.errors.title" />
+                <AppTranslatableInput
+                    v-model="editForm.title"
+                    :label="$t('ui.titre')"
+                    :error="{ fr: editForm.errors['title.fr'], en: editForm.errors['title.en'], ar: editForm.errors['title.ar'] }"
+                />
 
-                <AppTextarea
+                <AppTranslatableInput
                     v-model="editForm.content"
                     :label="$t('ui.textePresenteAuPatient')"
-                    :rows="8"
-                    :error="editForm.errors.content"
+                    multiline
+                    :error="{ fr: editForm.errors['content.fr'], en: editForm.errors['content.en'], ar: editForm.errors['content.ar'] }"
                 />
+
+                <p class="text-caption text-medium-emphasis mb-0">{{ $t('misc.consentLanguagesHint') }}</p>
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="editingTemplate = null" />

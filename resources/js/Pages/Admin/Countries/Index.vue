@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -12,6 +12,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -19,16 +20,16 @@ import { reactive, ref } from 'vue';
 interface Zone {
     id: number;
     code: string;
-    name: { fr: string; en: string };
+    name: { fr: string; en: string; ar?: string };
 }
 
 interface Country {
     id: number;
     zone_id: number | null;
     code: string;
-    name: { fr: string; en: string };
+    name: { fr: string; en: string; ar?: string };
     active: boolean;
-    zone?: { id: number; code: string; name: { fr: string; en: string } };
+    zone?: { id: number; code: string; name: { fr: string; en: string; ar?: string } };
 }
 
 const props = defineProps<{
@@ -85,15 +86,15 @@ const columns: AppDataTableColumn[] = [
 // to French here rather than passing the {fr, en} object through.
 const zoneOptions = [
     { id: null as number | null, label: tr('ui.aucuneZone') },
-    ...props.zones.map((zone) => ({ id: zone.id, label: zone.name.fr })),
+    ...props.zones.map((zone) => ({ id: zone.id, label: localized(zone.name) })),
 ];
 
 function countryName(country: Country): string {
-    return country.name.fr;
+    return localized(country.name);
 }
 
-function zoneName(zone?: { name: { fr: string; en: string } }): string {
-    return zone?.name.fr ?? '—';
+function zoneName(zone?: { name: { fr: string; en: string; ar?: string } }): string {
+    return localized(zone?.name) || '—';
 }
 
 const isCreating = ref(false);
@@ -102,7 +103,7 @@ const editingCountry = ref<Country | null>(null);
 const createForm = useForm({
     zone_id: null as number | null,
     code: '',
-    name: { fr: '', en: '' },
+    name: { fr: '', en: '' } as TranslatableValue,
     active: true,
 });
 
@@ -125,7 +126,7 @@ function submitCreate() {
 const editForm = useForm({
     zone_id: null as number | null,
     code: '',
-    name: { fr: '', en: '' },
+    name: { fr: '', en: '' } as TranslatableValue,
     active: true,
 });
 
@@ -134,7 +135,7 @@ function openEdit(country: Country) {
     editForm.reset();
     editForm.zone_id = country.zone_id;
     editForm.code = country.code;
-    editForm.name = { fr: country.name.fr, en: country.name.en };
+    editForm.name = { ...country.name };
     editForm.active = country.active;
 }
 
@@ -227,7 +228,7 @@ function destroy(country: Country) {
                 <AppTranslatableInput
                     v-model="createForm.name"
                     :label="$t('ui.nom')"
-                    :error="{ fr: createForm.errors['name.fr'], en: createForm.errors['name.en'] }"
+                    :error="{ fr: createForm.errors['name.fr'], en: createForm.errors['name.en'], ar: createForm.errors['name.ar'] }"
                 />
 
                 <AppSelect
@@ -270,7 +271,7 @@ function destroy(country: Country) {
                 <AppTranslatableInput
                     v-model="editForm.name"
                     :label="$t('ui.nom')"
-                    :error="{ fr: editForm.errors['name.fr'], en: editForm.errors['name.en'] }"
+                    :error="{ fr: editForm.errors['name.fr'], en: editForm.errors['name.en'], ar: editForm.errors['name.ar'] }"
                 />
 
                 <AppSelect

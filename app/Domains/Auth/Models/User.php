@@ -6,6 +6,7 @@ use App\Domains\Core\Models\Center;
 use App\Domains\Core\Support\Modules;
 use Database\Factories\Domains\Auth\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,8 +15,9 @@ use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property array<int, string>|null $modules
+ * @property string $locale
  */
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
@@ -23,6 +25,15 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at', 'modules'];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /**
+     * Notifications (mail and database) are rendered in the recipient's
+     * own language, not in the language of whoever triggered them.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
+    }
 
     protected function casts(): array
     {

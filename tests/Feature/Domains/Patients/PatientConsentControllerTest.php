@@ -17,6 +17,7 @@ test('guests are redirected to login', function () {
     $this->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Test',
         'accepted' => true,
     ])->assertRedirect(route('login'));
@@ -37,6 +38,7 @@ test('a manager can record a digital consent for a patient of their own center',
     $response = $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Amina Benali',
         'accepted' => true,
     ]);
@@ -124,6 +126,7 @@ test('a manager cannot record a consent for a patient of another center', functi
     $response = $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Test',
         'accepted' => true,
     ]);
@@ -140,11 +143,14 @@ test('recording a digital consent fails when no active template exists for the r
     $response = $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Test',
         'accepted' => true,
     ]);
 
-    $response->assertStatus(422);
+    // No active template means no language to sign in: a form error.
+    $response->assertSessionHasErrors('locale');
+    expect($patient->consents()->count())->toBe(0);
 });
 
 test('the acceptance checkbox is required', function () {
@@ -162,6 +168,7 @@ test('the acceptance checkbox is required', function () {
     $response = $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Test',
     ]);
 
@@ -183,6 +190,7 @@ test('a manager can download a consent pdf belonging to their own center', funct
     $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'signer_name' => 'Test',
         'accepted' => true,
     ]);
@@ -210,6 +218,7 @@ test('a consent belonging to another patient returns 404 even with a valid id', 
         'patient_id' => $patientB->id,
         'type' => 'treatment',
         'source' => 'digital',
+        'locale' => 'fr',
         'consent_template_id' => $template->id,
         'version' => 1,
         'content_snapshot' => $template->content,
@@ -221,4 +230,29 @@ test('a consent belonging to another patient returns 404 even with a valid id', 
     $response = $this->actingAs($manager)->get(route('admin.patients.consents.show', [$patientA, $consent]));
 
     $response->assertNotFound();
+});
+
+test('a digital consent is signed in the chosen language, only among the template\'s complete languages', function () {
+    $center = Center::factory()->create();
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+    ConsentTemplate::factory()->create([
+        'type' => 'treatment',
+        'title' => ['fr' => 'Consentement au traitement', 'ar' => 'الموافقة على العلاج'],
+        'content' => ['fr' => 'Texte.', 'ar' => 'أوافق على العلاج.'],
+    ]);
+
+    $payload = ['type' => 'treatment', 'source' => 'digital', 'signer_name' => 'Awa', 'accepted' => true];
+
+    // English isn't written for this template: refused.
+    $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [...$payload, 'locale' => 'en'])
+        ->assertSessionHasErrors('locale');
+
+    $this->actingAs($manager)->post(route('admin.patients.consents.store', $patient), [...$payload, 'locale' => 'ar'])
+        ->assertSessionHasNoErrors();
+
+    $consent = $patient->consents()->firstOrFail();
+    expect($consent->locale)->toBe('ar')
+        ->and($consent->content_snapshot)->toBe('أوافق على العلاج.')
+        ->and($consent->getFirstMedia('document')->name)->toStartWith('الموافقة على العلاج');
 });

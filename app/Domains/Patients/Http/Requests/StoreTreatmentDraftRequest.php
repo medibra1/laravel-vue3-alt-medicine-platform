@@ -97,7 +97,7 @@ class StoreTreatmentDraftRequest extends FormRequest
             if ($hasOngoingTreatment) {
                 $validator->errors()->add(
                     'patient_id',
-                    'Ce patient a déjà un traitement en cours — fermez-le avant d\'en ajouter un nouveau.'
+                    __('treatments.already_ongoing')
                 );
             }
         });

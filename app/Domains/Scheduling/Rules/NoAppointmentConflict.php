@@ -33,7 +33,7 @@ class NoAppointmentConflict implements ValidationRule
         $excludingAppointmentId = $this->request->route('appointment')?->id;
 
         if ($checker->hasConflict($practitionerId, Carbon::parse($startsAt), $durationMinutes, $excludingAppointmentId)) {
-            $fail('Ce praticien a déjà un rendez-vous sur ce créneau.');
+            $fail(__('scheduling.slot_taken'));
         }
     }
 }

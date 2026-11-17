@@ -18,7 +18,7 @@ class EnsureModuleEnabled
         /** @var User|null $user */
         $user = $request->user();
 
-        abort_unless($user && $user->hasModule($module, getPermissionsTeamId()), 403, __('Ce module n\'est pas activé.'));
+        abort_unless($user && $user->hasModule($module, getPermissionsTeamId()), 403, __('access.module_disabled'));
 
         return $next($request);
     }

@@ -77,7 +77,7 @@ class UpdateTreatmentDraftRequest extends FormRequest
             if ($removedLockedIds->isNotEmpty()) {
                 $validator->errors()->add(
                     'disease_ids',
-                    'Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.'
+                    __('treatments.disease_has_follow_up')
                 );
             }
         });

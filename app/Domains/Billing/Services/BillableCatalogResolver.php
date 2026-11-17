@@ -19,9 +19,9 @@ class BillableCatalogResolver
     public function handle(Center $center): array
     {
         $catalog = [];
-        $sessions = __('Séances');
+        $sessions = __('billing.sessions');
 
-        foreach (['session_price_in_person' => __('Séance en présentiel'), 'session_price_remote' => __('Séance à distance')] as $setting => $label) {
+        foreach (['session_price_in_person' => __('billing.session_in_person'), 'session_price_remote' => __('billing.session_remote')] as $setting => $label) {
             $price = (float) $center->setting($setting, 0);
 
             if ($price > 0) {

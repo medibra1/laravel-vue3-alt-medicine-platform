@@ -10,6 +10,7 @@ use App\Domains\Patients\Http\Requests\StorePatientDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
 use App\Domains\Patients\Http\Resources\ConsentResource;
+use App\Domains\Patients\Http\Resources\ConsentTemplateResource;
 use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseResource;
 use App\Domains\Patients\Http\Resources\PatientDocumentResource;
@@ -141,9 +142,9 @@ class PatientController extends Controller
             'consents' => ConsentResource::collection(
                 $patient->consents()->with('template', 'acceptedBy')->latest()->get(),
             ),
-            'consentTemplates' => ConsentTemplate::query()
-                ->where('is_active', true)
-                ->get(['type', 'title', 'content', 'version']),
+            'consentTemplates' => ConsentTemplateResource::collection(
+                ConsentTemplate::query()->where('is_active', true)->get(),
+            ),
             'nextAppointment' => optional(
                 $patient->nextAppointment()?->load('practitioner'),
                 fn ($appointment) => new AppointmentResource($appointment),
@@ -222,7 +223,7 @@ class PatientController extends Controller
             ->map(fn (EnumOption $option) => [
                 'id' => $option->id,
                 'code' => $option->code,
-                'label' => $option->localizedLabel(),
+                'label' => $option->label,
             ])
             ->all();
     }
@@ -236,7 +237,7 @@ class PatientController extends Controller
             ->map(fn (EnumOption $option) => [
                 'id' => $option->id,
                 'code' => $option->code,
-                'label' => $option->localizedLabel(),
+                'label' => $option->label,
                 'unit' => $option->properties['unit'] ?? null,
                 'placeholder' => $option->properties['placeholder'] ?? null,
             ])

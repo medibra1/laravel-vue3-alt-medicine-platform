@@ -24,7 +24,7 @@ class ActiveCenterController extends Controller
 
         if (! in_array($centerId, $user->accessibleCenterIds(), true)) {
             throw ValidationException::withMessages([
-                'center_id' => __('Vous n\'avez pas accès à ce centre.'),
+                'center_id' => __('access.center_forbidden'),
             ]);
         }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -27,7 +28,7 @@ interface DiseaseCategory {
     id: number;
     type_option_id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
     icon: string | null;
     order: number;
     active: boolean;
@@ -89,7 +90,7 @@ const editingCategory = ref<DiseaseCategory | null>(null);
 const createForm = useForm({
     type_option_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     icon: null as string | null,
     order: 0,
     active: true,
@@ -115,7 +116,7 @@ function submitCreate() {
 const editForm = useForm({
     type_option_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     icon: null as string | null,
     order: 0,
     active: true,
@@ -144,7 +145,7 @@ function submitEdit() {
 }
 
 function destroy(category: DiseaseCategory) {
-    if (!confirm(tr('misc.confirmDeleteNamed', { name: category.label.fr }))) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(category.label) }))) {
         return;
     }
 
@@ -186,7 +187,7 @@ function destroy(category: DiseaseCategory) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
                     <template #column-icon="{ item }">
                         <v-icon v-if="item.icon" :icon="item.icon" />
                         <span v-else class="text-medium-emphasis">—</span>
@@ -224,7 +225,7 @@ function destroy(category: DiseaseCategory) {
                 <AppTranslatableInput
                     v-model="createForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppInputText
@@ -279,7 +280,7 @@ function destroy(category: DiseaseCategory) {
                 <AppTranslatableInput
                     v-model="editForm.label"
                     :label="$t('ui.libelle')"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppInputText

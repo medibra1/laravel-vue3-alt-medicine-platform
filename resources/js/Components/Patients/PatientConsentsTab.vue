@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tr } from '@/lib/i18n';
+import { currentLocale, isRtl, LOCALE_LABELS, tr, type AppLocale } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -14,10 +14,13 @@ import { computed, ref } from 'vue';
 type ConsentType = 'treatment' | 'data_privacy' | 'image_rights';
 type ConsentSource = 'digital' | 'uploaded';
 
+// title/content: one entry per language; `locales` lists the languages
+// whose title AND text are both written (the only ones offered).
 interface ConsentTemplate {
     type: ConsentType;
-    title: string;
-    content: string;
+    title: Record<string, string | null>;
+    content: Record<string, string | null>;
+    locales: string[];
     version: number;
 }
 
@@ -26,6 +29,7 @@ interface Consent {
     type: ConsentType;
     source: ConsentSource;
     version: number | null;
+    locale: string | null;
     template_version: number | null;
     signer_name: string;
     accepted_at: string;
@@ -89,10 +93,25 @@ const submitError = ref<string | null>(null);
 
 const activeTemplate = computed(() => (dialogType.value ? templateFor(dialogType.value) : null));
 
+// Language the patient reads and signs in: the interface language when
+// the template is written in it, otherwise its first available one.
+const signingLocale = ref<string>('fr');
+
+function defaultSigningLocale(template: ConsentTemplate | null): string {
+    if (!template?.locales.length) return 'fr';
+
+    return template.locales.includes(currentLocale()) ? currentLocale() : template.locales[0];
+}
+
+const dialogTitle = computed(() =>
+    activeTemplate.value?.title[signingLocale.value] ?? (dialogType.value ? typeLabels[dialogType.value] : undefined),
+);
+
 function openDialog(type: ConsentType) {
     dialogType.value = type;
     dialogSource.value = null;
     resetForm();
+    signingLocale.value = defaultSigningLocale(templateFor(type));
     dialogVisible.value = true;
 }
 
@@ -123,6 +142,7 @@ function submit() {
             signer_name: signerName.value,
             signature_svg: signatureSvg.value,
             accepted: accepted.value,
+            locale: dialogSource.value === 'digital' ? signingLocale.value : null,
             accepted_at: acceptedAt.value ? acceptedAt.value.toISOString().slice(0, 10) : null,
             files: files.value,
         },
@@ -156,6 +176,9 @@ function submit() {
                         <v-chip size="small" variant="outlined">
                             {{ latestConsentFor(type)!.source === 'uploaded' ? $t('misc.importedDocument') : $t('ui.signatureElectronique') }}
                         </v-chip>
+                        <v-chip v-if="latestConsentFor(type)!.locale" size="small" variant="outlined" prepend-icon="mdi-translate">
+                            {{ LOCALE_LABELS[latestConsentFor(type)!.locale as AppLocale] ?? latestConsentFor(type)!.locale }}
+                        </v-chip>
                         <span class="text-body-2">
                             {{ $t('misc.signedBy', { name: latestConsentFor(type)!.signer_name, date: new Date(latestConsentFor(type)!.accepted_at).toLocaleDateString($i18n.locale) }) }}
                             <template v-if="latestConsentFor(type)!.version">(v{{ latestConsentFor(type)!.version }})</template>
@@ -188,7 +211,7 @@ function submit() {
             </v-card-text>
         </AppCard>
 
-        <AppDialog v-model:visible="dialogVisible" :header="activeTemplate?.title ?? (dialogType ? typeLabels[dialogType] : undefined)" max-width="640px">
+        <AppDialog v-model:visible="dialogVisible" :header="dialogTitle" max-width="640px">
             <div v-if="dialogType" class="d-flex flex-column ga-4">
                 <!-- Step 1: pick how this consent is being recorded. -->
                 <div v-if="!dialogSource" class="d-flex flex-column ga-3">
@@ -225,7 +248,16 @@ function submit() {
                         {{ $t('ui.aucunModeleActifPourCeType') }}
                     </p>
                     <template v-else>
-                        <div class="consent-text text-body-2">{{ activeTemplate.content }}</div>
+                        <div v-if="activeTemplate.locales.length > 1" class="d-flex align-center flex-wrap ga-2">
+                            <span class="text-body-2 text-medium-emphasis">{{ $t('misc.signingLanguage') }}</span>
+                            <v-btn-toggle v-model="signingLocale" mandatory density="compact" variant="outlined" divided color="primary">
+                                <v-btn v-for="locale in activeTemplate.locales" :key="locale" :value="locale" size="small">
+                                    {{ LOCALE_LABELS[locale as AppLocale] ?? locale }}
+                                </v-btn>
+                            </v-btn-toggle>
+                        </div>
+
+                        <div class="consent-text text-body-2" :dir="isRtl(signingLocale) ? 'rtl' : 'ltr'">{{ activeTemplate.content[signingLocale] }}</div>
 
                         <AppInputText v-model="signerName" :label="$t('ui.nomDuSignataire')" />
 

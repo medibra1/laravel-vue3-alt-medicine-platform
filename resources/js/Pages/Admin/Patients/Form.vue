@@ -163,8 +163,9 @@ type ConsentSource = 'digital' | 'uploaded';
 
 interface ConsentTemplate {
     type: ConsentType;
-    title: string;
-    content: string;
+    title: Record<string, string | null>;
+    content: Record<string, string | null>;
+    locales: string[];
     version: number;
 }
 
@@ -173,6 +174,7 @@ interface Consent {
     type: ConsentType;
     source: ConsentSource;
     version: number | null;
+    locale: string | null;
     template_version: number | null;
     signer_name: string;
     accepted_at: string;

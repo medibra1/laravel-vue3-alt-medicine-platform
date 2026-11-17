@@ -18,7 +18,7 @@ class ScheduleInstallmentsAction
     {
         if ($installments !== []) {
             if (count($installments) < 2) {
-                throw ValidationException::withMessages(['installments' => __('Un échéancier compte au moins deux échéances.')]);
+                throw ValidationException::withMessages(['installments' => __('billing.schedule_min_two')]);
             }
 
             $dates = array_column($installments, 'due_on');
@@ -26,13 +26,13 @@ class ScheduleInstallmentsAction
             sort($sorted);
 
             if ($dates !== $sorted || count(array_unique($dates)) !== count($dates)) {
-                throw ValidationException::withMessages(['installments' => __('Les dates des échéances doivent se suivre.')]);
+                throw ValidationException::withMessages(['installments' => __('billing.schedule_dates_order')]);
             }
 
             $sum = round(array_sum(array_map(fn (array $row) => (float) $row['amount'], $installments)), 2);
 
             if (abs($sum - $invoice->netTotal()) > 0.005) {
-                throw ValidationException::withMessages(['installments' => __('La somme des échéances doit être égale au montant à payer.')]);
+                throw ValidationException::withMessages(['installments' => __('billing.schedule_sum_mismatch')]);
             }
         }
 

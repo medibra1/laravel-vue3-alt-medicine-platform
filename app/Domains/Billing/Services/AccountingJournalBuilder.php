@@ -75,7 +75,7 @@ class AccountingJournalBuilder
             $cash = $payment->method === 'cash';
             $refund = (float) $payment->amount < 0;
             $amount = $this->money(abs((float) $payment->amount));
-            $label = ($refund ? 'Remboursement' : 'Règlement')." {$invoice->number}".($payment->reference ? " ({$payment->reference})" : '');
+            $label = ($refund ? __('billing.journal.refund') : __('billing.journal.payment'))." {$invoice->number}".($payment->reference ? " ({$payment->reference})" : '');
             $base = [$payment->paid_on->toDateString(), $journals[$cash ? 'cash' : 'bank'], ($refund ? 'RB-' : 'RG-').$payment->id];
             $tail = [$invoice->currency, $invoice->center->name];
             $treasury = $accounts[$cash ? 'cash' : 'bank'];
@@ -93,7 +93,7 @@ class AccountingJournalBuilder
 
         foreach ($expenses->lazy(500) as $expense) {
             $cash = $expense->method === 'cash';
-            $label = trim(($expense->category?->localizedLabel() ?? '').' — '.$expense->label, ' —');
+            $label = trim(($expense->category->label ?? '').' — '.$expense->label, ' —');
             $base = [$expense->spent_on->toDateString(), $journals['purchases'], 'DEP-'.$expense->id];
             $tail = [$expense->currency, $expense->center->name];
 

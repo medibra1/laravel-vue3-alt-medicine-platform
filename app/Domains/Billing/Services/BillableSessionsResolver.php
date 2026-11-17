@@ -48,7 +48,7 @@ class BillableSessionsResolver
 
                 $lines = [[
                     'description' => $details !== '' ? Str::limit($details, 990) : null,
-                    'label' => $remote ? __('Séance à distance du :date', ['date' => $date]) : __('Séance du :date', ['date' => $date]),
+                    'label' => $remote ? __('billing.remote_session_on', ['date' => $date]) : __('billing.session_on', ['date' => $date]),
                     'quantity' => 1,
                     'unit_price' => (float) $center->setting($remote ? 'session_price_remote' : 'session_price_in_person', 0),
                     'treatment_session_id' => $session->id,

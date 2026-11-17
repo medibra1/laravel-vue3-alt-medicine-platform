@@ -41,7 +41,7 @@ class ExpenseController extends Controller
             'center_id' => $expense->center_id,
             'center' => $expense->center->name,
             'category_option_id' => $expense->category_option_id,
-            'category' => $expense->category?->localizedLabel(),
+            'category' => $expense->category?->label,
             'label' => $expense->label,
             'supplier' => $expense->supplier,
             'amount' => (float) $expense->amount,
@@ -56,7 +56,7 @@ class ExpenseController extends Controller
             'expenses' => $expenses,
             'filters' => (object) $request->only(['search', 'category']),
             'categories' => EnumOption::query()->where('enum_type', Expense::CATEGORY_TYPE)->where('active', true)->orderBy('order')->get()
-                ->map(fn (EnumOption $option) => ['id' => $option->id, 'label' => $option->localizedLabel()])->all(),
+                ->map(fn (EnumOption $option) => ['id' => $option->id, 'label' => $option->label])->all(),
             'centers' => $user->isGlobalAdmin()
                 ? Center::query()->orderBy('name')->get(['id', 'name'])->map(fn (Center $center) => ['id' => $center->id, 'name' => $center->name])->all()
                 : [],
