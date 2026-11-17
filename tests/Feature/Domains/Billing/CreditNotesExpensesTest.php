@@ -172,7 +172,10 @@ test('care pricing follows the category mode: none, flat per session, or per ite
     $lines = $this->actingAs($manager)->getJson(route('admin.patients.invoices.index', $patient))->json('billable_sessions.0.lines');
 
     // Session + one flat line for the two zones, nothing for the verse.
-    expect($lines)->toHaveCount(2)->and($lines[1]['unit_price'])->toEqual(15);
+    expect($lines)->toHaveCount(2)->and($lines[1]['unit_price'])->toEqual(15)
+        // The session line spells out what was done, cupping zones left out.
+        ->and($lines[0]['description'])->toBe((string) $verse->label)
+        ->and($lines[1]['description'])->toBeNull();
 });
 
 test('a manager narrows the modules of a practitioner on their own center only', function () {

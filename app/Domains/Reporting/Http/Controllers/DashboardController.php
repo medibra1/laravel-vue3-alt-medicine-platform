@@ -6,6 +6,7 @@ use App\Domains\Core\Models\Center;
 use App\Domains\Reporting\Services\DashboardStats;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,8 +27,16 @@ class DashboardController extends Controller
             abort_if($centerId === null, 403);
         }
 
+        // Day whose figures are shown (today unless another is picked).
+        $day = $request->date('day') ?? now();
+
+        if ($day->isFuture()) {
+            $day = now();
+        }
+
         return Inertia::render('Dashboard', [
             'stats' => $stats->handle($user, $centerId, $user->enabledModules($centerId)),
+            'daily' => $stats->day($user, $centerId, $user->enabledModules($centerId), Carbon::parse($day)),
             'centers' => $centers,
             'selectedCenterId' => $user->isGlobalAdmin() ? $centerId : null,
         ]);

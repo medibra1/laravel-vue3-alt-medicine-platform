@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
 import AppChart from '@/Components/App/AppChart.vue';
+import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppStatCard from '@/Components/App/AppStatCard.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { formatDate, formatMoney } from '@/lib/i18n';
+import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { handleNavClick } from '@/utils/inertiaNavClick';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -65,8 +67,32 @@ interface Stats {
     centers?: { id: number; name: string; city: string | null; patients: number; ongoing_treatments: number; practitioners: number }[];
 }
 
+interface DayCurrency {
+    currency: string;
+    collected: number;
+    payments: number;
+    refunded: number;
+    methods: Record<string, number>;
+    expenses: number;
+    net: number;
+    invoiced: number;
+    invoices: number;
+    discounts: number;
+}
+
+/** Figures of one day, only sent to managers and global admins. */
+interface DayStats {
+    date: string;
+    is_today: boolean;
+    new_patients?: number;
+    sessions?: number;
+    appointments?: number;
+    currencies?: DayCurrency[];
+}
+
 const props = defineProps<{
     stats: Stats;
+    daily: DayStats | null;
     centers: { id: number; name: string }[];
     selectedCenterId: number | null;
 }>();
@@ -96,9 +122,43 @@ const scopeLabel = computed(() => {
 
 const centerOptions = computed(() => [{ id: null as number | null, name: t('dashboard.allCenters') }, ...props.centers]);
 
-function selectCenter(centerId: unknown) {
-    router.get(route('dashboard'), centerId ? { center_id: Number(centerId) } : {}, { preserveScroll: true });
+function visit(centerId: number | null, day: string | null) {
+    router.get(
+        route('dashboard'),
+        { ...(centerId ? { center_id: centerId } : {}), ...(day && day !== toLocalDateString(new Date()) ? { day } : {}) },
+        { preserveScroll: true, preserveState: true },
+    );
 }
+
+function selectCenter(centerId: unknown) {
+    visit(centerId ? Number(centerId) : null, props.daily?.date ?? null);
+}
+
+// Day filter of the daily figures.
+const dayDate = computed(() => fromLocalDateString(props.daily?.date ?? null));
+
+function selectDay(date: Date | null) {
+    if (date && date.getTime() <= Date.now()) {
+        visit(props.selectedCenterId, toLocalDateString(date));
+    }
+}
+
+function shiftDay(offset: number) {
+    const date = dayDate.value;
+
+    if (date) {
+        selectDay(new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset));
+    }
+}
+
+const dayMoney = (amount: number, currency: string) => formatMoney(amount, currency, locale.value);
+const dayActivity = computed(() =>
+    [
+        { key: 'sessions', icon: 'mdi-clipboard-pulse-outline', value: props.daily?.sessions },
+        { key: 'appointments', icon: 'mdi-calendar-check-outline', value: props.daily?.appointments },
+        { key: 'newPatients', icon: 'mdi-account-plus-outline', value: props.daily?.new_patients },
+    ].filter((row) => row.value !== undefined),
+);
 
 const monthLabels = computed(() =>
     props.stats.months.map((month) => formatDate(`${month}-01`, locale.value, { month: 'short' })),
@@ -221,6 +281,72 @@ function day(value: string): string {
         </div>
 
         <v-alert v-if="!hasAnyModule" type="info" variant="tonal">{{ t('dashboard.noModule') }}</v-alert>
+
+        <!-- The day: takings and key figures, with a day filter -->
+        <v-card v-if="daily" variant="flat" class="dashboard-day mb-4">
+            <v-card-text class="pa-6">
+                <div class="d-flex align-center justify-space-between flex-wrap ga-3 mb-4">
+                    <div>
+                        <h2 class="text-subtitle-1 font-weight-bold">
+                            {{ daily.is_today ? t('dashboard.day.title') : t('dashboard.day.titleOn', { date: formatDate(daily.date, locale, { day: 'numeric', month: 'long', year: 'numeric' }) }) }}
+                        </h2>
+                        <div class="d-flex flex-wrap ga-4 mt-1 text-body-2 text-medium-emphasis">
+                            <span v-for="row in dayActivity" :key="row.key" class="d-inline-flex align-center ga-1">
+                                <v-icon :icon="row.icon" size="18" />
+                                {{ t(`dashboard.day.${row.key}`) }} : <strong class="text-high-emphasis app-tabular">{{ row.value }}</strong>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-center ga-1">
+                        <v-btn icon="mdi-chevron-left" variant="text" size="small" :aria-label="t('dashboard.day.previous')" @click="shiftDay(-1)" />
+                        <div style="width: 170px">
+                            <AppDatePicker :model-value="dayDate" :label="t('dashboard.day.date')" @update:model-value="selectDay" />
+                        </div>
+                        <v-btn icon="mdi-chevron-right" variant="text" size="small" :disabled="daily.is_today" :aria-label="t('dashboard.day.next')" @click="shiftDay(1)" />
+                        <AppButton v-if="!daily.is_today" severity="secondary" size="small" :label="t('dashboard.day.today')" @click="selectDay(new Date())" />
+                    </div>
+                </div>
+
+                <template v-if="daily.currencies">
+                    <div v-if="!daily.currencies.length" class="text-body-2 text-medium-emphasis">{{ t('dashboard.day.none') }}</div>
+                    <div v-for="row in daily.currencies" :key="row.currency" class="dashboard-day__row">
+                        <div class="dashboard-day__figure dashboard-day__figure--main">
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.collected') }}</span>
+                            <span class="dashboard-day__value app-tabular text-success">{{ dayMoney(row.collected, row.currency) }}</span>
+                            <span class="text-caption text-medium-emphasis">
+                                {{ t('dashboard.day.collectedHint', { n: row.payments }) }}
+                                <template v-if="row.refunded > 0"> · {{ t('dashboard.day.refunds', { amount: dayMoney(row.refunded, row.currency) }) }}</template>
+                            </span>
+                        </div>
+                        <div class="dashboard-day__figure">
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.expenses') }}</span>
+                            <span class="dashboard-day__value app-tabular">{{ dayMoney(row.expenses, row.currency) }}</span>
+                        </div>
+                        <div class="dashboard-day__figure">
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.net') }}</span>
+                            <span class="dashboard-day__value app-tabular" :class="row.net < 0 ? 'text-error' : ''">{{ dayMoney(row.net, row.currency) }}</span>
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.netHint') }}</span>
+                        </div>
+                        <div class="dashboard-day__figure">
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.invoiced') }}</span>
+                            <span class="dashboard-day__value app-tabular">{{ dayMoney(row.invoiced, row.currency) }}</span>
+                            <span class="text-caption text-medium-emphasis">
+                                {{ t('dashboard.day.invoicedHint', { n: row.invoices }) }}
+                                <template v-if="row.discounts > 0"> · {{ t('dashboard.day.discounts', { amount: dayMoney(row.discounts, row.currency) }) }}</template>
+                            </span>
+                        </div>
+                        <div v-if="Object.keys(row.methods).length" class="dashboard-day__methods">
+                            <span class="text-caption text-medium-emphasis">{{ t('dashboard.day.byMethod') }}</span>
+                            <div class="d-flex flex-wrap ga-2 mt-1">
+                                <v-chip v-for="(amount, method) in row.methods" :key="method" variant="tonal" size="small">
+                                    {{ t(`domain.paymentMethod.${method}`) }} · <span class="app-tabular ms-1">{{ dayMoney(amount, row.currency) }}</span>
+                                </v-chip>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </v-card-text>
+        </v-card>
 
         <!-- KPIs -->
         <v-row dense class="mb-2">
@@ -613,6 +739,42 @@ function day(value: string): string {
     padding: 12px 14px;
     border-radius: 12px;
     background: rgba(var(--v-theme-on-surface), 0.035);
+}
+
+.dashboard-day__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+}
+
+.dashboard-day__row + .dashboard-day__row {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.dashboard-day__figure {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.dashboard-day__figure--main {
+    border-color: rgba(var(--v-theme-success), 0.4);
+    background: rgba(var(--v-theme-success), 0.06);
+}
+
+.dashboard-day__value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.dashboard-day__methods {
+    grid-column: 1 / -1;
 }
 
 .dashboard-empty {

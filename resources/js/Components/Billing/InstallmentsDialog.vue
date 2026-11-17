@@ -2,7 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import { http, HttpError } from '@/lib/http';
-import type { InstallmentDraft } from '@/utils/installments';
+import { splitInstallments, type InstallmentDraft } from '@/utils/installments';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InstallmentsEditor from './InstallmentsEditor.vue';
@@ -24,7 +24,6 @@ const { t } = useI18n();
 const rows = ref<InstallmentDraft[]>([]);
 const error = ref<string | null>(null);
 const saving = ref(false);
-const editor = ref<InstanceType<typeof InstallmentsEditor> | null>(null);
 
 // The schedule covers the whole net amount, paid part included.
 const net = computed(() => (props.invoice ? props.invoice.total - props.invoice.credited_total : 0));
@@ -33,6 +32,10 @@ watch(() => props.visible, (open) => {
     if (open && props.invoice) {
         rows.value = (props.invoice.installments ?? []).map(({ due_on, amount }) => ({ due_on, amount }));
         error.value = null;
+
+        if (!rows.value.length) {
+            rows.value = splitInstallments(net.value, 2, new Date(), 'monthly');
+        }
     }
 }, { immediate: true });
 
@@ -59,7 +62,7 @@ async function save(installments: InstallmentDraft[]) {
 <template>
     <AppDialog :visible="visible" :header="invoice ? t('billing.scheduleTitle', { number: invoice.number }) : ''" max-width="620px" @update:visible="emit('update:visible', $event)">
         <form v-if="invoice" class="d-flex flex-column ga-4" @submit.prevent="save(rows)">
-            <InstallmentsEditor ref="editor" v-model="rows" :total="net" :currency="invoice.currency" :error="error" />
+            <InstallmentsEditor v-model="rows" :total="net" :currency="invoice.currency" :error="error" />
 
             <div class="d-flex flex-wrap justify-end ga-2 mt-2">
                 <AppButton

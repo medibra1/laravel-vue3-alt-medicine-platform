@@ -1,5 +1,6 @@
 export default {
     fr: {
+        day: { title: 'Recette du jour', titleOn: 'Journée du {date}', today: 'Aujourd\'hui', previous: 'Jour précédent', next: 'Jour suivant', date: 'Jour', collected: 'Recette', collectedHint: 'Règlements : {n}', refunds: 'Remboursé : {amount}', expenses: 'Dépenses', net: 'Résultat du jour', netHint: 'Recette moins dépenses et remboursements', invoiced: 'Facturé', invoicedHint: 'Factures : {n}', discounts: 'dont remises : {amount}', sessions: 'Séances', appointments: 'Rendez-vous', newPatients: 'Nouveaux patients', byMethod: 'Par moyen de paiement', none: 'Aucun mouvement ce jour-là.' },
         finance: { collected: 'Encaissements', expenses: 'Dépenses', chartTitle: 'Encaissements et dépenses sur 12 mois', overdue: 'Échéances en retard', overdueHint: 'Montants échus non réglés', discounts: 'Remises ce mois', discountsHint: 'Cas sociaux et gestes accordés', expensesMonth: 'Dépenses ce mois', lastMonth: 'Mois dernier : {amount}', net: 'Résultat du mois', netHint: 'Encaissements moins dépenses' },
         title: 'Tableau de bord', greetingMorning: 'Bonjour', greetingAfternoon: 'Bon après-midi', greetingEvening: 'Bonsoir',
         subtitle: 'Voici l\'activité de {scope}.', scopeAll: 'tous les centres', scopeCenter: 'votre centre',
@@ -23,6 +24,7 @@ export default {
         noModule: 'Aucun module n\'est activé pour votre compte. Contactez votre administrateur.',
     },
     en: {
+        day: { title: 'Today\'s takings', titleOn: 'Day of {date}', today: 'Today', previous: 'Previous day', next: 'Next day', date: 'Day', collected: 'Takings', collectedHint: 'Payments: {n}', refunds: 'Refunded: {amount}', expenses: 'Expenses', net: 'Result of the day', netHint: 'Takings minus expenses and refunds', invoiced: 'Invoiced', invoicedHint: 'Invoices: {n}', discounts: 'incl. discounts: {amount}', sessions: 'Sessions', appointments: 'Appointments', newPatients: 'New patients', byMethod: 'By payment method', none: 'No movement on that day.' },
         finance: { collected: 'Collections', expenses: 'Expenses', chartTitle: 'Collections and expenses over 12 months', overdue: 'Overdue instalments', overdueHint: 'Amounts past due and unpaid', discounts: 'Discounts this month', discountsHint: 'Social cases and goodwill granted', expensesMonth: 'Expenses this month', lastMonth: 'Last month: {amount}', net: 'Result this month', netHint: 'Collections minus expenses' },
         title: 'Dashboard', greetingMorning: 'Good morning', greetingAfternoon: 'Good afternoon', greetingEvening: 'Good evening',
         subtitle: 'Here is the activity of {scope}.', scopeAll: 'all centers', scopeCenter: 'your center',
@@ -46,6 +48,7 @@ export default {
         noModule: 'No module is enabled for your account. Contact your administrator.',
     },
     ar: {
+        day: { title: 'إيراد اليوم', titleOn: 'يوم {date}', today: 'اليوم', previous: 'اليوم السابق', next: 'اليوم التالي', date: 'اليوم', collected: 'الإيراد', collectedHint: 'التسديدات: {n}', refunds: 'المستردّ: {amount}', expenses: 'المصاريف', net: 'نتيجة اليوم', netHint: 'الإيراد ناقص المصاريف والاستردادات', invoiced: 'المفوتر', invoicedHint: 'الفواتير: {n}', discounts: 'منها خصومات: {amount}', sessions: 'الجلسات', appointments: 'المواعيد', newPatients: 'مرضى جدد', byMethod: 'حسب وسيلة الدفع', none: 'لا توجد حركة في هذا اليوم.' },
         finance: { collected: 'التحصيلات', expenses: 'المصاريف', chartTitle: 'التحصيلات والمصاريف خلال 12 شهراً', overdue: 'أقساط متأخرة', overdueHint: 'مبالغ مستحقة غير مسدَّدة', discounts: 'خصومات هذا الشهر', discountsHint: 'حالات اجتماعية وبوادر ممنوحة', expensesMonth: 'مصاريف هذا الشهر', lastMonth: 'الشهر الماضي: {amount}', net: 'نتيجة الشهر', netHint: 'التحصيلات ناقص المصاريف' },
         title: 'لوحة التحكم', greetingMorning: 'صباح الخير', greetingAfternoon: 'مساء الخير', greetingEvening: 'مساء الخير',
         subtitle: 'هذا نشاط {scope}.', scopeAll: 'جميع المراكز', scopeCenter: 'مركزك',

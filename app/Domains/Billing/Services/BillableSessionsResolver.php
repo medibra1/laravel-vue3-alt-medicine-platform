@@ -6,6 +6,7 @@ use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\CareCategory;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\TreatmentSession;
+use Illuminate\Support\Str;
 
 /**
  * Sessions of a patient not yet on any non-cancelled invoice, each with
@@ -14,7 +15,7 @@ use App\Domains\Patients\Models\TreatmentSession;
 class BillableSessionsResolver
 {
     /**
-     * @return array<int, array{session_id: int, treatment_id: int, session_date: string, modality: string, lines: array<int, array{label: string, quantity: int, unit_price: float, treatment_session_id: int|null, care_item_id: int|null, care_category_id: int|null}>}>
+     * @return array<int, array{session_id: int, treatment_id: int, session_date: string, modality: string, lines: array<int, array{label: string, description: string|null, quantity: int, unit_price: float, treatment_session_id: int|null, care_item_id: int|null, care_category_id: int|null}>}>
      */
     public function handle(Patient $patient, Center $center): array
     {
@@ -37,7 +38,16 @@ class BillableSessionsResolver
                 $remote = $session->modality === 'remote';
                 $date = $session->session_date->format('d/m/Y');
 
+                // What was done during the session, spelled out on its
+                // line — except flat-priced categories (cupping): the
+                // zones treated are not listed on an invoice.
+                $details = $session->careItems
+                    ->filter(fn ($careItem) => ($careItem->category->pricing_mode ?? CareCategory::PRICING_ITEM) !== CareCategory::PRICING_CATEGORY)
+                    ->map(fn ($careItem) => (string) $careItem->label)
+                    ->implode(', ');
+
                 $lines = [[
+                    'description' => $details !== '' ? Str::limit($details, 990) : null,
                     'label' => $remote ? __('Séance à distance du :date', ['date' => $date]) : __('Séance du :date', ['date' => $date]),
                     'quantity' => 1,
                     'unit_price' => (float) $center->setting($remote ? 'session_price_remote' : 'session_price_in_person', 0),
@@ -64,6 +74,7 @@ class BillableSessionsResolver
                         if ($price > 0 && ! isset($flatBilled[$category->id])) {
                             $flatBilled[$category->id] = true;
                             $lines[] = [
+                                'description' => null,
                                 'label' => (string) $category->label,
                                 'quantity' => 1,
                                 'unit_price' => $price,
@@ -78,6 +89,7 @@ class BillableSessionsResolver
 
                     if ((float) ($prices[$careItem->id] ?? 0) > 0) {
                         $lines[] = [
+                            'description' => null,
                             'label' => (string) $careItem->label,
                             'quantity' => 1,
                             'unit_price' => (float) $prices[$careItem->id],

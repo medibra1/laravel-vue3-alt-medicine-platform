@@ -83,3 +83,44 @@ test('the dashboard shows late payments, discounts, expenses and the month resul
         ->missing('stats.billing.currencies.0.expenses_this_month')
         ->missing('stats.billing.currencies.0.net_this_month'));
 });
+
+test('a manager sees the takings and key figures of a chosen day, a practitioner does not', function () {
+    $center = Center::factory()->create(['currency' => 'EUR']);
+    $manager = actingAsManagerOf($center);
+    $patient = Patient::factory()->create(['intake_center_id' => $center->id]);
+
+    $id = $this->actingAs($manager)->postJson(route('admin.patients.invoices.store', $patient), [
+        'issued_on' => now()->toDateString(),
+        'lines' => [['label' => 'Séance', 'quantity' => 1, 'unit_price' => 100]],
+        'payment' => ['amount' => 60, 'method' => 'cash'],
+    ])->json('id');
+
+    // Paid the day before: must not count in today's takings.
+    $this->actingAs($manager)->postJson(route('admin.invoices.payments.store', $id), [
+        'amount' => 25, 'method' => 'card', 'paid_on' => now()->subDay()->toDateString(),
+    ])->assertCreated();
+
+    Expense::query()->create([
+        'center_id' => $center->id, 'label' => 'Fournitures', 'amount' => 15, 'currency' => 'EUR',
+        'spent_on' => now()->toDateString(), 'method' => 'cash',
+    ]);
+
+    $this->actingAs($manager)->get(route('dashboard'))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('daily.is_today', true)
+        ->where('daily.currencies.0.collected', 60)
+        ->where('daily.currencies.0.payments', 1)
+        ->where('daily.currencies.0.methods.cash', 60)
+        ->where('daily.currencies.0.expenses', 15)
+        ->where('daily.currencies.0.net', 45)
+        ->where('daily.currencies.0.invoiced', 100)
+        ->where('daily.new_patients', 1));
+
+    $this->actingAs($manager)->get(route('dashboard', ['day' => now()->subDay()->toDateString()]))->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('daily.is_today', false)
+            ->where('daily.currencies.0.collected', 25)
+            ->where('daily.currencies.0.expenses', 0));
+
+    $this->actingAs(actingAsPractitionerOf($center))->get(route('dashboard'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('daily', null));
+});

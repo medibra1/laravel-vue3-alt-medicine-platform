@@ -93,6 +93,7 @@ export interface Invoice {
 
 export interface SuggestedLine {
     label: string;
+    description?: string | null;
     quantity: number;
     unit_price: number;
     treatment_session_id: number | null;

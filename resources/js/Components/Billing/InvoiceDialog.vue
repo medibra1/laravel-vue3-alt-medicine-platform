@@ -39,7 +39,7 @@ const { t, locale } = useI18n();
 
 const FREE = 'free';
 
-interface DraftLine extends Omit<SuggestedLine, 'quantity' | 'unit_price'> {
+interface DraftLine extends Omit<SuggestedLine, 'quantity' | 'unit_price' | 'description'> {
     key: number;
     /** Catalog key, or FREE for a hand-written line. */
     service: string;
@@ -131,7 +131,7 @@ function onServiceChange(line: DraftLine, key: string) {
 function addSession(session: BillableSession) {
     // Drop the untouched placeholder line rather than leave an empty row behind.
     lines.value = lines.value.filter((line) => line.label !== '' || line.unit_price !== 0);
-    lines.value.push(...session.lines.map((line) => ({ ...line, key: nextKey++, service: catalogKeyFor(line, session), description: '' })));
+    lines.value.push(...session.lines.map((line) => ({ ...line, key: nextKey++, service: catalogKeyFor(line, session), description: line.description ?? '' })));
     addedSessionIds.value = new Set([...addedSessionIds.value, session.session_id]);
 }
 
@@ -181,15 +181,12 @@ watch(total, (next, previous) => {
         form.payAmount = next;
     }
 
-    if (form.scheduled) {
-        nextTick(() => scheduleEditor.value?.generate());
-    }
 });
 
 watch(() => form.payNow, (on) => on && (form.payAmount = total.value));
 watch(() => form.scheduled, (on) => {
     if (on) {
-        nextTick(() => scheduleEditor.value?.generate());
+        nextTick(() => scheduleEditor.value?.reset());
     } else {
         installments.value = [];
     }

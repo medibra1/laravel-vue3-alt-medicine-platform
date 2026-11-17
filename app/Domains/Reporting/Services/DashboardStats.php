@@ -295,4 +295,95 @@ class DashboardStats
                 ->whereRaw('paid_total < total - credited_total')->count(),
         ];
     }
+
+    /**
+     * Key figures of one day, for whoever runs the center (managers and
+     * global admins): takings, money out, what was billed, activity.
+     * Amounts are per currency, never added across currencies.
+     *
+     * @param  array<int, string>  $modules
+     * @return array<string, mixed>|null
+     */
+    public function day(User $user, ?int $centerId, array $modules, Carbon $date): ?array
+    {
+        if (! $user->isGlobalAdmin() && ! $user->isManager()) {
+            return null;
+        }
+
+        $has = fn (string $module): bool => in_array($module, $modules, true);
+        $day = $date->toDateString();
+        $data = ['date' => $day, 'is_today' => $date->isToday()];
+
+        if ($has(Modules::PATIENTS)) {
+            $data['new_patients'] = DB::table('patients')
+                ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
+                ->whereDate('created_at', $day)->count();
+        }
+
+        if ($has(Modules::TREATMENTS)) {
+            $data['sessions'] = DB::table('treatment_sessions')
+                ->join('treatments', 'treatments.id', '=', 'treatment_sessions.treatment_id')
+                ->when($centerId, fn ($query) => $query->where('treatments.center_id', $centerId))
+                ->whereDate('treatment_sessions.session_date', $day)->count();
+        }
+
+        if ($has(Modules::SCHEDULING)) {
+            $data['appointments'] = DB::table('appointments')
+                ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+                ->where('status', '!=', 'cancelled')
+                ->whereDate('starts_at', $day)->count();
+        }
+
+        if (! $has(Modules::BILLING)) {
+            return $data;
+        }
+
+        $payments = DB::table('billing_payments')
+            ->join('billing_invoices', 'billing_invoices.id', '=', 'billing_payments.invoice_id')
+            ->when($centerId, fn ($query) => $query->where('billing_invoices.center_id', $centerId))
+            ->whereNull('billing_invoices.cancelled_at')
+            ->whereDate('billing_payments.paid_on', $day)
+            ->get(['billing_payments.amount', 'billing_payments.method', 'billing_invoices.currency'])
+            ->groupBy('currency');
+
+        $invoices = DB::table('billing_invoices')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereNull('cancelled_at')
+            ->whereDate('issued_on', $day)
+            ->groupBy('currency')
+            ->selectRaw('currency, SUM(total) as total, SUM(discount_amount) as discounts, COUNT(*) as invoices')
+            ->get()->keyBy('currency');
+
+        $expenses = DB::table('billing_expenses')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereDate('spent_on', $day)
+            ->groupBy('currency')->selectRaw('currency, SUM(amount) as amount')
+            ->pluck('amount', 'currency');
+
+        $data['currencies'] = collect([...$payments->keys(), ...$invoices->keys(), ...$expenses->keys()])
+            ->map(fn ($currency) => (string) $currency)->unique()->sort()->values()
+            ->map(function (string $currency) use ($payments, $invoices, $expenses) {
+                $rows = $payments[$currency] ?? collect();
+                $received = $rows->filter(fn ($row) => (float) $row->amount > 0);
+                $collected = round((float) $received->sum('amount'), 2);
+                $refunded = round(abs((float) $rows->filter(fn ($row) => (float) $row->amount < 0)->sum('amount')), 2);
+                $spent = round((float) ($expenses[$currency] ?? 0), 2);
+                $invoiced = $invoices[$currency] ?? null;
+
+                return [
+                    'currency' => $currency,
+                    'collected' => $collected,
+                    'payments' => $received->count(),
+                    'refunded' => $refunded,
+                    'methods' => $received->groupBy('method')->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2))->all(),
+                    'expenses' => $spent,
+                    'net' => round($collected - $refunded - $spent, 2),
+                    'invoiced' => round((float) ($invoiced->total ?? 0), 2),
+                    'invoices' => (int) ($invoiced->invoices ?? 0),
+                    'discounts' => round((float) ($invoiced->discounts ?? 0), 2),
+                ];
+            })->all();
+
+        return $data;
+    }
 }
