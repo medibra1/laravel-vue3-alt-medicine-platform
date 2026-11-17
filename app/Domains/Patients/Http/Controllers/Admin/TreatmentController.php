@@ -19,6 +19,7 @@ use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\Treatment;
 use App\Domains\Practitioners\Http\Concerns\ResolvesPractitionerOptions;
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,25 +38,79 @@ class TreatmentController extends Controller
     {
         Gate::authorize('viewAny', Treatment::class);
 
-        $query = Treatment::query()->with(['patient', 'practitioner', 'center']);
+        $scoped = function () use ($request) {
+            $query = Treatment::query();
 
-        if (! $request->user()->isGlobalAdmin()) {
-            $query->where('center_id', getPermissionsTeamId());
-        }
+            if (! $request->user()->isGlobalAdmin()) {
+                $query->where('center_id', getPermissionsTeamId());
+            }
 
-        $treatments = QueryBuilder::for($query)
+            return $query;
+        };
+
+        // scopes() rather than the magic ->currentStatus(): the query
+        // handed over by the filter is not typed as a Treatment builder.
+        $statusFilter = function (Builder $query, mixed $value): void {
+            if ($value !== 'all') {
+                $query->scopes(['currentStatus' => [(string) $value]]);
+            }
+        };
+
+        // Follow-up list across every patient of the center: who is in
+        // treatment, for what, with whom, and when they were last seen.
+        $treatments = QueryBuilder::for(
+            $scoped()
+                ->with(['patient', 'practitioner', 'center', 'statuses', 'diseases'])
+                ->withCount('sessions')
+                ->withMax('sessions', 'session_date')
+        )
             ->allowedFilters(
                 AllowedFilter::exact('patient_id'),
                 AllowedFilter::exact('center_id'),
+                AllowedFilter::exact('practitioner_id'),
+                // Ongoing treatments by default: that is what the team follows day to day.
+                AllowedFilter::callback('status', $statusFilter)->default('ongoing'),
+                AllowedFilter::callback('search', function ($query, $value) {
+                    $query->whereHas('patient', function ($query) use ($value) {
+                        $query->where('first_name', 'like', "%{$value}%")
+                            ->orWhere('last_name', 'like', "%{$value}%")
+                            ->orWhere('patient_number', 'like', "%{$value}%");
+                    });
+                }),
             )
-            ->allowedSorts('started_at', 'created_at')
+            ->allowedSorts('started_at', 'created_at', 'sessions_max_session_date')
             ->defaultSort('-created_at')
             ->paginate($request->integer('per_page', 15))
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (Treatment $treatment): array => [
+                'id' => $treatment->id,
+                'center_id' => $treatment->center_id,
+                'status' => $treatment->currentStatusName(),
+                'closure_reason' => $treatment->closure_reason,
+                'started_at' => $treatment->started_at,
+                'ended_at' => $treatment->ended_at,
+                'sessions_count' => $treatment->sessions_count,
+                'last_session_on' => $treatment->sessions_max_session_date,
+                'patient' => $treatment->patient?->only(['id', 'first_name', 'last_name']),
+                'practitioner' => $treatment->practitioner?->only(['id', 'first_name', 'last_name']),
+                'center' => $treatment->center?->only(['id', 'name']),
+                // Mapped by hand: a translatable label would otherwise be
+                // sent as its raw {fr, en} JSON (see CLAUDE.md).
+                'diseases' => $treatment->diseases->map(fn (Disease $disease): array => [
+                    'id' => $disease->id,
+                    'code' => $disease->code,
+                    'label' => $disease->label,
+                ])->values(),
+            ]);
+
+        $statusCounts = collect(['ongoing', 'draft', 'confirmed', 'closed'])
+            ->mapWithKeys(fn (string $status) => [$status => $scoped()->currentStatus($status)->count()]);
 
         return Inertia::render('Admin/Treatments/Index', [
             'treatments' => $treatments,
             'filters' => (object) $request->only(['filter', 'sort']),
+            'status_counts' => $statusCounts,
+            'practitioners' => $this->practitionerOptions($request),
             'centers' => $this->centerOptions($request),
             // Same reasoning as PatientController::index() — a
             // read-only practitioner sees this list without create

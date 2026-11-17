@@ -110,8 +110,9 @@ function catalogKeyFor(line: SuggestedLine, session?: BillableSession): string {
     return props.catalog.some((entry) => entry.key === key) ? key : FREE;
 }
 
+/** No service yet: the user picks one from the catalog, or "Free line". */
 function blankLine(): DraftLine {
-    return { key: nextKey++, service: FREE, label: '', description: '', quantity: 1, unit_price: 0, treatment_session_id: null, care_item_id: null, care_category_id: null };
+    return { key: nextKey++, service: props.catalog.length ? '' : FREE, label: '', description: '', quantity: 1, unit_price: 0, treatment_session_id: null, care_item_id: null, care_category_id: null };
 }
 
 /** Picking a service fills label and price; the price stays editable. */
@@ -125,6 +126,9 @@ function onServiceChange(line: DraftLine, key: string) {
     if (entry) {
         line.label = entry.label;
         line.unit_price = entry.unit_price;
+    } else {
+        // Back to a free line: don't keep the previous service's name.
+        line.label = '';
     }
 }
 
@@ -272,6 +276,8 @@ async function submit() {
                             option-label="label"
                             option-value="value"
                             :label="t('billing.service')"
+                            :placeholder="t('billing.chooseService')"
+                            :error="line.service === '' && lineError(index, 'label') ? t('billing.chooseServiceFirst') : undefined"
                             searchable
                             @update:model-value="onServiceChange(line, String($event ?? FREE))"
                         />

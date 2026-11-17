@@ -50,7 +50,7 @@ const items = computed(() =>
         :clearable="showClear"
         :multiple="multiple"
         :disabled="disabled"
-        chips
+        :chips="multiple"
         :error-messages="error ?? undefined"
         variant="outlined"
         hide-details="auto"

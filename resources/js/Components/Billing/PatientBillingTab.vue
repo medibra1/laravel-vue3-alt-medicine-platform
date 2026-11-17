@@ -73,11 +73,23 @@ const expanded = ref<number[]>([]);
 const money = (amount: number, currency?: string) => formatMoney(amount, currency ?? data.value?.currency ?? 'EUR', locale.value);
 
 const activeInvoices = computed(() => (data.value?.invoices ?? []).filter((invoice) => invoice.status !== 'cancelled'));
-const totals = computed(() => ({
-    billed: activeInvoices.value.reduce((sum, invoice) => sum + invoice.total - invoice.credited_total, 0),
-    paid: activeInvoices.value.reduce((sum, invoice) => sum + invoice.paid_total, 0),
-    due: activeInvoices.value.reduce((sum, invoice) => sum + invoice.balance, 0),
-}));
+// One figure per currency: amounts of different currencies never add up.
+const totals = computed(() => {
+    const byCurrency = new Map<string, { currency: string; billed: number; paid: number; due: number }>();
+
+    for (const invoice of activeInvoices.value) {
+        const row = byCurrency.get(invoice.currency) ?? { currency: invoice.currency, billed: 0, paid: 0, due: 0 };
+        row.billed += invoice.total - invoice.credited_total;
+        row.paid += invoice.paid_total;
+        row.due += invoice.balance;
+        byCurrency.set(invoice.currency, row);
+    }
+
+    const rows = [...byCurrency.values()];
+
+    return rows.length ? rows : [{ currency: data.value?.currency ?? 'EUR', billed: 0, paid: 0, due: 0 }];
+});
+const anyDue = computed(() => totals.value.some((row) => row.due > 0));
 
 async function load() {
     loading.value = true;
@@ -141,19 +153,19 @@ onMounted(load);
                 <v-col cols="12" sm="4">
                     <div class="billing-figure">
                         <span class="text-caption text-medium-emphasis">{{ t('billing.billed') }}</span>
-                        <span class="billing-figure__value app-tabular">{{ money(totals.billed) }}</span>
+                        <span v-for="row in totals" :key="row.currency" class="billing-figure__value app-tabular">{{ money(row.billed, row.currency) }}</span>
                     </div>
                 </v-col>
                 <v-col cols="12" sm="4">
                     <div class="billing-figure">
                         <span class="text-caption text-medium-emphasis">{{ t('billing.totalPaid') }}</span>
-                        <span class="billing-figure__value app-tabular text-success">{{ money(totals.paid) }}</span>
+                        <span v-for="row in totals" :key="row.currency" class="billing-figure__value app-tabular text-success">{{ money(row.paid, row.currency) }}</span>
                     </div>
                 </v-col>
                 <v-col cols="12" sm="4">
-                    <div class="billing-figure" :class="{ 'billing-figure--due': totals.due > 0 }">
+                    <div class="billing-figure" :class="{ 'billing-figure--due': anyDue }">
                         <span class="text-caption text-medium-emphasis">{{ t('billing.totalDue') }}</span>
-                        <span class="billing-figure__value app-tabular">{{ money(totals.due) }}</span>
+                        <span v-for="row in totals" :key="row.currency" class="billing-figure__value app-tabular">{{ money(row.due, row.currency) }}</span>
                     </div>
                 </v-col>
             </v-row>

@@ -14,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Spatie\ModelStatus\HasStatuses;
 
+/**
+ * @property-read string|null $sessions_max_session_date Only when loaded with withMax('sessions', 'session_date').
+ */
 class Treatment extends Model
 {
     use HasFactory, HasStatuses;
