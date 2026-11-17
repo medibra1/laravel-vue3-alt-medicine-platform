@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -12,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -26,7 +28,7 @@ interface DiseaseCategory {
     id: number;
     type_option_id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
     icon: string | null;
     order: number;
     active: boolean;
@@ -73,13 +75,13 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'label', header: 'Libellé (FR)' },
-    { field: 'icon', header: 'Icône' },
-    { field: 'type', header: 'Type' },
-    { field: 'order', header: 'Ordre', sortable: true },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'label', header: tr('ui.libelleFr') },
+    { field: 'icon', header: tr('ui.icone') },
+    { field: 'type', header: tr('ui.type') },
+    { field: 'order', header: tr('ui.ordre'), sortable: true },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 const isCreating = ref(false);
@@ -88,7 +90,7 @@ const editingCategory = ref<DiseaseCategory | null>(null);
 const createForm = useForm({
     type_option_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     icon: null as string | null,
     order: 0,
     active: true,
@@ -114,7 +116,7 @@ function submitCreate() {
 const editForm = useForm({
     type_option_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     icon: null as string | null,
     order: 0,
     active: true,
@@ -143,7 +145,7 @@ function submitEdit() {
 }
 
 function destroy(category: DiseaseCategory) {
-    if (!confirm(`Supprimer la catégorie ${category.label.fr} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(category.label) }))) {
         return;
     }
 
@@ -152,12 +154,12 @@ function destroy(category: DiseaseCategory) {
 </script>
 
 <template>
-    <Head title="Catégories de maladies" />
+    <Head :title="$t('ui.categoriesDeMaladies')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Catégories de maladies" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Catégories de maladies' }]">
+        <AppPageHeader :title="$t('ui.categoriesDeMaladies')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.categoriesDeMaladies') }]">
             <template #actions>
-                <AppButton label="Nouvelle catégorie" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouvelleCategorie')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -167,11 +169,11 @@ function destroy(category: DiseaseCategory) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (code, libellé)"
+                        :label="$t('ui.rechercherCodeLibelle')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -185,23 +187,23 @@ function destroy(category: DiseaseCategory) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label.fr }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
                     <template #column-icon="{ item }">
                         <v-icon v-if="item.icon" :icon="item.icon" />
                         <span v-else class="text-medium-emphasis">—</span>
                     </template>
                     <template #column-type="{ item }">{{ item.type?.label }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -212,23 +214,23 @@ function destroy(category: DiseaseCategory) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouvelle catégorie">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouvelleCategorie')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="createForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.label"
-                    label="Libellé"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppInputText
                     v-model="createForm.icon"
-                    label="Icône (nom mdi, ex. mdi-stomach)"
+                    :label="$t('ui.iconeNomMdiExMdiStomach')"
                     :error="createForm.errors.icon"
                 />
 
@@ -237,53 +239,53 @@ function destroy(category: DiseaseCategory) {
                     :options="types"
                     option-label="label"
                     option-value="id"
-                    label="Type"
-                    placeholder="Choisir un type"
+                    :label="$t('ui.type')"
+                    :placeholder="$t('ui.choisirUnType')"
                     :error="createForm.errors.type_option_id"
                 />
 
                 <AppInputNumber
                     v-model="createForm.order"
-                    label="Ordre"
+                    :label="$t('ui.ordre')"
                     :min="0"
                     :error="createForm.errors.order"
                 />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingCategory !== null"
-            header="Modifier la catégorie"
+            :header="$t('ui.modifierLaCategorie')"
             @update:visible="editingCategory = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="editForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.label"
-                    label="Libellé"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppInputText
                     v-model="editForm.icon"
-                    label="Icône (nom mdi, ex. mdi-stomach)"
+                    :label="$t('ui.iconeNomMdiExMdiStomach')"
                     :error="editForm.errors.icon"
                 />
 
@@ -292,27 +294,27 @@ function destroy(category: DiseaseCategory) {
                     :options="types"
                     option-label="label"
                     option-value="id"
-                    label="Type"
+                    :label="$t('ui.type')"
                     :error="editForm.errors.type_option_id"
                 />
 
                 <AppInputNumber
                     v-model="editForm.order"
-                    label="Ordre"
+                    :label="$t('ui.ordre')"
                     :min="0"
                     :error="editForm.errors.order"
                 />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingCategory = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

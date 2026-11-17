@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, {
@@ -67,11 +68,11 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'patient_number', header: 'N° patient', sortable: true },
-    { field: 'first_name', header: 'Prénom', sortable: true },
-    { field: 'last_name', header: 'Nom', sortable: true },
-    { field: 'center', header: 'Centre' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'patient_number', header: tr('ui.nPatient'), sortable: true },
+    { field: 'first_name', header: tr('ui.prenom'), sortable: true },
+    { field: 'last_name', header: tr('ui.nom'), sortable: true },
+    { field: 'center', header: tr('ui.centre') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 function fullPatientNumber(patient: Patient): string {
@@ -85,7 +86,7 @@ function fullPatientNumber(patient: Patient): string {
 }
 
 function destroy(patient: Patient) {
-    if (!confirm(`Supprimer le patient ${patient.first_name ?? ''} ${patient.last_name ?? ''} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: `${patient.first_name ?? ''} ${patient.last_name ?? ''}`.trim() }))) {
         return;
     }
 
@@ -94,13 +95,13 @@ function destroy(patient: Patient) {
 </script>
 
 <template>
-    <Head title="Patients" />
+    <Head :title="$t('ui.patients')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Patients" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Patients' }]">
+        <AppPageHeader :title="$t('ui.patients')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.patients') }]">
             <template v-if="can_create" #actions>
                 <Link :href="route('admin.patients.create')">
-                    <AppButton label="Nouveau patient" icon="mdi-plus" as="span" />
+                    <AppButton :label="$t('ui.nouveauPatient')" icon="mdi-plus" as="span" />
                 </Link>
             </template>
         </AppPageHeader>
@@ -111,11 +112,11 @@ function destroy(patient: Patient) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (prénom, nom)"
+                        :label="$t('ui.rechercherPrenomNom')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -129,13 +130,17 @@ function destroy(patient: Patient) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-patient_number="{ item }">{{ fullPatientNumber(item) }}</template>
+                    <template #column-patient_number="{ item }">
+                        <Link :href="route('admin.patients.edit', item.id)" class="font-weight-bold text-primary text-decoration-none app-tabular">
+                            {{ fullPatientNumber(item) }}
+                        </Link>
+                    </template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <Link :href="route('admin.patients.edit', item.id)">
                                 <AppButton
-                                    :label="can_create ? 'Modifier' : 'Voir'"
+                                    :label="can_create ? $t('common.edit') : $t('common.view')"
                                     severity="secondary"
                                     size="small"
                                     as="span"
@@ -143,7 +148,7 @@ function destroy(patient: Patient) {
                             </Link>
                             <AppButton
                                 v-if="can_create"
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"

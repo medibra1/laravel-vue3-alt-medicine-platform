@@ -26,8 +26,11 @@ class ManagerAssignedNotification extends Notification
     {
         return [
             'type' => 'manager_assigned',
-            'title' => __('Nouveau centre géré'),
-            'message' => __('Vous avez été ajouté comme manager sur :center.', ['center' => $this->center->name]),
+            // Translation keys + params, translated when displayed (see
+            // NotificationResource) so the reader's language applies.
+            'title' => 'notifications.manager_assigned.title',
+            'message' => 'notifications.manager_assigned.message',
+            'params' => ['center' => $this->center->name],
             'action_url' => route('admin.patients.index'),
         ];
     }

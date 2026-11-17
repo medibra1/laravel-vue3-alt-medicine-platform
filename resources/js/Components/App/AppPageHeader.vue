@@ -11,9 +11,11 @@ const props = withDefaults(
     defineProps<{
         title: string;
         breadcrumbs?: AppBreadcrumbItem[];
+        subtitle?: string;
     }>(),
     {
         breadcrumbs: () => [],
+        subtitle: undefined,
     },
 );
 
@@ -27,13 +29,9 @@ const items = computed(() =>
 </script>
 
 <template>
-    <div class="d-flex flex-column flex-md-row flex-wrap align-md-center justify-space-between ga-3 mb-4">
-        <div class="d-flex flex-column ga-1">
-            <div class="d-flex align-center ga-2">
-                <h1 class="text-h5 text-md-h4 font-weight-bold mb-0">{{ title }}</h1>
-                <slot name="title-suffix" />
-            </div>
-            <v-breadcrumbs v-if="items.length" :items="items" density="compact" class="pa-0">
+    <div class="d-flex flex-column flex-md-row flex-wrap align-md-end justify-space-between ga-4 mb-6">
+        <div class="d-flex flex-column ga-1" style="min-width: 0">
+            <v-breadcrumbs v-if="items.length" :items="items" density="compact" class="pa-0 text-body-2 text-medium-emphasis">
                 <template #item="{ item }">
                     <v-breadcrumbs-item
                         :title="item.title"
@@ -42,7 +40,13 @@ const items = computed(() =>
                         @click="item.href && handleNavClick($event, item.href)"
                     />
                 </template>
+                <template #divider><v-icon icon="mdi-chevron-right" size="16" class="app-flip-rtl" /></template>
             </v-breadcrumbs>
+            <div class="d-flex align-center flex-wrap ga-3">
+                <h1 class="app-page-title">{{ title }}</h1>
+                <slot name="title-suffix" />
+            </div>
+            <p v-if="subtitle" class="text-body-2 text-medium-emphasis mb-0">{{ subtitle }}</p>
         </div>
 
         <div v-if="$slots.actions" class="d-flex flex-wrap ga-2">
@@ -50,3 +54,17 @@ const items = computed(() =>
         </div>
     </div>
 </template>
+
+<style scoped>
+.app-page-title {
+    margin: 0;
+    font-size: clamp(1.5rem, 2.2vw, 1.9rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+}
+
+:global([dir='rtl'] .app-flip-rtl) {
+    transform: scaleX(-1);
+}
+</style>

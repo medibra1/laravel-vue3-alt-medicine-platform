@@ -26,51 +26,39 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Reset Password" />
+    <GuestLayout :title="$t('auth.reset.title')" :subtitle="$t('auth.reset.subtitle')">
+        <Head :title="$t('auth.reset.title')" />
 
-        <form @submit.prevent="submit">
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Email</label>
-                <AppInputText
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    autofocus
-                    autocomplete="username"
-                    :error="form.errors.email"
-                />
-            </div>
+        <form class="d-flex flex-column ga-5" @submit.prevent="submit">
+            <AppInputText
+                id="email"
+                v-model="form.email"
+                type="email"
+                :label="$t('common.email')"
+                autocomplete="username"
+                :error="form.errors.email"
+            />
 
-            <div class="mt-4 flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Password</label>
-                <AppInputText
-                    id="password"
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="new-password"
-                    :error="form.errors.password"
-                />
-            </div>
+            <AppInputText
+                id="password"
+                v-model="form.password"
+                type="password"
+                :label="$t('auth.newPassword')"
+                autofocus
+                autocomplete="new-password"
+                :error="form.errors.password"
+            />
 
-            <div class="mt-4 flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Confirm Password</label>
-                <AppInputText
-                    id="password_confirmation"
-                    v-model="form.password_confirmation"
-                    type="password"
-                    autocomplete="new-password"
-                    :error="form.errors.password_confirmation"
-                />
-            </div>
+            <AppInputText
+                id="password_confirmation"
+                v-model="form.password_confirmation"
+                type="password"
+                :label="$t('auth.passwordConfirm')"
+                autocomplete="new-password"
+                :error="form.errors.password_confirmation"
+            />
 
-            <div class="mt-4 flex items-center justify-end">
-                <AppButton
-                    type="submit"
-                    label="Reset Password"
-                    :loading="form.processing"
-                />
-            </div>
+            <AppButton type="submit" size="large" block :label="$t('auth.reset.submit')" :loading="form.processing" />
         </form>
     </GuestLayout>
 </template>

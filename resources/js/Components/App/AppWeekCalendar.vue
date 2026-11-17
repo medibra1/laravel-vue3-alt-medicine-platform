@@ -119,7 +119,7 @@ function onSlotClick(column: AppCalendarColumn, hour: number, event: MouseEvent)
                     {{ column.blockedLabel }}
                 </v-chip>
                 <v-chip v-if="column.closedLabel" size="x-small" color="error" variant="tonal" prepend-icon="mdi-store-off-outline" class="ml-1">
-                    Fermé — {{ column.closedLabel }}
+                    {{ $t('misc.closedLabel', { label: column.closedLabel }) }}
                 </v-chip>
             </div>
         </div>

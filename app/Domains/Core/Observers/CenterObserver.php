@@ -22,7 +22,7 @@ class CenterObserver
 
         if ($exists) {
             throw ValidationException::withMessages([
-                'code' => __('Ce code centre est déjà utilisé pour ce pays.'),
+                'code' => __('centers.code_taken'),
             ]);
         }
     }

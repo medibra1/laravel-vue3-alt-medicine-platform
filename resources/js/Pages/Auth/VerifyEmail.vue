@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import AppButton from '@/Components/App/AppButton.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps<{
     status?: string;
@@ -14,45 +14,21 @@ const submit = () => {
     form.post(route('verification.send'));
 };
 
-const verificationLinkSent = computed(
-    () => props.status === 'verification-link-sent',
-);
+const verificationLinkSent = computed(() => props.status === 'verification-link-sent');
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Email Verification" />
+    <GuestLayout :title="$t('auth.verify.title')" :subtitle="$t('auth.verify.subtitle')">
+        <Head :title="$t('auth.verify.title')" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            Thanks for signing up! Before getting started, could you verify your
-            email address by clicking on the link we just emailed to you? If you
-            didn't receive the email, we will gladly send you another.
-        </div>
+        <v-alert v-if="verificationLinkSent" type="success" variant="tonal" class="mb-6">{{ $t('auth.verify.sent') }}</v-alert>
 
-        <div
-            class="mb-4 text-sm font-medium text-green-600"
-            v-if="verificationLinkSent"
-        >
-            A new verification link has been sent to the email address you
-            provided during registration.
-        </div>
+        <form class="d-flex flex-column ga-4" @submit.prevent="submit">
+            <AppButton type="submit" size="large" block :label="$t('auth.verify.resend')" :loading="form.processing" />
 
-        <form @submit.prevent="submit">
-            <div class="mt-4 flex items-center justify-between">
-                <AppButton
-                    type="submit"
-                    label="Resend Verification Email"
-                    :loading="form.processing"
-                />
-
-                <Link
-                    :href="route('logout')"
-                    method="post"
-                    as="button"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >Log Out</Link
-                >
-            </div>
+            <Link :href="route('logout')" method="post" as="button" class="text-body-2 font-weight-medium text-primary text-center">
+                {{ $t('auth.verify.logout') }}
+            </Link>
         </form>
     </GuestLayout>
 </template>

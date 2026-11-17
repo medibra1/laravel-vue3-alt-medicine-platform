@@ -1,0 +1,389 @@
+<?php
+
+namespace App\Domains\Reporting\Services;
+
+use App\Domains\Auth\Models\User;
+use App\Domains\Billing\Models\Invoice;
+use App\Domains\Billing\Models\Payment;
+use App\Domains\Core\Models\Center;
+use App\Domains\Core\Support\Modules;
+use App\Domains\Patients\Models\Disease;
+use App\Domains\Patients\Models\Patient;
+use App\Domains\Patients\Models\Treatment;
+use App\Domains\Patients\Models\TreatmentSession;
+use App\Domains\Practitioners\Models\Practitioner;
+use App\Domains\Scheduling\Models\Appointment;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Everything the dashboard shows, for one center or (centerId null) all
+ * of them. Each block is only computed when its module is enabled.
+ * Month bucketing is done in PHP so the same code runs on sqlite and MySQL.
+ */
+class DashboardStats
+{
+    private const MONTHS = 12;
+
+    /**
+     * @param  array<int, string>  $modules
+     * @return array<string, mixed>
+     */
+    public function handle(User $user, ?int $centerId, array $modules): array
+    {
+        $has = fn (string $module): bool => in_array($module, $modules, true);
+        $months = $this->months();
+        $data = ['months' => $months->map(fn (Carbon $month) => $month->format('Y-m'))->all()];
+
+        if ($has(Modules::PATIENTS)) {
+            $patients = fn () => Patient::query()->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId));
+            $thisMonth = $patients()->where('created_at', '>=', now()->startOfMonth())->count();
+            $lastMonth = $patients()->whereBetween('created_at', [now()->subMonthNoOverflow()->startOfMonth(), now()->startOfMonth()])->count();
+
+            $data['patients'] = [
+                'total' => $patients()->count(),
+                'new_this_month' => $thisMonth,
+                'new_last_month' => $lastMonth,
+                'series' => $this->bucket($patients()->where('created_at', '>=', $months->first())->pluck('created_at'), $months),
+                'recent' => $patients()->latest()->limit(5)->get(['id', 'first_name', 'last_name', 'created_at'])
+                    ->map(fn (Patient $patient) => [
+                        'id' => $patient->id,
+                        'name' => trim($patient->first_name.' '.$patient->last_name) ?: '—',
+                        'created_at' => $patient->created_at,
+                    ])->all(),
+            ];
+        }
+
+        if ($has(Modules::TREATMENTS)) {
+            $treatments = fn () => Treatment::query()->when($centerId, fn ($query) => $query->where('center_id', $centerId));
+            $sessions = fn () => TreatmentSession::query()
+                ->when($centerId, fn ($query) => $query->whereHas('treatment', fn ($query) => $query->where('center_id', $centerId)));
+
+            $data['treatments'] = [
+                'ongoing' => $treatments()->currentStatus('ongoing')->count(),
+                'closed' => $treatments()->currentStatus('closed')->count(),
+                'closure_reasons' => $treatments()->currentStatus('closed')->whereNotNull('closure_reason')
+                    ->groupBy('closure_reason')->selectRaw('closure_reason, COUNT(*) as total')->pluck('total', 'closure_reason')->all(),
+                'sessions_this_month' => $sessions()->where('session_date', '>=', now()->startOfMonth()->toDateString())->count(),
+                'sessions_last_month' => $sessions()
+                    ->where('session_date', '>=', now()->subMonthNoOverflow()->startOfMonth()->toDateString())
+                    ->where('session_date', '<', now()->startOfMonth()->toDateString())->count(),
+                'sessions_series' => $this->bucket($sessions()->where('session_date', '>=', $months->first()->toDateString())->pluck('session_date'), $months),
+                'outcomes' => $this->outcomes($centerId),
+                'top_diseases' => $this->topDiseases($centerId),
+            ];
+        }
+
+        if ($has(Modules::SCHEDULING)) {
+            $appointments = fn () => Appointment::query()->when($centerId, fn ($query) => $query->where('center_id', $centerId));
+            $monthStatuses = $appointments()->where('starts_at', '>=', now()->startOfMonth())->where('starts_at', '<', now()->startOfMonth()->addMonth())
+                ->groupBy('status')->selectRaw('status, COUNT(*) as total')->pluck('total', 'status');
+
+            $data['appointments'] = [
+                'today' => $appointments()->whereBetween('starts_at', [now()->startOfDay(), now()->endOfDay()])->where('status', '!=', 'cancelled')->count(),
+                'next_7_days' => $appointments()->where('status', 'scheduled')->whereBetween('starts_at', [now(), now()->addDays(7)])->count(),
+                'month_statuses' => $monthStatuses->all(),
+                'upcoming' => $appointments()->where('status', 'scheduled')->where('starts_at', '>=', now()->startOfDay())
+                    ->with(['patient', 'practitioner'])->orderBy('starts_at')->limit(6)->get()
+                    ->map(fn (Appointment $appointment) => [
+                        'id' => $appointment->id,
+                        'starts_at' => $appointment->starts_at,
+                        'duration_minutes' => $appointment->duration_minutes,
+                        'modality' => $appointment->modality,
+                        'patient_id' => $appointment->patient_id,
+                        'patient' => trim($appointment->patient->first_name.' '.$appointment->patient->last_name),
+                        'practitioner_id' => $appointment->practitioner_id,
+                        'practitioner' => trim($appointment->practitioner->first_name.' '.$appointment->practitioner->last_name),
+                    ])->all(),
+            ];
+        }
+
+        if ($has(Modules::PRACTITIONERS)) {
+            $data['practitioners'] = [
+                'total' => Practitioner::query()->when($centerId, fn ($query) => $query->where('center_id', $centerId))->count(),
+            ];
+        }
+
+        if ($has(Modules::BILLING)) {
+            $data['billing'] = $this->billing($user, $centerId, $months);
+        }
+
+        if ($centerId === null && $user->isGlobalAdmin()) {
+            $data['centers'] = Center::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'city'])
+                ->map(fn (Center $center) => [
+                    'id' => $center->id,
+                    'name' => $center->name,
+                    'city' => $center->city,
+                    'patients' => Patient::query()->where('intake_center_id', $center->id)->count(),
+                    'ongoing_treatments' => Treatment::query()->where('center_id', $center->id)->currentStatus('ongoing')->count(),
+                    'practitioners' => Practitioner::query()->where('center_id', $center->id)->count(),
+                ])->all();
+        }
+
+        return $data;
+    }
+
+    /** @return Collection<int, Carbon> */
+    private function months(): Collection
+    {
+        return collect(range(self::MONTHS - 1, 0))->map(fn (int $ago) => now()->startOfMonth()->subMonthsNoOverflow($ago));
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $dates
+     * @param  Collection<int, Carbon>  $months
+     * @return array<int, int>
+     */
+    private function bucket(Collection $dates, Collection $months): array
+    {
+        $counts = $dates->countBy(fn ($date) => Carbon::parse($date)->format('Y-m'));
+
+        return $months->map(fn (Carbon $month) => (int) ($counts[$month->format('Y-m')] ?? 0))->all();
+    }
+
+    /**
+     * Latest known outcome of every (treatment, disease) pair.
+     *
+     * @return array<string, int>
+     */
+    private function outcomes(?int $centerId): array
+    {
+        $rows = DB::table('treatment_session_disease_progress as progress')
+            ->join('treatment_sessions as sessions', 'sessions.id', '=', 'progress.treatment_session_id')
+            ->join('treatments', 'treatments.id', '=', 'sessions.treatment_id')
+            ->when($centerId, fn ($query) => $query->where('treatments.center_id', $centerId))
+            ->orderBy('sessions.session_date')
+            ->orderBy('sessions.id')
+            ->get(['sessions.treatment_id', 'progress.disease_id', 'progress.outcome']);
+
+        return $rows
+            ->keyBy(fn ($row) => $row->treatment_id.'-'.$row->disease_id) // later rows win
+            ->countBy('outcome')
+            ->all();
+    }
+
+    /** @return array<int, array{label: string, total: int}> */
+    private function topDiseases(?int $centerId): array
+    {
+        $totals = DB::table('treatment_diseases')
+            ->join('treatments', 'treatments.id', '=', 'treatment_diseases.treatment_id')
+            ->when($centerId, fn ($query) => $query->where('treatments.center_id', $centerId))
+            ->groupBy('treatment_diseases.disease_id')
+            ->selectRaw('treatment_diseases.disease_id as disease_id, COUNT(*) as total')
+            ->orderByDesc('total')
+            ->limit(6)
+            ->pluck('total', 'disease_id');
+
+        $diseases = Disease::query()->whereIn('id', $totals->keys())->get()->keyBy('id');
+
+        return $totals->map(fn ($total, $diseaseId) => [
+            'label' => (string) ($diseases[$diseaseId]->label ?? $diseaseId),
+            'total' => (int) $total,
+        ])->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, Carbon>  $months
+     * @return array<string, mixed>
+     */
+    private function billing(User $user, ?int $centerId, Collection $months): array
+    {
+        // Expenses (and so the net result) are the manager's: a
+        // practitioner bills and collects but never sees them.
+        $seesExpenses = $user->isGlobalAdmin() || $user->can('expenses.viewAny');
+        $today = now()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+
+        $payments = Payment::query()
+            ->join('billing_invoices', 'billing_invoices.id', '=', 'billing_payments.invoice_id')
+            ->when($centerId, fn ($query) => $query->where('billing_invoices.center_id', $centerId))
+            ->where('billing_payments.paid_on', '>=', $months->first()->toDateString())
+            ->get(['billing_payments.amount', 'billing_payments.paid_on', 'billing_payments.method', 'billing_invoices.currency']);
+
+        $monthKey = now()->format('Y-m');
+        $lastMonthKey = now()->subMonthNoOverflow()->format('Y-m');
+
+        $byCurrency = $payments->groupBy('currency')->map(function (Collection $rows, string $currency) use ($months, $monthKey, $lastMonthKey) {
+            $perMonth = $rows->groupBy(fn ($row) => Carbon::parse($row->paid_on)->format('Y-m'))->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2));
+
+            return [
+                'currency' => $currency,
+                'collected_this_month' => (float) ($perMonth[$monthKey] ?? 0),
+                'collected_last_month' => (float) ($perMonth[$lastMonthKey] ?? 0),
+                'series' => $months->map(fn (Carbon $month) => (float) ($perMonth[$month->format('Y-m')] ?? 0))->all(),
+                'methods' => $rows->filter(fn ($row) => Carbon::parse($row->paid_on)->format('Y-m') === $monthKey)
+                    ->groupBy('method')->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2))->all(),
+            ];
+        });
+
+        $outstanding = Invoice::query()->active()
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereRaw('total - credited_total - paid_total > 0')
+            ->groupBy('currency')->selectRaw('currency, SUM(total - credited_total - paid_total) as amount, COUNT(*) as invoices')
+            ->get();
+
+        $scoped = fn () => DB::table('billing_invoices')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereNull('cancelled_at');
+
+        // Scheduled amounts whose date has passed and are still unpaid
+        // (payments settle the oldest instalment first).
+        $overdueSql = '(SELECT COALESCE(SUM(i.amount), 0) FROM billing_invoice_installments i WHERE i.invoice_id = billing_invoices.id AND i.due_on < ?)';
+        $overdue = $scoped()->whereRaw($overdueSql.' > paid_total', [$today])
+            ->groupBy('currency')->selectRaw('currency, SUM('.$overdueSql.' - paid_total) as amount', [$today])
+            ->pluck('amount', 'currency');
+
+        $discounts = $scoped()->where('issued_on', '>=', $monthStart)->where('discount_amount', '>', 0)
+            ->groupBy('currency')->selectRaw('currency, SUM(discount_amount) as amount')
+            ->pluck('amount', 'currency');
+
+        /** @var Collection<string, Collection<string, float>> $expenses currency → month → amount */
+        $expenses = ! $seesExpenses ? collect() : DB::table('billing_expenses')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->where('spent_on', '>=', $months->first()->toDateString())
+            ->get(['amount', 'spent_on', 'currency'])
+            ->groupBy('currency')
+            ->map(fn (Collection $rows) => $rows
+                ->groupBy(fn ($row) => Carbon::parse($row->spent_on)->format('Y-m'))
+                ->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2)));
+
+        // A currency with unpaid invoices, discounts or expenses but no
+        // payment yet still gets a row.
+        foreach ([...$outstanding->pluck('currency'), ...$overdue->keys(), ...$discounts->keys(), ...$expenses->keys()] as $currency) {
+            $currency = (string) $currency;
+
+            if (! $byCurrency->has($currency)) {
+                $byCurrency[$currency] = [
+                    'currency' => $currency,
+                    'collected_this_month' => 0.0,
+                    'collected_last_month' => 0.0,
+                    'series' => $months->map(fn () => 0.0)->all(),
+                    'methods' => [],
+                ];
+            }
+        }
+
+        $outstandingByCurrency = $outstanding->pluck('amount', 'currency');
+
+        return [
+            'shows_expenses' => $seesExpenses,
+            'currencies' => $byCurrency->map(function (array $row) use ($outstandingByCurrency, $overdue, $discounts, $expenses, $seesExpenses, $months, $monthKey, $lastMonthKey) {
+                $currency = $row['currency'];
+                $row += [
+                    'outstanding' => round((float) ($outstandingByCurrency[$currency] ?? 0), 2),
+                    'overdue' => round((float) ($overdue[$currency] ?? 0), 2),
+                    'discounts_this_month' => round((float) ($discounts[$currency] ?? 0), 2),
+                ];
+
+                if (! $seesExpenses) {
+                    return $row;
+                }
+
+                $perMonth = $expenses[$currency] ?? collect();
+                $spent = (float) ($perMonth[$monthKey] ?? 0);
+
+                return $row + [
+                    'expenses_this_month' => $spent,
+                    'expenses_last_month' => (float) ($perMonth[$lastMonthKey] ?? 0),
+                    'expense_series' => $months->map(fn (Carbon $month) => (float) ($perMonth[$month->format('Y-m')] ?? 0))->all(),
+                    // Cash basis: what came in minus what went out.
+                    'net_this_month' => round($row['collected_this_month'] - $spent, 2),
+                ];
+            })->values()->all(),
+            'unpaid_invoices' => Invoice::query()->active()->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+                ->whereRaw('paid_total < total - credited_total')->count(),
+        ];
+    }
+
+    /**
+     * Key figures of one day, for whoever runs the center (managers and
+     * global admins): takings, money out, what was billed, activity.
+     * Amounts are per currency, never added across currencies.
+     *
+     * @param  array<int, string>  $modules
+     * @return array<string, mixed>|null
+     */
+    public function day(User $user, ?int $centerId, array $modules, Carbon $date): ?array
+    {
+        if (! $user->isGlobalAdmin() && ! $user->isManager()) {
+            return null;
+        }
+
+        $has = fn (string $module): bool => in_array($module, $modules, true);
+        $day = $date->toDateString();
+        $data = ['date' => $day, 'is_today' => $date->isToday()];
+
+        if ($has(Modules::PATIENTS)) {
+            $data['new_patients'] = DB::table('patients')
+                ->when($centerId, fn ($query) => $query->where('intake_center_id', $centerId))
+                ->whereDate('created_at', $day)->count();
+        }
+
+        if ($has(Modules::TREATMENTS)) {
+            $data['sessions'] = DB::table('treatment_sessions')
+                ->join('treatments', 'treatments.id', '=', 'treatment_sessions.treatment_id')
+                ->when($centerId, fn ($query) => $query->where('treatments.center_id', $centerId))
+                ->whereDate('treatment_sessions.session_date', $day)->count();
+        }
+
+        if ($has(Modules::SCHEDULING)) {
+            $data['appointments'] = DB::table('appointments')
+                ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+                ->where('status', '!=', 'cancelled')
+                ->whereDate('starts_at', $day)->count();
+        }
+
+        if (! $has(Modules::BILLING)) {
+            return $data;
+        }
+
+        $payments = DB::table('billing_payments')
+            ->join('billing_invoices', 'billing_invoices.id', '=', 'billing_payments.invoice_id')
+            ->when($centerId, fn ($query) => $query->where('billing_invoices.center_id', $centerId))
+            ->whereNull('billing_invoices.cancelled_at')
+            ->whereDate('billing_payments.paid_on', $day)
+            ->get(['billing_payments.amount', 'billing_payments.method', 'billing_invoices.currency'])
+            ->groupBy('currency');
+
+        $invoices = DB::table('billing_invoices')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereNull('cancelled_at')
+            ->whereDate('issued_on', $day)
+            ->groupBy('currency')
+            ->selectRaw('currency, SUM(total) as total, SUM(discount_amount) as discounts, COUNT(*) as invoices')
+            ->get()->keyBy('currency');
+
+        $expenses = DB::table('billing_expenses')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereDate('spent_on', $day)
+            ->groupBy('currency')->selectRaw('currency, SUM(amount) as amount')
+            ->pluck('amount', 'currency');
+
+        $data['currencies'] = collect([...$payments->keys(), ...$invoices->keys(), ...$expenses->keys()])
+            ->map(fn ($currency) => (string) $currency)->unique()->sort()->values()
+            ->map(function (string $currency) use ($payments, $invoices, $expenses) {
+                $rows = $payments[$currency] ?? collect();
+                $received = $rows->filter(fn ($row) => (float) $row->amount > 0);
+                $collected = round((float) $received->sum('amount'), 2);
+                $refunded = round(abs((float) $rows->filter(fn ($row) => (float) $row->amount < 0)->sum('amount')), 2);
+                $spent = round((float) ($expenses[$currency] ?? 0), 2);
+                $invoiced = $invoices[$currency] ?? null;
+
+                return [
+                    'currency' => $currency,
+                    'collected' => $collected,
+                    'payments' => $received->count(),
+                    'refunded' => $refunded,
+                    'methods' => $received->groupBy('method')->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2))->all(),
+                    'expenses' => $spent,
+                    'net' => round($collected - $refunded - $spent, 2),
+                    'invoiced' => round((float) ($invoiced->total ?? 0), 2),
+                    'invoices' => (int) ($invoiced->invoices ?? 0),
+                    'discounts' => round((float) ($invoiced->discounts ?? 0), 2),
+                ];
+            })->all();
+
+        return $data;
+    }
+}

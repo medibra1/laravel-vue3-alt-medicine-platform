@@ -53,7 +53,7 @@ class StorePractitionerRequest extends FormRequest
             // 'integer' before 'prohibited' is even meaningfully
             // evaluated (found via real manager browser testing: a 302
             // redirect-back that looked identical to a real success).
-            'center_id' => $this->user()->isSuperAdmin()
+            'center_id' => $this->user()->isGlobalAdmin()
                 ? ['required', 'integer', 'exists:centers,id']
                 : ['prohibited'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -103,19 +103,19 @@ class StorePractitionerRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if (! $this->user()->isSuperAdmin() && $this->centerId() === null) {
-                $validator->errors()->add('center_id', __('Vous ne gérez aucun centre.'));
+            if (! $this->user()->isGlobalAdmin() && $this->centerId() === null) {
+                $validator->errors()->add('center_id', __('access.no_managed_center'));
             }
 
             if ($this->boolean('grant_access') && $this->filled('email') && $this->accountStatus() === 'taken') {
-                $validator->errors()->add('email', __('Cet email est déjà utilisé par un autre compte.'));
+                $validator->errors()->add('email', __('users.email_taken'));
             }
         });
     }
 
     public function centerId(): ?int
     {
-        return $this->user()->isSuperAdmin()
+        return $this->user()->isGlobalAdmin()
             ? $this->integer('center_id')
             : getPermissionsTeamId();
     }

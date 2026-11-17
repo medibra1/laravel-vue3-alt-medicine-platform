@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppFileUpload from '@/Components/App/AppFileUpload.vue';
@@ -74,7 +75,7 @@ function upload(collection: 'identity' | 'medical' | 'other') {
 }
 
 function destroy(document: PatientDocument) {
-    if (!confirm(`Supprimer "${document.name}" ?`)) return;
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: document.name }))) return;
 
     router.delete(route('admin.patients.documents.destroy', [props.patientId, document.id]), {
         preserveScroll: true,
@@ -92,7 +93,7 @@ function formatSize(bytes: number): string {
 <template>
     <div class="d-flex flex-column ga-6">
         <!-- Identity document -->
-        <AppCard variant="elevated" elevation="1" title="Pièce d'identité">
+        <AppCard variant="elevated" elevation="1" :title="$t('ui.pieceDIdentite')">
             <v-card-text class="d-flex flex-column ga-3">
                 <div v-if="identity" class="d-flex align-center ga-3">
                     <v-avatar v-if="identity.thumb_url" size="56" rounded>
@@ -121,17 +122,17 @@ function formatSize(bytes: number): string {
                         @click="destroy(identity)"
                     />
                 </div>
-                <p v-else class="text-body-2 text-medium-emphasis mb-0">Aucune pièce d'identité enregistrée.</p>
+                <p v-else class="text-body-2 text-medium-emphasis mb-0">{{ $t('ui.aucunePieceDIdentiteEnregistree') }}</p>
 
                 <template v-if="!readonly">
                     <AppFileUpload
                         v-model="pendingFiles.identity"
                         :error="uploadErrors.identity"
-                        label="Remplacer par une nouvelle pièce d'identité"
+                        :label="$t('ui.remplacerParUneNouvellePieceD')"
                     />
                     <AppButton
                         v-if="pendingFiles.identity.length"
-                        label="Enregistrer"
+                        :label="$t('ui.enregistrer')"
                         :loading="uploading.identity"
                         @click="upload('identity')"
                     />
@@ -140,10 +141,10 @@ function formatSize(bytes: number): string {
         </AppCard>
 
         <!-- Medical documents -->
-        <AppCard variant="elevated" elevation="1" title="Documents médicaux">
+        <AppCard variant="elevated" elevation="1" :title="$t('ui.documentsMedicaux')">
             <v-card-text class="d-flex flex-column ga-3">
                 <p v-if="!medical.length" class="text-body-2 text-medium-emphasis mb-0">
-                    Aucun document médical enregistré.
+                    {{ $t('ui.aucunDocumentMedicalEnregistre') }}
                 </p>
 
                 <div v-for="document in medical" :key="document.id" class="d-flex align-center ga-3">
@@ -179,11 +180,11 @@ function formatSize(bytes: number): string {
                         v-model="pendingFiles.medical"
                         multiple
                         :error="uploadErrors.medical"
-                        label="Ajouter des documents médicaux (plusieurs photos d'un même document sont fusionnées en un seul PDF)"
+                        :label="$t('ui.ajouterDesDocumentsMedicauxPlusieursPhotos')"
                     />
                     <AppButton
                         v-if="pendingFiles.medical.length"
-                        label="Enregistrer"
+                        :label="$t('ui.enregistrer')"
                         :loading="uploading.medical"
                         @click="upload('medical')"
                     />
@@ -192,10 +193,10 @@ function formatSize(bytes: number): string {
         </AppCard>
 
         <!-- Other documents -->
-        <AppCard variant="elevated" elevation="1" title="Autres documents">
+        <AppCard variant="elevated" elevation="1" :title="$t('ui.autresDocuments')">
             <v-card-text class="d-flex flex-column ga-3">
                 <p v-if="!other.length" class="text-body-2 text-medium-emphasis mb-0">
-                    Aucun autre document enregistré.
+                    {{ $t('ui.aucunAutreDocumentEnregistre') }}
                 </p>
 
                 <div v-for="document in other" :key="document.id" class="d-flex align-center ga-3">
@@ -227,10 +228,10 @@ function formatSize(bytes: number): string {
                 </div>
 
                 <template v-if="!readonly">
-                    <AppFileUpload v-model="pendingFiles.other" multiple :error="uploadErrors.other" label="Ajouter un document" />
+                    <AppFileUpload v-model="pendingFiles.other" multiple :error="uploadErrors.other" :label="$t('ui.ajouterUnDocument')" />
                     <AppButton
                         v-if="pendingFiles.other.length"
-                        label="Enregistrer"
+                        :label="$t('ui.enregistrer')"
                         :loading="uploading.other"
                         @click="upload('other')"
                     />

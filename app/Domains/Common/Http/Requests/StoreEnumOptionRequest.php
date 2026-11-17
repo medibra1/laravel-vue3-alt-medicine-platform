@@ -33,6 +33,8 @@ class StoreEnumOptionRequest extends FormRequest
             'label' => ['required', 'array'],
             'label.fr' => ['required', 'string', 'max:255'],
             'label.en' => ['required', 'string', 'max:255'],
+            // Optional: falls back to French when absent.
+            'label.ar' => ['nullable', 'string', 'max:255'],
             'order' => ['sometimes', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
         ];

@@ -33,14 +33,39 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $accessibleCenterIds = $user?->accessibleCenterIds() ?? [];
+        // Resolved lazily, at response time: `center.access` (a route
+        // middleware, so it runs after this one) is what puts the active
+        // center in session on the very first request. Routes outside
+        // that group (profile...) fall back to the first accessible center.
+        $activeCenterId = function () use ($request, $accessibleCenterIds): ?int {
+            $selected = $request->session()->get('active_center_id');
+
+            return is_int($selected) && in_array($selected, $accessibleCenterIds, true)
+                ? $selected
+                : ($accessibleCenterIds[0] ?? null);
+        };
 
         return [
             ...parent::share($request),
+            'locale' => app()->getLocale(),
             'auth' => [
                 'user' => $user,
                 'is_super_admin' => $user?->isSuperAdmin() ?? false,
                 'is_admin' => $user?->isAdmin() ?? false,
                 'is_manager' => $user?->isManager() ?? false,
+                'is_global_admin' => $user?->isGlobalAdmin() ?? false,
+                'is_practitioner' => $user?->isPractitioner() ?? false,
+                'modules' => fn () => $user?->enabledModules($activeCenterId()) ?? [],
+                'active_center' => function () use ($activeCenterId) {
+                    $center = $activeCenterId() !== null ? Center::query()->find($activeCenterId()) : null;
+
+                    return $center ? [
+                        'id' => $center->id,
+                        'name' => $center->name,
+                        'currency' => $center->currency,
+                        'timezone' => $center->timezone,
+                    ] : null;
+                },
                 'unread_notifications_count' => $user?->unreadNotifications()->count() ?? 0,
                 // Only meaningful for someone with more than one
                 // accessible center (a multi-center practitioner, or —
@@ -52,7 +77,7 @@ class HandleInertiaRequests extends Middleware
                 'accessible_centers' => $accessibleCenterIds !== []
                     ? Center::query()->whereIn('id', $accessibleCenterIds)->orderBy('name')->get(['id', 'name'])
                     : [],
-                'active_center_id' => $accessibleCenterIds !== [] ? $request->session()->get('active_center_id') : null,
+                'active_center_id' => $activeCenterId,
             ],
             'flash' => [
                 // Set by PractitionerTimeOffController::store().

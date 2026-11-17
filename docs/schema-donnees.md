@@ -1713,3 +1713,59 @@ Les notions récurrentes décrivent un fonctionnement normal (on laisse les
 exceptions passer) ; les notions datées décrivent une absence réelle (on
 bloque). Aucune ne se déduit d'une autre. Aucune notion bloquante n'annule
 un RDV déjà pris — elle avertit, un humain tranche.
+
+
+## Modules, réglages par centre, facturation (2026-11-16)
+
+### `centers` — colonnes ajoutées
+- `currency` string(3), défaut `EUR` — devise des factures du centre.
+- `timezone` string, défaut `UTC` — utilisé pour l'heure des rappels.
+- `modules` json nullable — modules activés (`null` = tous). Voir
+  `App\Domains\Core\Support\Modules`.
+- `settings` json nullable — `session_price_in_person`,
+  `session_price_remote`, `default_session_duration`, `default_modality`.
+
+### `users.modules`
+json nullable — restriction propre au compte (`null` = aucune). Les
+modules effectifs sont l'intersection avec ceux du centre actif.
+
+### `center_care_item_prices`
+`center_id`, `care_item_id`, `price` decimal(12,2) ;
+`unique(center_id, care_item_id)`. Une ligne absente = soin non facturé.
+
+### `billing_invoices`
+`center_id`, `patient_id`, `treatment_id` nullable, `number` (unique par
+centre, `F-AAAA-00001`), `currency`, `issued_on`, `total`, `paid_total`
+(cache recalculé par `Invoice::refreshTotals()`), `notes`,
+`cancelled_at`, `created_by`. **Pas de colonne statut** : dérivé
+(annulée / payée / partielle / non payée).
+
+### `billing_invoice_lines`
+`invoice_id`, `label`, `quantity`, `unit_price`, `total`,
+`treatment_session_id` nullable (une séance est « facturée » dès qu'une
+ligne d'une facture non annulée la référence), `care_item_id` nullable.
+
+### `billing_payments`
+`invoice_id`, `amount`, `method` (`cash`, `card`, `mobile_money`,
+`bank_transfer`, `cheque`, `other`), `paid_on`, `reference`, `notes`,
+`received_by`. Un paiement ne peut pas dépasser le reste à payer.
+
+### Champs traduisibles
+Les règles `*.ar` (nullable) ont été ajoutées à côté de `*.fr`/`*.en` :
+l'arabe est optionnel et retombe sur le français.
+
+
+## Facturation — avoirs, dépenses, séquences, tarifs par catégorie (2026-11-17)
+
+- `care_categories.pricing_mode` string(10), défaut `item` : `item` (prix par soin, `center_care_item_prices`), `category` (forfait par séance, `center_care_category_prices`), `none` (jamais facturé).
+- `center_care_category_prices` : `center_id`, `care_category_id`, `price` ; unique(centre, catégorie).
+- `billing_invoices.credited_total` : cache de la somme des avoirs. Dû = `total - credited_total - paid_total` (négatif = trop-perçu à rembourser).
+- `billing_credit_notes` : `center_id`, `invoice_id`, `number` (`AV-AAAA-NNNNN`, unique par centre), `amount`, `issued_on`, `reason`, `created_by`.
+- `billing_payments.amount` peut être **négatif** : c'est un remboursement.
+- `billing_sequences` : `center_id`, `type` (`invoice`/`credit_note`), `year`, `last_number` ; unique(centre, type, année). Lu sous verrou.
+- `billing_expenses` : `center_id`, `category_option_id` (→ `enum_options`, type `expense.category`), `label`, `supplier`, `amount`, `currency`, `spent_on`, `method`, `reference`, `notes`, `created_by` ; index(centre, date).
+- `user_center_modules` : `user_id`, `center_id`, `modules` (JSON) ; unique(utilisateur, centre). Restriction posée par le manager du centre, sans effet sur les autres centres du compte. Pas de ligne = pas de restriction.
+- `billing_invoice_lines` : + `description` (text, nullable), `care_category_id` (FK nullable, ligne forfait).
+- `billing_invoices` : + `subtotal` (somme des lignes), `discount_amount`, `discount_percent` (nullable, si saisie en %), `discount_reason_option_id` (→ `enum_options`, type `invoice.discount_reason`), `discount_note`. `total` = net à payer = `subtotal − discount_amount`.
+- `billing_invoice_installments` : `invoice_id`, `due_on`, `amount`, `position` ; index(facture, date). État de chaque échéance dérivé (payé imputé sur la plus ancienne).
+- `patients` : + `discount_percent`, `discount_reason_option_id` (tarif solidaire, pré-appliqué aux nouvelles factures).

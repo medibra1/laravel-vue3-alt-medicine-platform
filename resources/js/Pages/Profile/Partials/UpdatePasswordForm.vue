@@ -36,13 +36,12 @@ const updatePassword = () => {
 <template>
     <section>
         <header>
-            <h2 class="text-h6 font-weight-medium">
-                Update Password
+            <h2 class="text-h6 font-weight-bold">
+                {{ $t('auth.profile.passwordTitle') }}
             </h2>
 
             <p class="text-body-2 text-medium-emphasis mt-1">
-                Ensure your account is using a long, random password to stay
-                secure.
+                {{ $t('auth.profile.passwordHint') }}
             </p>
         </header>
 
@@ -52,7 +51,7 @@ const updatePassword = () => {
                 ref="currentPasswordInput"
                 v-model="form.current_password"
                 type="password"
-                label="Current Password"
+                :label="$t('auth.currentPassword')"
                 autocomplete="current-password"
                 :error="form.errors.current_password"
             />
@@ -62,7 +61,7 @@ const updatePassword = () => {
                 ref="passwordInput"
                 v-model="form.password"
                 type="password"
-                label="New Password"
+                :label="$t('auth.newPassword')"
                 autocomplete="new-password"
                 :error="form.errors.password"
             />
@@ -71,13 +70,13 @@ const updatePassword = () => {
                 id="password_confirmation"
                 v-model="form.password_confirmation"
                 type="password"
-                label="Confirm Password"
+                :label="$t('auth.passwordConfirm')"
                 autocomplete="new-password"
                 :error="form.errors.password_confirmation"
             />
 
             <div class="d-flex align-center ga-4">
-                <AppButton type="submit" label="Save" :loading="form.processing" />
+                <AppButton type="submit" :label="$t('common.save')" :loading="form.processing" />
 
                 <Transition
                     enter-active-class="transition ease-in-out"
@@ -89,7 +88,7 @@ const updatePassword = () => {
                         v-if="form.recentlySuccessful"
                         class="text-body-2 text-medium-emphasis"
                     >
-                        Saved.
+                        {{ $t('common.saved') }}
                     </p>
                 </Transition>
             </div>

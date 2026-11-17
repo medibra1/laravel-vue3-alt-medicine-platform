@@ -122,20 +122,20 @@ class Patient extends Model implements HasMedia
         $treatment = $this->latestTreatment();
 
         if ($treatment === null) {
-            return ['key' => 'new', 'label' => 'Nouveau', 'color' => 'secondary'];
+            return ['key' => 'new', 'label' => __('patients.status.new'), 'color' => 'secondary'];
         }
 
         $status = $treatment->currentStatusName();
 
         if ($status !== 'closed') {
-            return ['key' => 'active', 'label' => 'Actif', 'color' => 'success'];
+            return ['key' => 'active', 'label' => __('patients.status.active'), 'color' => 'success'];
         }
 
         return match ($treatment->closure_reason) {
-            'resolved' => ['key' => 'completed', 'label' => 'Terminé', 'color' => 'info'],
-            'lost_to_follow_up' => ['key' => 'unreachable', 'label' => 'Injoignable', 'color' => 'warning'],
-            'protocol_not_followed' => ['key' => 'stopped', 'label' => 'Arrêté', 'color' => 'error'],
-            default => ['key' => 'other', 'label' => 'Autre', 'color' => 'secondary'],
+            'resolved' => ['key' => 'completed', 'label' => __('patients.status.completed'), 'color' => 'info'],
+            'lost_to_follow_up' => ['key' => 'unreachable', 'label' => __('patients.status.unreachable'), 'color' => 'warning'],
+            'protocol_not_followed' => ['key' => 'stopped', 'label' => __('patients.status.stopped'), 'color' => 'error'],
+            default => ['key' => 'other', 'label' => __('patients.status.other'), 'color' => 'secondary'],
         };
     }
 

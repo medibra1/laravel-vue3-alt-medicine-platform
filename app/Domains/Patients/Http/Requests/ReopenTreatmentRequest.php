@@ -29,7 +29,7 @@ class ReopenTreatmentRequest extends FormRequest
             $treatment = $this->route('treatment');
 
             if ($treatment->currentStatusName() !== 'closed') {
-                $validator->errors()->add('status', 'Seul un traitement fermé peut être rouvert.');
+                $validator->errors()->add('status', __('treatments.reopen_only_closed'));
             }
         });
     }

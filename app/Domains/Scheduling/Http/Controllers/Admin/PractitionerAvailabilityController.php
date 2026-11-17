@@ -33,7 +33,7 @@ class PractitionerAvailabilityController extends Controller
 
         $query = PractitionerAvailability::query()->with('practitioner');
 
-        if (! $request->user()->isSuperAdmin()) {
+        if (! $request->user()->isGlobalAdmin()) {
             $query->whereHas('practitioner', fn ($q) => $q->where('center_id', getPermissionsTeamId()));
         }
 
@@ -42,7 +42,7 @@ class PractitionerAvailabilityController extends Controller
         // Current and upcoming time offs only — past ones are history.
         $timeOffs = PractitionerTimeOff::query()
             ->whereDate('ends_on', '>=', today())
-            ->when(! $request->user()->isSuperAdmin(), fn ($q) => $q->whereHas('practitioner', fn ($q) => $q->where('center_id', getPermissionsTeamId())))
+            ->when(! $request->user()->isGlobalAdmin(), fn ($q) => $q->whereHas('practitioner', fn ($q) => $q->where('center_id', getPermissionsTeamId())))
             ->orderBy('starts_on')
             ->get();
 
@@ -64,7 +64,7 @@ class PractitionerAvailabilityController extends Controller
     {
         $user = $request->user();
 
-        $centers = $user->isSuperAdmin() || $user->isAdmin()
+        $centers = $user->isGlobalAdmin() || $user->isAdmin()
             ? Center::query()->with('operatingHours')->orderBy('name')->get()
             : Center::query()->with('operatingHours')->whereKey(getPermissionsTeamId())->get()
                 ->filter(fn (Center $center) => $user->can('manageOperatingHours', $center));

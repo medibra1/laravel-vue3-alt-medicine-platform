@@ -3,6 +3,7 @@
 namespace App\Domains\Auth\Http\Requests;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Core\Support\Modules;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,9 @@ class UpdateUserRequest extends FormRequest
             // (extended 2026-08-26) — center_ids[], not center_id.
             'center_ids' => ['required', 'array', 'min:1'],
             'center_ids.*' => ['integer', 'exists:centers,id'],
+            // null/absent = no restriction beyond the center's own modules.
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(Modules::all())],
         ];
     }
 
@@ -67,7 +71,7 @@ class UpdateUserRequest extends FormRequest
                 ->all();
 
             if ($alreadyManagedCenterIds !== []) {
-                $validator->errors()->add('center_ids', __('Ce centre a déjà un manager.'));
+                $validator->errors()->add('center_ids', __('users.center_has_manager'));
             }
         });
     }

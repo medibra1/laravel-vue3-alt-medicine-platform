@@ -2,22 +2,38 @@
 
 namespace App\Domains\Auth\Models;
 
+use App\Domains\Core\Models\Center;
+use App\Domains\Core\Support\Modules;
 use Database\Factories\Domains\Auth\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements MustVerifyEmail
+/**
+ * @property array<int, string>|null $modules
+ * @property string $locale
+ */
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at', 'modules'];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /**
+     * Notifications (mail and database) are rendered in the recipient's
+     * own language, not in the language of whoever triggered them.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
+    }
 
     protected function casts(): array
     {
@@ -25,6 +41,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'modules' => 'array',
         ];
     }
 
@@ -59,6 +76,16 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('model_has_roles.model_type', static::class)
             ->where('roles.name', 'admin')
             ->exists();
+    }
+
+    /**
+     * super_admin or admin: works across every center, never scoped to
+     * one. What separates the two is user management and the reference
+     * data (UserPolicy, Zone/Country/Disease... policies), not this.
+     */
+    public function isGlobalAdmin(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAdmin();
     }
 
     /**
@@ -161,6 +188,75 @@ class User extends Authenticatable implements MustVerifyEmail
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * Modules this user can use on the given center: everything for
+     * super_admin/admin, otherwise the center's modules narrowed by the
+     * account-wide restriction and by the one set for that center.
+     *
+     * @return array<int, string>
+     */
+    public function enabledModules(?int $centerId): array
+    {
+        if ($this->isSuperAdmin() || $this->isAdmin()) {
+            return Modules::all();
+        }
+
+        $center = $centerId !== null ? Center::query()->find($centerId) : null;
+        $modules = $center ? $center->enabledModules() : Modules::all();
+        // Two optional restrictions, both only ever narrowing: the
+        // account-wide one (set by an admin) and the one of this center
+        // (set by its manager).
+        foreach ([Modules::normalize($this->modules), $this->centerModules($centerId)] as $restriction) {
+            if ($restriction !== null) {
+                $modules = array_values(array_intersect($modules, $restriction));
+            }
+        }
+
+        return $modules;
+    }
+
+    /**
+     * Restriction set for this account on one center, null when none.
+     *
+     * @return array<int, string>|null
+     */
+    public function centerModules(?int $centerId): ?array
+    {
+        if ($centerId === null) {
+            return null;
+        }
+
+        $stored = DB::table('user_center_modules')->where('user_id', $this->getKey())->where('center_id', $centerId)->value('modules');
+
+        return $stored === null ? null : Modules::normalize(json_decode((string) $stored, true));
+    }
+
+    /**
+     * @param  array<int, string>|null  $modules  null lifts the restriction
+     */
+    public function setCenterModules(int $centerId, ?array $modules): void
+    {
+        $key = ['user_id' => $this->getKey(), 'center_id' => $centerId];
+        $modules = Modules::normalize($modules);
+
+        if ($modules === null) {
+            DB::table('user_center_modules')->where($key)->delete();
+
+            return;
+        }
+
+        DB::table('user_center_modules')->updateOrInsert($key, [
+            'modules' => json_encode($modules),
+            'updated_at' => now(),
+            'created_at' => now(),
+        ]);
+    }
+
+    public function hasModule(string $module, ?int $centerId): bool
+    {
+        return in_array($module, $this->enabledModules($centerId), true);
     }
 
     /**

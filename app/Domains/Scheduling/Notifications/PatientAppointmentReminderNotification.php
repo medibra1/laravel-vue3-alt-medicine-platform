@@ -27,17 +27,17 @@ class PatientAppointmentReminderNotification extends Notification
         $practitioner = $appointment->practitioner;
 
         $mail = (new MailMessage)
-            ->subject(__('Rappel — rendez-vous du :date', ['date' => $appointment->starts_at->translatedFormat('d F Y')]))
-            ->greeting(__('Bonjour :name', ['name' => trim($appointment->patient->first_name.' '.$appointment->patient->last_name)]))
-            ->line(__('Nous vous rappelons votre rendez-vous le :date à :time.', [
-                'date' => $appointment->starts_at->translatedFormat('d F Y'),
-                'time' => $appointment->starts_at->format('H:i'),
+            ->subject(__('notifications.patient_reminder.subject', ['date' => $appointment->localStartsAt()->translatedFormat('d F Y')]))
+            ->greeting(__('notifications.patient_reminder.greeting', ['name' => trim($appointment->patient->first_name.' '.$appointment->patient->last_name)]))
+            ->line(__('notifications.patient_reminder.line', [
+                'date' => $appointment->localStartsAt()->translatedFormat('d F Y'),
+                'time' => $appointment->localStartsAt()->format('H:i'),
             ]))
-            ->line(__('Centre : :center', ['center' => $appointment->center->name]))
-            ->line(__('Praticien : :practitioner', ['practitioner' => trim($practitioner->first_name.' '.$practitioner->last_name)]));
+            ->line(__('notifications.patient_reminder.center', ['center' => $appointment->center->name]))
+            ->line(__('notifications.patient_reminder.practitioner', ['practitioner' => trim($practitioner->first_name.' '.$practitioner->last_name)]));
 
         if ($appointment->modality === 'remote' && $appointment->meeting_link) {
-            $mail->action(__('Rejoindre la consultation'), $appointment->meeting_link);
+            $mail->action(__('notifications.patient_reminder.join'), $appointment->meeting_link);
         }
 
         return $mail;

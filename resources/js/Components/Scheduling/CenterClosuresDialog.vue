@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
@@ -67,7 +68,7 @@ function submit() {
 }
 
 function destroy(closure: CenterClosure) {
-    if (!confirm(`Supprimer la fermeture « ${closure.label} » ?`)) return;
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: closure.label }))) return;
 
     router.delete(route('admin.closures.destroy', closure.id), {
         preserveScroll: true,
@@ -83,14 +84,14 @@ function destroy(closure: CenterClosure) {
             <v-alert v-if="affectedWarning" type="warning" variant="tonal" closable @click:close="affectedWarning = null">
                 {{
                     affectedWarning > 1
-                        ? `${affectedWarning} rendez-vous existants tombent dans cette période, sur tous les praticiens du centre — pensez à les reprogrammer ou les annuler.`
-                        : `1 rendez-vous existant tombe dans cette période — pensez à le reprogrammer ou l'annuler.`
+                        ? $t('misc.affectedManyCenter', { n: affectedWarning })
+                        : $t('misc.affectedOne')
                 }}
             </v-alert>
 
             <div>
-                <div class="text-subtitle-2 mb-2">En cours et à venir</div>
-                <p v-if="!closures.length" class="text-body-2 text-medium-emphasis">Aucune fermeture prévue.</p>
+                <div class="text-subtitle-2 mb-2">{{ $t('ui.enCoursEtAVenir') }}</div>
+                <p v-if="!closures.length" class="text-body-2 text-medium-emphasis">{{ $t('ui.aucuneFermeturePrevue') }}</p>
                 <div v-else class="d-flex flex-wrap ga-2">
                     <!-- Controlled (model-value + update listener): an uncontrolled
                          closable chip hides itself on click, even when the
@@ -114,25 +115,25 @@ function destroy(closure: CenterClosure) {
             <v-divider />
 
             <form class="d-flex flex-column ga-4" @submit.prevent="submit">
-                <div class="text-subtitle-2">Ajouter une fermeture</div>
+                <div class="text-subtitle-2">{{ $t('ui.ajouterUneFermeture') }}</div>
                 <v-row>
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.starts_on" type="date" label="Du" :error="form.errors.starts_on" />
+                        <AppInputText v-model="form.starts_on" type="date" :label="$t('ui.du')" :error="form.errors.starts_on" />
                     </v-col>
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.ends_on" type="date" label="Au (inclus)" :error="form.errors.ends_on" />
+                        <AppInputText v-model="form.ends_on" type="date" :label="$t('ui.auInclus')" :error="form.errors.ends_on" />
                     </v-col>
                 </v-row>
-                <AppInputText v-model="form.label" label="Libellé (ex. Fête nationale, Travaux)" :error="form.errors.label" />
-                <AppTextarea v-model="form.notes" label="Notes" :error="form.errors.notes" />
+                <AppInputText v-model="form.label" :label="$t('ui.libelleExFeteNationaleTravaux')" :error="form.errors.label" />
+                <AppTextarea v-model="form.notes" :label="$t('ui.notes')" :error="form.errors.notes" />
 
                 <p class="text-body-2 text-medium-emphasis">
-                    Aucun rendez-vous ne pourra être pris dans ce centre pendant cette période, quel que soit le praticien. Les rendez-vous déjà planifiés ne sont pas annulés.
+                    {{ $t('ui.aucunRendezVousNePourraEtre') }}
                 </p>
 
                 <div class="d-flex justify-end ga-2">
-                    <AppButton type="button" label="Fermer" severity="secondary" @click="emit('update:visible', false)" />
-                    <AppButton type="submit" label="Ajouter" icon="mdi-plus" :loading="form.processing" />
+                    <AppButton type="button" :label="$t('ui.fermer')" severity="secondary" @click="emit('update:visible', false)" />
+                    <AppButton type="submit" :label="$t('ui.ajouter')" icon="mdi-plus" :loading="form.processing" />
                 </div>
             </form>
         </div>

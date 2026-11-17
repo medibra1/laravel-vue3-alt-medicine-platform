@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
@@ -39,7 +40,7 @@ function duplicate(sourceDay: number) {
     const targets = [...duplicateTargets.value].filter((day) => day !== sourceDay);
     const overwritten = targets.filter((day) => props.grid[day].length > 0);
 
-    if (overwritten.length && !confirm(`Remplacer les plages existantes de : ${overwritten.map((day) => dayLabels[day]).join(', ')} ?`)) {
+    if (overwritten.length && !confirm(tr('misc.confirmReplaceRanges', { days: overwritten.map((day) => dayLabels[day]).join(', ') }))) {
         return;
     }
 
@@ -58,7 +59,7 @@ function duplicate(sourceDay: number) {
                 <div class="d-flex ga-1">
                     <v-menu v-if="grid[day].length" :close-on-content-click="false" @update:model-value="duplicateTargets = new Set()">
                         <template #activator="{ props: activator }">
-                            <v-btn v-bind="activator" size="small" variant="text" prepend-icon="mdi-content-copy">Dupliquer vers…</v-btn>
+                            <v-btn v-bind="activator" size="small" variant="text" prepend-icon="mdi-content-copy">{{ $t('ui.dupliquerVers') }}</v-btn>
                         </template>
                         <v-card min-width="220">
                             <v-card-text class="py-2">
@@ -71,25 +72,25 @@ function duplicate(sourceDay: number) {
                                 />
                             </v-card-text>
                             <v-card-actions>
-                                <AppButton label="Copier" size="small" :disabled="!duplicateTargets.size" @click="duplicate(day)" />
+                                <AppButton :label="$t('ui.copier')" size="small" :disabled="!duplicateTargets.size" @click="duplicate(day)" />
                             </v-card-actions>
                         </v-card>
                     </v-menu>
-                    <AppButton label="Ajouter une plage" icon="mdi-plus" size="small" severity="secondary" @click="addRange(day)" />
+                    <AppButton :label="$t('ui.ajouterUnePlage')" icon="mdi-plus" size="small" severity="secondary" @click="addRange(day)" />
                 </div>
             </div>
 
-            <p v-if="!grid[day].length" class="text-body-2 text-medium-emphasis mb-0">Pas de disponibilité</p>
+            <p v-if="!grid[day].length" class="text-body-2 text-medium-emphasis mb-0">{{ $t('ui.pasDeDisponibilite') }}</p>
 
             <v-row v-for="(range, index) in grid[day]" :key="index" dense align="center">
                 <v-col cols="5">
-                    <AppInputText v-model="range.start_time" type="time" label="Début" :error="errors?.[`${day}-${index}`]" />
+                    <AppInputText v-model="range.start_time" type="time" :label="$t('ui.debut')" :error="errors?.[`${day}-${index}`]" />
                 </v-col>
                 <v-col cols="5">
-                    <AppInputText v-model="range.end_time" type="time" label="Fin" />
+                    <AppInputText v-model="range.end_time" type="time" :label="$t('ui.fin')" />
                 </v-col>
                 <v-col cols="2" class="d-flex justify-end">
-                    <v-btn icon="mdi-delete" size="small" variant="text" color="error" aria-label="Supprimer la plage" @click="removeRange(day, index)" />
+                    <v-btn icon="mdi-delete" size="small" variant="text" color="error" :aria-label="$t('ui.supprimerLaPlage')" @click="removeRange(day, index)" />
                 </v-col>
             </v-row>
         </div>

@@ -27,6 +27,9 @@ return new class extends Migration
             $table->foreignId('consent_template_id')->nullable()->constrained('consent_templates')->restrictOnDelete();
             $table->unsignedInteger('version')->nullable(); // copy of consent_templates.version at the time of recording — null for 'uploaded'
             $table->longText('content_snapshot')->nullable(); // frozen copy of the accepted text — null for 'uploaded'
+            // Language the patient read and signed in (content_snapshot
+            // is in this language) — null for 'uploaded'.
+            $table->string('locale', 5)->nullable();
             $table->string('signer_name');
             $table->longText('signature_svg')->nullable();
             $table->timestamp('accepted_at');

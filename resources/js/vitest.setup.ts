@@ -1,3 +1,10 @@
+import { createAppI18n } from '@/lib/i18n';
+import { config } from '@vue/test-utils';
+
+// Components call useI18n()/$t — every mount gets the French instance.
+const i18n = createAppI18n('fr');
+config.global.plugins = [...(config.global.plugins ?? []), i18n];
+
 // jsdom has no ResizeObserver; Vuetify components built on VSlideGroup
 // (VTabs among them) require one just to mount, regardless of what the
 // test actually exercises.

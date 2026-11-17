@@ -41,6 +41,24 @@ class RolePermissions
             'appointments.create',
             'appointments.update',
             'appointments.cancel',
+            'invoices.viewAny',
+            'invoices.view',
+            'invoices.create',
+            'invoices.cancel',
+            'payments.create',
+            'payments.delete',
+            // Corrections and money going out stay with the manager.
+            'invoices.credit',
+            'invoices.discount',
+            'invoices.schedule',
+            'invoices.discount',
+            'invoices.schedule',
+            'payments.refund',
+            'expenses.viewAny',
+            'expenses.create',
+            'expenses.update',
+            'expenses.delete',
+            'accounting.export',
         ];
     }
 
@@ -79,6 +97,11 @@ class RolePermissions
             'appointments.create',
             'appointments.update',
             'appointments.cancel',
+            // Can bill and take a payment, never cancel or remove one.
+            'invoices.viewAny',
+            'invoices.view',
+            'invoices.create',
+            'payments.create',
         ];
     }
 

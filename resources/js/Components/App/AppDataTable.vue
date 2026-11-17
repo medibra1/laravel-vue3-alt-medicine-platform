@@ -18,6 +18,8 @@ const props = defineProps<{
     rows: number;
     totalRecords: number;
     page: number;
+    /** Shown when there is no row (defaults to a generic "no data"). */
+    emptyText?: string;
 }>();
 
 const emit = defineEmits<{
@@ -71,6 +73,13 @@ function onUpdateSortBy(sortBy: { key: string; order?: 'asc' | 'desc' }[]) {
 
         <template v-if="$slots.actions" #item.actions="slotProps">
             <slot name="actions" v-bind="slotProps" />
+        </template>
+
+        <template #no-data>
+            <div class="d-flex flex-column align-center ga-2 py-10 text-medium-emphasis">
+                <v-icon icon="mdi-tray" size="36" />
+                {{ emptyText ?? $t('common.noData') }}
+            </div>
         </template>
     </v-data-table-server>
 </template>

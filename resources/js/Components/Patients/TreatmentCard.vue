@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import TreatmentTimeline from '@/Components/Patients/TreatmentTimeline.vue';
@@ -55,25 +56,11 @@ const emit = defineEmits<{
     'delete-session': [treatment: TreatmentSummary, session: TreatmentSessionSummary];
 }>();
 
-const treatmentStatusLabels: Record<string, string> = {
-    draft: 'Brouillon',
-    confirmed: 'Confirmé',
-    ongoing: 'En cours',
-    closed: 'Fermé',
-};
-
-const closureReasonLabels: Record<string, string> = {
-    resolved: 'toutes les maladies résolues',
-    lost_to_follow_up: 'injoignable',
-    protocol_not_followed: 'protocole non suivi',
-    closed_manually: 'clôture manuelle',
-};
-
 function statusLabel(): string {
-    const base = props.treatment.status ? (treatmentStatusLabels[props.treatment.status] ?? props.treatment.status) : '—';
+    const base = props.treatment.status ? tr(`domain.treatmentStatus.${props.treatment.status}`) : '—';
 
     if (props.treatment.status === 'closed' && props.treatment.closure_reason) {
-        return `${base} (${closureReasonLabels[props.treatment.closure_reason] ?? props.treatment.closure_reason})`;
+        return tr('misc.closedWithReason', { status: base, reason: tr(`domain.closureReason.${props.treatment.closure_reason}`).toLowerCase() });
     }
 
     return base;
@@ -99,7 +86,7 @@ function diseaseStatusColor(diseaseId: number): string {
 function diseaseStatusLabel(diseaseId: number): string {
     const latest = props.treatment.latest_known_outcomes[diseaseId];
 
-    return latest ? outcomeLabel(latest.outcome, latest.outcome_percentage) : 'Pas encore de suivi';
+    return latest ? outcomeLabel(latest.outcome, latest.outcome_percentage) : tr('misc.noFollowUpYet');
 }
 </script>
 
@@ -110,12 +97,12 @@ function diseaseStatusLabel(diseaseId: number): string {
                 <div>
                     <div class="d-flex align-center ga-2 mb-1">
                         <p class="text-subtitle-1 mb-0">
-                            Début : {{ treatment.started_at ? new Date(treatment.started_at).toLocaleDateString() : '—' }}
+                            {{ $t('misc.startedOn', { date: treatment.started_at ? new Date(treatment.started_at).toLocaleDateString($i18n.locale) : '—' }) }}
                         </p>
                         <v-chip size="small" :color="statusColor()" variant="tonal">{{ statusLabel() }}</v-chip>
                     </div>
                     <p class="text-body-2 text-medium-emphasis">
-                        Praticien :
+                        {{ $t('ui.praticien') }} :
                         {{
                             treatment.practitioner
                                 ? `${treatment.practitioner.first_name} ${treatment.practitioner.last_name} (${treatment.practitioner.full_code})`
@@ -124,23 +111,23 @@ function diseaseStatusLabel(diseaseId: number): string {
                     </p>
                 </div>
                 <div class="d-flex flex-wrap ga-2">
-                    <AppButton label="Modifier" severity="secondary" size="small" @click="emit('edit', treatment)" />
+                    <AppButton :label="$t('ui.modifier')" severity="secondary" size="small" @click="emit('edit', treatment)" />
                     <AppButton
                         v-if="treatment.status === 'ongoing'"
-                        label="Ajouter une séance"
+                        :label="$t('ui.ajouterUneSeance')"
                         size="small"
                         @click="emit('add-session', treatment)"
                     />
                     <AppButton
                         v-if="treatment.status === 'ongoing'"
-                        label="Clôturer"
+                        :label="$t('ui.cloturer')"
                         severity="secondary"
                         size="small"
                         @click="emit('close', treatment)"
                     />
                     <AppButton
                         v-if="treatment.status === 'closed'"
-                        label="Rouvrir"
+                        :label="$t('ui.rouvrir')"
                         severity="secondary"
                         size="small"
                         @click="emit('reopen', treatment)"
@@ -154,16 +141,16 @@ function diseaseStatusLabel(diseaseId: number): string {
                         {{ disease.code }} — {{ disease.label }} · {{ diseaseStatusLabel(disease.id) }}
                     </v-chip>
                     <v-chip v-else size="small" variant="outlined" color="default" prepend-icon="mdi-eye-off-outline">
-                        {{ disease.code }} — {{ disease.label }} · non suivie
+                        {{ disease.code }} — {{ disease.label }} · {{ $t('misc.notFollowed') }}
                         <v-tooltip activator="parent" location="top">
-                            Maladie connue mais non suivie activement — pas d'évaluation attendue à chaque séance.
+                            {{ $t('ui.maladieConnueMaisNonSuivieActivement') }}
                         </v-tooltip>
                     </v-chip>
                 </span>
             </div>
 
             <div v-if="treatment.sessions.length">
-                <p class="text-body-2 font-weight-medium mb-2">Séances</p>
+                <p class="text-body-2 font-weight-medium mb-2">{{ $t('ui.seances') }}</p>
                 <TreatmentTimeline
                     :sessions="treatment.sessions"
                     :treatment-status="treatment.status ?? ''"

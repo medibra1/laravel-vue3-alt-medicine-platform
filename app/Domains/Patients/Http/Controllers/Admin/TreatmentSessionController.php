@@ -21,7 +21,7 @@ class TreatmentSessionController extends Controller
         // instance yet to scope against, same reasoning as
         // TreatmentPolicy::create()) — the center check against the
         // *parent* Treatment happens here instead.
-        if (! $request->user()->isSuperAdmin() && $treatment->center_id !== getPermissionsTeamId()) {
+        if (! $request->user()->isGlobalAdmin() && $treatment->center_id !== getPermissionsTeamId()) {
             abort(403);
         }
 

@@ -27,7 +27,7 @@ class NoTimeOffConflict implements ValidationRule
         }
 
         if (PractitionerTimeOff::query()->covering($practitionerId, CarbonImmutable::parse($startsAt))->exists()) {
-            $fail('Ce praticien est en congé à cette date.');
+            $fail(__('scheduling.practitioner_on_leave'));
         }
     }
 }

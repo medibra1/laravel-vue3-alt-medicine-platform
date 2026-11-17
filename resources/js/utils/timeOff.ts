@@ -1,3 +1,4 @@
+import { tr, currentLocale } from '@/lib/i18n';
 export type TimeOffReason = 'vacation' | 'sick_leave' | 'training' | 'other';
 
 export interface TimeOff {
@@ -12,14 +13,14 @@ export interface TimeOff {
 }
 
 export const timeOffReasonOptions: { label: string; value: TimeOffReason }[] = [
-    { label: 'Congés', value: 'vacation' },
-    { label: 'Arrêt maladie', value: 'sick_leave' },
-    { label: 'Formation', value: 'training' },
-    { label: 'Autre', value: 'other' },
+    { label: tr('misc.timeOffReason.vacation'), value: 'vacation' },
+    { label: tr('misc.timeOffReason.sick_leave'), value: 'sick_leave' },
+    { label: tr('misc.timeOffReason.training'), value: 'training' },
+    { label: tr('misc.timeOffReason.other'), value: 'other' },
 ];
 
 export function timeOffReasonLabel(reason: TimeOffReason | null): string {
-    return timeOffReasonOptions.find((option) => option.value === reason)?.label ?? 'Congé';
+    return timeOffReasonOptions.find((option) => option.value === reason)?.label ?? tr('misc.timeOffReason.default');
 }
 
 /**
@@ -32,7 +33,7 @@ export function timeOffCovering(timeOffs: TimeOff[], practitionerId: number | nu
     return timeOffs.find((t) => t.practitioner_id === practitionerId && t.starts_on <= isoDate && t.ends_on >= isoDate) ?? null;
 }
 
-const dateFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateFormatter = new Intl.DateTimeFormat(currentLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** Also used for center closures — only the date bounds matter. */
 export function formatTimeOffPeriod(timeOff: Pick<TimeOff, 'starts_on' | 'ends_on'>): string {

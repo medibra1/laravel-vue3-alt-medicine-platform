@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
@@ -101,7 +102,7 @@ function onTimeOffCreated(affected: number) {
 }
 
 function destroyTimeOff(timeOff: TimeOff) {
-    if (!confirm('Supprimer ce congé ?')) {
+    if (!confirm(tr('misc.confirmDeleteTimeOff'))) {
         return;
     }
 
@@ -131,7 +132,7 @@ function submitCreate() {
 }
 
 function destroy(availability: Availability) {
-    if (!confirm('Supprimer ce créneau de disponibilité ?')) {
+    if (!confirm(tr('misc.confirmDeleteSlot'))) {
         return;
     }
 
@@ -140,10 +141,10 @@ function destroy(availability: Availability) {
 </script>
 
 <template>
-    <Head title="Disponibilités" />
+    <Head :title="$t('ui.disponibilites')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Disponibilités" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Disponibilités' }]">
+        <AppPageHeader :title="$t('ui.disponibilites')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.disponibilites') }]">
             <template #actions>
                 <AppSelect
                     v-if="editableCenters.length > 1"
@@ -151,24 +152,24 @@ function destroy(availability: Availability) {
                     :options="editableCenters"
                     option-label="name"
                     option-value="id"
-                    label="Centre"
+                    :label="$t('ui.centre')"
                 />
                 <AppButton
                     v-if="hoursCenter"
-                    label="Horaires du centre"
+                    :label="$t('ui.horairesDuCentre')"
                     icon="mdi-clock-outline"
                     severity="secondary"
                     @click="hoursDialogVisible = true"
                 />
                 <AppButton
                     v-if="hoursCenter"
-                    label="Fermetures du centre"
+                    :label="$t('ui.fermeturesDuCentre')"
                     icon="mdi-store-off-outline"
                     severity="secondary"
                     @click="closuresDialogVisible = true"
                 />
-                <AppButton label="Appliquer un planning à plusieurs praticiens" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
-                <AppButton label="Nouveau créneau" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.appliquerUnPlanningAPlusieursPraticiens')" icon="mdi-account-multiple" severity="secondary" @click="isBulkApplying = true" />
+                <AppButton :label="$t('ui.nouveauCreneau')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -182,21 +183,21 @@ function destroy(availability: Availability) {
             >
                 {{
                     affectedAppointmentsWarning > 1
-                        ? `${affectedAppointmentsWarning} rendez-vous existants tombent dans cette période — pensez à les reprogrammer ou les annuler.`
-                        : `1 rendez-vous existant tombe dans cette période — pensez à le reprogrammer ou l'annuler.`
+                        ? $t('misc.affectedMany', { n: affectedAppointmentsWarning })
+                        : $t('misc.affectedOne')
                 }}
             </v-alert>
-            <p v-if="!schedules.length" class="text-medium-emphasis">Aucun praticien.</p>
+            <p v-if="!schedules.length" class="text-medium-emphasis">{{ $t('ui.aucunPraticien') }}</p>
             <AppCard v-for="{ practitioner, slots, timeOffs: practitionerTimeOffs } in schedules" :key="practitioner.id" variant="elevated" elevation="1">
                 <v-card-text>
                     <div class="d-flex justify-space-between align-start flex-wrap ga-2">
                         <div style="min-width: 0">
                             <div class="text-subtitle-1 font-weight-medium">{{ practitionerName(practitioner) }}</div>
-                            <div class="text-body-2 text-medium-emphasis">{{ slots.length ? summarizeSchedule(slots) : 'Aucune disponibilité' }}</div>
+                            <div class="text-body-2 text-medium-emphasis">{{ slots.length ? summarizeSchedule(slots) : $t('misc.noAvailability') }}</div>
                         </div>
                         <div class="d-flex flex-wrap ga-2">
-                            <AppButton label="Ajouter un congé" icon="mdi-beach" size="small" severity="secondary" @click="openTimeOff(practitioner)" />
-                            <AppButton label="Gérer le planning" icon="mdi-calendar-edit" size="small" @click="openSchedule(practitioner)" />
+                            <AppButton :label="$t('ui.ajouterUnConge')" icon="mdi-beach" size="small" severity="secondary" @click="openTimeOff(practitioner)" />
+                            <AppButton :label="$t('ui.gererLePlanning')" icon="mdi-calendar-edit" size="small" @click="openSchedule(practitioner)" />
                         </div>
                     </div>
                     <div v-if="slots.length" class="d-flex flex-wrap ga-1 mt-3">
@@ -205,7 +206,7 @@ function destroy(availability: Availability) {
                         </v-chip>
                     </div>
                     <div v-if="practitionerTimeOffs.length" class="mt-3">
-                        <div class="text-caption text-medium-emphasis mb-1">Congés</div>
+                        <div class="text-caption text-medium-emphasis mb-1">{{ $t('ui.conges') }}</div>
                         <div class="d-flex flex-wrap ga-1">
                             <v-chip
                                 v-for="timeOff in practitionerTimeOffs"
@@ -232,14 +233,14 @@ function destroy(availability: Availability) {
         <PractitionerTimeOffDialog v-model:visible="isAddingTimeOff" :practitioner="timeOffPractitioner" @created="onTimeOffCreated" />
         <BulkApplyScheduleDialog v-model:visible="isBulkApplying" :practitioner-options="practitionerOptions" />
 
-        <AppDialog v-model:visible="isCreating" header="Nouveau créneau de disponibilité">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouveauCreneauDeDisponibilite')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppSelect
                     v-model="createForm.practitioner_id"
                     :options="practitionerOptions"
                     option-label="name"
                     option-value="id"
-                    label="Praticien"
+                    :label="$t('ui.praticien')"
                     :error="createForm.errors.practitioner_id"
                 />
 
@@ -248,22 +249,22 @@ function destroy(availability: Availability) {
                     :options="dayOptions"
                     option-label="name"
                     option-value="id"
-                    label="Jour de la semaine"
+                    :label="$t('ui.jourDeLaSemaine')"
                     :error="createForm.errors.day_of_week"
                 />
 
                 <v-row>
                     <v-col cols="6">
-                        <AppInputText v-model="createForm.start_time" type="time" label="Heure de début" :error="createForm.errors.start_time" />
+                        <AppInputText v-model="createForm.start_time" type="time" :label="$t('ui.heureDeDebut')" :error="createForm.errors.start_time" />
                     </v-col>
                     <v-col cols="6">
-                        <AppInputText v-model="createForm.end_time" type="time" label="Heure de fin" :error="createForm.errors.end_time" />
+                        <AppInputText v-model="createForm.end_time" type="time" :label="$t('ui.heureDeFin')" :error="createForm.errors.end_time" />
                     </v-col>
                 </v-row>
 
                 <div class="d-flex justify-end ga-2">
-                    <AppButton type="button" label="Annuler" severity="secondary" @click="isCreating = false" />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="isCreating = false" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>

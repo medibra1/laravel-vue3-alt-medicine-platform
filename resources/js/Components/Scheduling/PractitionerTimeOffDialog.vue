@@ -65,14 +65,14 @@ function submit() {
 </script>
 
 <template>
-    <AppDialog :visible="visible" :header="`Nouveau congé — ${practitioner?.label ?? ''}`" @update:visible="emit('update:visible', $event)">
+    <AppDialog :visible="visible" :header="$t('misc.newTimeOffFor', { name: practitioner?.label ?? '' })" @update:visible="emit('update:visible', $event)">
         <form class="d-flex flex-column ga-4" @submit.prevent="submit">
             <v-row>
                 <v-col cols="12" md="6">
-                    <AppInputText v-model="form.starts_on" type="date" label="Du" :error="form.errors.starts_on" />
+                    <AppInputText v-model="form.starts_on" type="date" :label="$t('ui.du')" :error="form.errors.starts_on" />
                 </v-col>
                 <v-col cols="12" md="6">
-                    <AppInputText v-model="form.ends_on" type="date" label="Au (inclus)" :error="form.errors.ends_on" />
+                    <AppInputText v-model="form.ends_on" type="date" :label="$t('ui.auInclus')" :error="form.errors.ends_on" />
                 </v-col>
             </v-row>
 
@@ -81,19 +81,19 @@ function submit() {
                 :options="timeOffReasonOptions"
                 option-label="label"
                 option-value="value"
-                label="Motif"
+                :label="$t('ui.motif')"
                 :error="form.errors.reason ?? (form.errors as Record<string, string | undefined>).practitioner_id"
             />
 
-            <AppTextarea v-model="form.notes" label="Notes" :error="form.errors.notes" />
+            <AppTextarea v-model="form.notes" :label="$t('ui.notes')" :error="form.errors.notes" />
 
             <p class="text-body-2 text-medium-emphasis">
-                Aucun rendez-vous ne pourra être pris pendant cette période. Les rendez-vous déjà planifiés ne sont pas annulés.
+                {{ $t('ui.aucunRendezVousNePourraEtre2') }}
             </p>
 
             <div class="d-flex justify-end ga-2">
-                <AppButton type="button" label="Annuler" severity="secondary" @click="emit('update:visible', false)" />
-                <AppButton type="submit" label="Enregistrer" :loading="form.processing" />
+                <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="emit('update:visible', false)" />
+                <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="form.processing" />
             </div>
         </form>
     </AppDialog>

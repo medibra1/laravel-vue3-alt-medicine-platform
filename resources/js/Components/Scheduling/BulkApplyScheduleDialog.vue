@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
@@ -37,7 +38,7 @@ watch(
 );
 
 function apply() {
-    if (!confirm(`Remplacer intégralement le planning de ${practitionerIds.value.length} praticien(s) ?`)) {
+    if (!confirm(tr('misc.confirmReplaceSchedules', { n: practitionerIds.value.length }))) {
         return;
     }
     submit(route('admin.practitioners.availabilities.bulk-sync'), grid.value, { practitioner_ids: practitionerIds.value }, () =>
@@ -47,19 +48,19 @@ function apply() {
 </script>
 
 <template>
-    <AppDialog :visible="visible" header="Appliquer un planning à plusieurs praticiens" max-width="720px" @update:visible="emit('update:visible', $event)">
+    <AppDialog :visible="visible" :header="$t('ui.appliquerUnPlanningAPlusieursPraticiens')" max-width="720px" @update:visible="emit('update:visible', $event)">
         <AppSelect
             v-model="practitionerIds"
             :options="practitionerOptions"
             option-label="name"
             option-value="id"
-            label="Praticiens"
+            :label="$t('ui.praticiens')"
             multiple
             class="mb-3"
         />
 
         <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
-            Ceci va remplacer intégralement le planning existant de chaque praticien sélectionné.
+            {{ $t('ui.ceciVaRemplacerIntegralementLePlanning') }}
         </v-alert>
 
         <v-alert v-if="generalErrors.length" type="error" variant="tonal" density="compact" class="mb-3">
@@ -69,8 +70,8 @@ function apply() {
         <WeeklySlotsEditor :grid="grid" :errors="rowErrors" />
 
         <div class="d-flex justify-end ga-2 mt-4">
-            <AppButton label="Annuler" severity="secondary" @click="emit('update:visible', false)" />
-            <AppButton label="Appliquer" :loading="processing" :disabled="!practitionerIds.length" @click="apply" />
+            <AppButton :label="$t('ui.annuler')" severity="secondary" @click="emit('update:visible', false)" />
+            <AppButton :label="$t('ui.appliquer')" :loading="processing" :disabled="!practitionerIds.length" @click="apply" />
         </div>
     </AppDialog>
 </template>

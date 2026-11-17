@@ -30,6 +30,8 @@ class UpdateCountryRequest extends FormRequest
             'name' => ['required', 'array'],
             'name.fr' => ['required', 'string', 'max:255'],
             'name.en' => ['required', 'string', 'max:255'],
+            // Optional: falls back to French when absent.
+            'name.ar' => ['nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
         ];
     }

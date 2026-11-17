@@ -53,7 +53,7 @@ class DiseaseCategoryController extends Controller
                 ->map(fn (EnumOption $option) => [
                     'id' => $option->id,
                     'code' => $option->code,
-                    'label' => $option->label['fr'] ?? $option->code,
+                    'label' => $option->label,
                 ]),
         ]);
     }

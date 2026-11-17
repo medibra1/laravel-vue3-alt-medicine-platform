@@ -67,10 +67,10 @@ function toggleItem(itemId: number) {
 
 <template>
     <div class="d-flex flex-column ga-3">
-        <AppInputText v-model="search" label="Rechercher un soin (toutes catégories)" placeholder="Ex. huile, ventouse…" />
+        <AppInputText v-model="search" :label="$t('ui.rechercherUnSoinToutesCategories')" :placeholder="$t('ui.exHuileVentouse')" />
 
         <div v-if="search.trim()" class="d-flex flex-column ga-2">
-            <p class="text-body-2 text-medium-emphasis">{{ searchResults.length }} résultat(s)</p>
+            <p class="text-body-2 text-medium-emphasis">{{ $t('misc.results', { n: searchResults.length }) }}</p>
             <div v-for="item in searchResults" :key="item.id" class="d-flex align-center ga-2">
                 <AppCheckbox :model-value="modelValue.has(item.id)" @update:model-value="toggleItem(item.id)" />
                 <span>{{ item.label }}</span>
@@ -94,6 +94,6 @@ function toggleItem(itemId: number) {
             </v-expansion-panel>
         </v-expansion-panels>
 
-        <p v-if="!careCategories.length" class="text-body-2 text-medium-emphasis">Aucun soin disponible.</p>
+        <p v-if="!careCategories.length" class="text-body-2 text-medium-emphasis">{{ $t('ui.aucunSoinDisponible') }}</p>
     </div>
 </template>

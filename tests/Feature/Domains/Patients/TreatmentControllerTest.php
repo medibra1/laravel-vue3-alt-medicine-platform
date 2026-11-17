@@ -19,10 +19,47 @@ test('super admin can list treatments from every center', function () {
     Treatment::factory()->for($centerA, 'center')->create();
     Treatment::factory()->for($centerB, 'center')->create();
 
-    $response = $this->actingAs($superAdmin)->get(route('admin.treatments.index'));
+    $response = $this->actingAs($superAdmin)->get(route('admin.treatments.index', ['filter' => ['status' => 'all']]));
 
     $response->assertOk();
     expect($response->inertiaPage()['props']['treatments']['data'])->toHaveCount(2);
+});
+
+test('the treatment list shows ongoing treatments by default, with counts per status', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $ongoing = Treatment::factory()->for($center, 'center')->create();
+    $ongoing->setStatus('ongoing');
+    Treatment::factory()->for($center, 'center')->create()->setStatus('closed');
+    Treatment::factory()->for($center, 'center')->create()->setStatus('draft');
+
+    $props = $this->actingAs($superAdmin)->get(route('admin.treatments.index'))->inertiaPage()['props'];
+
+    expect(collect($props['treatments']['data'])->pluck('id')->all())->toBe([$ongoing->id]);
+    expect($props['treatments']['data'][0]['status'])->toBe('ongoing');
+    expect($props['status_counts'])->toMatchArray(['ongoing' => 1, 'closed' => 1, 'draft' => 1, 'confirmed' => 0]);
+});
+
+test('the treatment list searches by patient and sends disease labels as text', function () {
+    $superAdmin = actingAsSuperAdmin();
+    $center = Center::factory()->create();
+    $disease = Disease::factory()->create(['label' => ['fr' => 'Migraine', 'en' => 'Migraine']]);
+    $found = Treatment::factory()->for($center, 'center')
+        ->for(Patient::factory()->create(['first_name' => 'Yasmine', 'last_name' => 'Belkacem']))
+        ->create();
+    $found->setStatus('ongoing');
+    $found->diseases()->attach($disease->id);
+    Treatment::factory()->for($center, 'center')
+        ->for(Patient::factory()->create(['first_name' => 'Paul', 'last_name' => 'Durand']))
+        ->create()->setStatus('ongoing');
+
+    $data = $this->actingAs($superAdmin)
+        ->get(route('admin.treatments.index', ['filter' => ['search' => 'belka']]))
+        ->inertiaPage()['props']['treatments']['data'];
+
+    expect($data)->toHaveCount(1);
+    expect($data[0]['patient']['id'])->toBe($found->patient_id);
+    expect($data[0]['diseases'][0]['label'])->toBe('Migraine');
 });
 
 test('manager only sees treatments from their own center', function () {
@@ -33,7 +70,7 @@ test('manager only sees treatments from their own center', function () {
 
     $manager = actingAsManagerOf($ownCenter);
 
-    $response = $this->actingAs($manager)->get(route('admin.treatments.index'));
+    $response = $this->actingAs($manager)->get(route('admin.treatments.index', ['filter' => ['status' => 'all']]));
 
     $response->assertOk();
     $data = $response->inertiaPage()['props']['treatments']['data'];

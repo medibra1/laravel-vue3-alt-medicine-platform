@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr, currentLocale } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import { outcomeColor, outcomeIcon, outcomeLabel } from '@/utils/diseaseOutcome';
@@ -37,7 +38,7 @@ const emit = defineEmits<{
 // reopenTreatment()) — no dedicated confirmation dialog component exists,
 // so this follows the same convention rather than introducing a new one.
 function confirmDelete(session: TreatmentSessionSummary) {
-    if (!confirm('Supprimer cette séance ? Cette action est irréversible.')) {
+    if (!confirm(tr('misc.confirmDeleteSession'))) {
         return;
     }
 
@@ -52,11 +53,11 @@ function mostRecentSessionId(sessions: TreatmentSessionSummary[]): number | null
 }
 
 function statusColor(session: TreatmentSessionSummary): string {
-    return session.id === mostRecentSessionId(props.sessions) ? 'primary' : 'muted';
+    return session.id === mostRecentSessionId(props.sessions) ? 'primary' : 'surface-variant';
 }
 
 function formatSessionDate(session: TreatmentSessionSummary): string {
-    return session.session_date ? new Date(session.session_date).toLocaleDateString() : '—';
+    return session.session_date ? new Date(session.session_date).toLocaleDateString(currentLocale()) : '—';
 }
 
 interface CareItemGroup {
@@ -107,7 +108,7 @@ function careItemGroups(session: TreatmentSessionSummary): CareItemGroup[] {
                                 icon="mdi-pencil"
                                 severity="secondary"
                                 size="small"
-                                aria-label="Modifier la séance"
+                                :aria-label="$t('ui.modifierLaSeance')"
                                 @click.stop="emit('edit-session', session)"
                             />
 
@@ -115,7 +116,7 @@ function careItemGroups(session: TreatmentSessionSummary): CareItemGroup[] {
                                 icon="mdi-delete"
                                 severity="danger"
                                 size="small"
-                                aria-label="Supprimer la séance"
+                                :aria-label="$t('ui.supprimerLaSeance')"
                                 @click.stop="confirmDelete(session)"
                             />
                         </div>

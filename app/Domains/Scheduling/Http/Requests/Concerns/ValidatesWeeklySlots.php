@@ -53,7 +53,7 @@ trait ValidatesWeeklySlots
                 if ($first['start_time'] < $second['end_time'] && $first['end_time'] > $second['start_time']) {
                     $validator->errors()->add(
                         "slots.{$b}.start_time",
-                        __('La plage :second chevauche la plage :first le même jour.', [
+                        __('scheduling.slots_overlap', [
                             'first' => "{$first['start_time']}-{$first['end_time']}",
                             'second' => "{$second['start_time']}-{$second['end_time']}",
                         ]),

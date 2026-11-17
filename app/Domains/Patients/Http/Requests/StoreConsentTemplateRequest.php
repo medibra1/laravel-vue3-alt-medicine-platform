@@ -30,8 +30,16 @@ class StoreConsentTemplateRequest extends FormRequest
                 Rule::in(['treatment', 'data_privacy', 'image_rights']),
                 Rule::unique('consent_templates', 'type')->where('is_active', true),
             ],
-            'title' => ['required', 'string', 'max:255'],
-            'content' => ['required', 'string'],
+            // French required; English/Arabic optional, but a language is
+            // either complete (title + content) or absent.
+            'title' => ['required', 'array'],
+            'title.fr' => ['required', 'string', 'max:255'],
+            'title.en' => ['nullable', 'string', 'max:255', 'required_with:content.en'],
+            'title.ar' => ['nullable', 'string', 'max:255', 'required_with:content.ar'],
+            'content' => ['required', 'array'],
+            'content.fr' => ['required', 'string'],
+            'content.en' => ['nullable', 'string', 'required_with:title.en'],
+            'content.ar' => ['nullable', 'string', 'required_with:title.ar'],
         ];
     }
 }

@@ -35,18 +35,19 @@ function switchCenter(centerId: number) {
 <template>
     <v-menu v-if="centers.length > 1">
         <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" variant="text" prepend-icon="mdi-domain" class="text-none">
-                {{ activeCenterName }}
+            <v-btn v-bind="menuProps" variant="tonal" color="primary" prepend-icon="mdi-domain" class="me-1">
+                <span class="d-none d-sm-inline">{{ activeCenterName }}</span>
                 <v-icon icon="mdi-chevron-down" end />
             </v-btn>
         </template>
         <v-list density="compact">
-            <v-list-subheader>Centre actif</v-list-subheader>
+            <v-list-subheader>{{ $t('shell.activeCenter') }}</v-list-subheader>
             <v-list-item
                 v-for="center in centers"
                 :key="center.id"
                 :title="center.name"
                 :active="center.id === activeCenterId"
+                color="primary"
                 @click="switchCenter(center.id)"
             />
         </v-list>

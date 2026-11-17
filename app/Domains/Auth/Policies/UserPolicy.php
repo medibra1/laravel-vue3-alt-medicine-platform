@@ -19,7 +19,12 @@ class UserPolicy
      */
     public function before(User $user, string $ability): ?bool
     {
-        if (in_array($ability, ['update', 'delete'], true)) {
+        if ($ability === 'manageCenterModules') {
+            // Always tied to an active center: no global bypass.
+            return null;
+        }
+
+        if (in_array($ability, ['update', 'delete', 'manageModules'], true)) {
             return $user->isSuperAdmin() ? true : null;
         }
 
@@ -56,5 +61,33 @@ class UserPolicy
         // for it — see Admin/Users/Index.vue point 12 — but the same
         // "deactivate, never delete" action applies as for a manager).
         return $user->isAdmin() && ($target->isManager() || $target->isPractitioner()) && ! $target->isAdmin() && ! $target->isSuperAdmin();
+    }
+
+    /**
+     * Account-wide restriction, whatever the center: an admin, for any
+     * non-admin account. super_admin already bypassed via before().
+     */
+    public function manageModules(User $user, User $target): bool
+    {
+        return $user->isAdmin() && ! $target->isAdmin() && ! $target->isSuperAdmin();
+    }
+
+    /**
+     * Restriction limited to the center being worked on: its manager,
+     * for the practitioners of that center (never another manager,
+     * never themselves). What the practitioner can do on their other
+     * centers is untouched.
+     */
+    public function manageCenterModules(User $user, User $target): bool
+    {
+        $centerId = getPermissionsTeamId();
+
+        return $centerId !== null
+            && in_array($centerId, $user->managedCenterIds(), true)
+            && $target->isPractitioner()
+            && ! $target->isManager()
+            && ! $target->isAdmin()
+            && ! $target->isSuperAdmin()
+            && in_array($centerId, $target->accessibleCenterIds(), true);
     }
 }

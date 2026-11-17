@@ -35,7 +35,7 @@ class StorePatientDraftRequest extends FormRequest
             // verification of this form happened as a manager who
             // already had at least one patient, never the very first
             // draft save with a non-super_admin session).
-            'intake_center_id' => $this->user()->isSuperAdmin()
+            'intake_center_id' => $this->user()->isGlobalAdmin()
                 ? ['required', 'integer', 'exists:centers,id']
                 : ['prohibited'],
             'first_name' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -65,7 +65,7 @@ class StorePatientDraftRequest extends FormRequest
      */
     public function centerId(): ?int
     {
-        return $this->user()->isSuperAdmin()
+        return $this->user()->isGlobalAdmin()
             ? $this->integer('intake_center_id')
             : getPermissionsTeamId();
     }

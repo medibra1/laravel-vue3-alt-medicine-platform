@@ -91,7 +91,7 @@ onMounted(() => {
         />
 
         <div>
-            <v-btn variant="tonal" size="small" prepend-icon="mdi-eraser" @click="clear">Effacer</v-btn>
+            <v-btn variant="tonal" size="small" prepend-icon="mdi-eraser" @click="clear">{{ $t('ui.effacer') }}</v-btn>
         </div>
     </div>
 </template>

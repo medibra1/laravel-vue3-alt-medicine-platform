@@ -53,23 +53,24 @@ npm run dev
 Vérifier après le seed : 46 pays, 9 zones, 8 catégories de maladies /
 103 maladies / 19 sous-cas de blocage, en français et en anglais.
 
-### Jeu de données de démonstration (optionnel)
+### Jeu de données de démonstration
 
-`db:seed` ne crée que les données de référence. Pour une démo ou un
-test manuel (2 centres `[Démo] …`, managers dont un multi-centres,
+Hors production, `php artisan db:seed` (ou `migrate:fresh --seed`) crée
+aussi un jeu de démo (2 centres `[Démo] …`, managers dont un multi-centres,
 praticiens avec/sans compte, disponibilités, congés, fermeture de
 centre, ~26 patients couvrant tous les statuts, séances avec mesures,
-RDV passés/à venir dont un dans les 24 h, consentements, documents) :
+RDV passés/à venir dont un dans les 24 h, consentements, documents).
+Pour ne rejouer que la démo :
 
 ```bash
-php artisan app:seed-demo
-# équivalent : php artisan db:seed --class="Database\Seeders\Demo\DemoSeeder"
+php artisan db:seed --class="Database\Seeders\DemoDataSeeder"
 ```
 
 Comptes `*@demo.local`, mot de passe `password` (ex.
 `manager.multi@demo.local`). Rejouable : supprime d'abord les données
 démo précédentes (centres `[Démo]`, e-mails `@demo.local`) avant de les
-recréer. **Refuse de s'exécuter si `APP_ENV=production`.**
+recréer. **Jamais exécuté par `db:seed` quand `APP_ENV=production`**
+(garde-fou dans `DatabaseSeeder`).
 
 ### Production — tâches planifiées (obligatoire)
 
@@ -99,7 +100,9 @@ il tourne contre la DB de dev locale (`database/database.sqlite`), pas
 une DB isolée comme Pest (sqlite `:memory:`), donc à éviter en même
 temps qu'un usage manuel actif de cette DB.
 
-## État d'avancement (2026-09-09)
+## État d'avancement (2026-11-17)
+
+- **2026-11-17** : avoirs et remboursements, dépenses, liste des règlements, export comptable CSV, tarif forfaitaire ou nul par catégorie de soin, gestion des modules des praticiens par le manager.
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
@@ -108,10 +111,11 @@ temps qu'un usage manuel actif de cette DB.
 | Core (zones, pays, centres, grades) | Zones/pays/centres : **CRUD admin fait** (super_admin uniquement). Grades : schéma + seeders, pas encore de CRUD |
 | Auth (comptes utilisateurs, notifications) | **Fait (Phase 1 + 2)** — rôles `super_admin`/`admin`/`manager`/`practitioner`, création directe ou par invitation (password broker natif Laravel), blocage compte désactivé, notifications applicatives (mail + database), comptes practitioner multi-centres avec sélecteur de centre actif |
 | Practitioners (soignants, présence) | **Fait** — CRUD admin, policy, tests, accès applicatif multi-centres (Phase 2) |
-| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
+| Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; page Traitements = liste de suivi (statut, maladies, dernière séance, filtres) ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | RDV **fait** — calendrier praticien/centre, disponibilités récurrentes (éditeur hebdomadaire par praticien + application en masse), horaires d'ouverture par centre et par jour (plage affichée de l'agenda), congés praticien et fermetures exceptionnelles de centre (bloquants, journées entières), détection de conflit, conversion RDV→séance automatique, modalité présentiel/à distance (RDV et séances). Campagnes (tournées) pas commencé |
 | Catalog (produits, stock) | Pas commencé |
-| Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
+| Billing (factures, paie) | **Fait** — factures (services du catalogue au prix modifiable, lignes libres, remises et cas sociaux, acomptes, échéancier), règlements, avoirs, remboursements, dépenses, export comptable CSV, PDF, tarifs par centre ; paie (deux modes) posée |
+| Transverse | **Interface en français, anglais et arabe (RTL)** ; modules activables par centre et par utilisateur ; réglages par centre (devise, fuseau, tarifs) ; tableau de bord chiffré |
 | Reporting (stats signées) | Pas commencé |
 
 **Vérification Practitioners** (2026-08-19) : 36 tests Pest passent (13
@@ -479,13 +483,21 @@ rendez-vous. Vérifié : 389 tests Pest (11 nouveaux), Pint, Larastan,
 `vue-tsc`, Vitest. Pas de vérification navigateur.
 
 **Seeder de démonstration** (2026-09-30, `feature/demo-seeder`) :
-`php artisan app:seed-demo` (voir Démarrage), jamais appelé par
-`DatabaseSeeder`, garde-fou production, rejouable à comptes identiques.
+`DemoDataSeeder`, appelé par `DatabaseSeeder` hors production
+uniquement (même pattern que Geneva Bengal, voir Démarrage), rejouable à comptes identiques.
 Factories ajoutées : `Appointment`, `PractitionerAvailability`,
 `PractitionerTimeOff`, `CenterOperatingHours`, `CenterClosure`,
 `ConsentTemplate`. Vérifié : 393 tests Pest (3 nouveaux), Pint,
 Larastan, `vue-tsc`, seed lancé deux fois en local, rappels reçus dans
 Mailpit, parcours navigateur (Playwright headless) sans erreur console.
+
+**Liste de suivi des traitements, choix de service sur la facture**
+(2026-11-17, `feature/premium-redesign`) : `/admin/treatments` devient
+une liste de suivi (en cours par défaut, compteurs par statut, maladies,
+dernière séance, recherche patient, filtre praticien/centre, lien vers le
+dossier). Facture : une nouvelle ligne démarre sans service choisi ;
+totaux de l’onglet Facturation séparés par devise. Vérifié : 442 tests
+Pest, Pint, Larastan, `vue-tsc`, Vitest, build, parcours navigateur.
 
 ## Points ouverts connus
 

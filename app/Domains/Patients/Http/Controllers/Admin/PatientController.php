@@ -10,6 +10,7 @@ use App\Domains\Patients\Http\Requests\StorePatientDraftRequest;
 use App\Domains\Patients\Http\Requests\UpdatePatientDraftRequest;
 use App\Domains\Patients\Http\Resources\CareCategoryResource;
 use App\Domains\Patients\Http\Resources\ConsentResource;
+use App\Domains\Patients\Http\Resources\ConsentTemplateResource;
 use App\Domains\Patients\Http\Resources\DiseaseCategoryResource;
 use App\Domains\Patients\Http\Resources\DiseaseResource;
 use App\Domains\Patients\Http\Resources\PatientDocumentResource;
@@ -43,7 +44,7 @@ class PatientController extends Controller
 
         $query = Patient::query()->with('center.country');
 
-        if (! $request->user()->isSuperAdmin()) {
+        if (! $request->user()->isGlobalAdmin()) {
             $query->where('intake_center_id', getPermissionsTeamId());
         }
 
@@ -116,6 +117,11 @@ class PatientController extends Controller
             'practitioners' => $this->practitionerOptions($request),
             'religionOptions' => $this->religionOptions(),
             'can_update' => Gate::allows('update', $patient),
+            // Per-center defaults for a new session (see center settings).
+            'sessionDefaults' => [
+                'duration_minutes' => $patient->center?->setting('default_session_duration'),
+                'modality' => $patient->center?->setting('default_modality', 'in_person') ?? 'in_person',
+            ],
             'documents' => [
                 'identity' => $patient->getFirstMedia('identity')
                     ? new PatientDocumentResource($patient->getFirstMedia('identity'))
@@ -136,9 +142,9 @@ class PatientController extends Controller
             'consents' => ConsentResource::collection(
                 $patient->consents()->with('template', 'acceptedBy')->latest()->get(),
             ),
-            'consentTemplates' => ConsentTemplate::query()
-                ->where('is_active', true)
-                ->get(['type', 'title', 'content', 'version']),
+            'consentTemplates' => ConsentTemplateResource::collection(
+                ConsentTemplate::query()->where('is_active', true)->get(),
+            ),
             'nextAppointment' => optional(
                 $patient->nextAppointment()?->load('practitioner'),
                 fn ($appointment) => new AppointmentResource($appointment),
@@ -217,7 +223,7 @@ class PatientController extends Controller
             ->map(fn (EnumOption $option) => [
                 'id' => $option->id,
                 'code' => $option->code,
-                'label' => $option->label['fr'] ?? $option->code,
+                'label' => $option->label,
             ])
             ->all();
     }
@@ -231,7 +237,7 @@ class PatientController extends Controller
             ->map(fn (EnumOption $option) => [
                 'id' => $option->id,
                 'code' => $option->code,
-                'label' => $option->label['fr'] ?? $option->code,
+                'label' => $option->label,
                 'unit' => $option->properties['unit'] ?? null,
                 'placeholder' => $option->properties['placeholder'] ?? null,
             ])

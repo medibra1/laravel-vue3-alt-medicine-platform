@@ -2,6 +2,7 @@
 import { http } from '@/lib/http';
 import { router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 type NotificationItem = {
     id: string;
@@ -21,26 +22,27 @@ function typeStyle(type: string) {
     return TYPE_STYLE[type] ?? { icon: 'mdi-bell-outline', color: 'secondary' };
 }
 
+const { t, locale } = useI18n();
+
 function relativeTime(iso: string): string {
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const minutes = Math.floor(diffMs / 60000);
+    const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
 
     if (minutes < 1) {
-        return "À l'instant";
+        return t('shell.notifications.now');
     }
     if (minutes < 60) {
-        return `Il y a ${minutes} min`;
+        return t('shell.notifications.minutesAgo', { n: minutes });
     }
     const hours = Math.floor(minutes / 60);
     if (hours < 24) {
-        return `Il y a ${hours} h`;
+        return t('shell.notifications.hoursAgo', { n: hours });
     }
     const days = Math.floor(hours / 24);
     if (days < 7) {
-        return `Il y a ${days} j`;
+        return t('shell.notifications.daysAgo', { n: days });
     }
 
-    return new Date(iso).toLocaleDateString();
+    return new Date(iso).toLocaleDateString(locale.value);
 }
 
 const page = usePage();
@@ -109,16 +111,16 @@ const hasUnread = computed(() => unreadCount.value > 0);
         @update:model-value="(open: boolean) => open && loadNotifications()"
     >
         <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" icon variant="text">
+            <v-btn v-bind="menuProps" icon variant="text" :aria-label="t('shell.notifications.title')">
                 <v-badge :content="unreadCount" :model-value="hasUnread" color="error" location="top end">
                     <v-icon icon="mdi-bell-outline" />
                 </v-badge>
             </v-btn>
         </template>
 
-        <v-card min-width="360" max-width="400" elevation="8" rounded="lg" class="notif-card">
+        <v-card min-width="360" max-width="400" class="notif-card">
             <div class="d-flex align-center justify-space-between px-4 py-3">
-                <span class="text-subtitle-1 font-weight-medium">Notifications</span>
+                <span class="text-subtitle-1 font-weight-bold">{{ t('shell.notifications.title') }}</span>
                 <v-btn
                     v-if="hasUnread"
                     variant="text"
@@ -128,7 +130,7 @@ const hasUnread = computed(() => unreadCount.value > 0);
                     class="text-none"
                     @click="markAllAsRead"
                 >
-                    Tout marquer comme lu
+                    {{ t('shell.notifications.markAllRead') }}
                 </v-btn>
             </div>
             <v-divider />
@@ -139,7 +141,7 @@ const hasUnread = computed(() => unreadCount.value > 0);
 
             <div v-else-if="notifications.length === 0" class="d-flex flex-column align-center text-center py-8 px-4">
                 <v-icon icon="mdi-bell-sleep-outline" size="40" color="secondary" class="mb-2" />
-                <span class="text-body-2 text-medium-emphasis">Aucune notification pour le moment</span>
+                <span class="text-body-2 text-medium-emphasis">{{ t('shell.notifications.empty') }}</span>
             </div>
 
             <v-list v-else density="compact" class="notif-list py-0">
@@ -184,7 +186,7 @@ const hasUnread = computed(() => unreadCount.value > 0);
 
 .notif-item {
     cursor: pointer;
-    border-left: 3px solid transparent;
+    border-inline-start: 3px solid transparent;
     transition: background-color 0.15s ease;
 }
 
@@ -193,7 +195,7 @@ const hasUnread = computed(() => unreadCount.value > 0);
 }
 
 .notif-item--unread {
-    border-left-color: rgb(var(--v-theme-primary));
+    border-inline-start-color: rgb(var(--v-theme-primary));
     background-color: rgba(var(--v-theme-primary), 0.04);
 }
 

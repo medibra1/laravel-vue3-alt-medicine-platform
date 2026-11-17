@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { currentLocale, isRtl, LOCALE_LABELS, tr, type AppLocale } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -13,10 +14,13 @@ import { computed, ref } from 'vue';
 type ConsentType = 'treatment' | 'data_privacy' | 'image_rights';
 type ConsentSource = 'digital' | 'uploaded';
 
+// title/content: one entry per language; `locales` lists the languages
+// whose title AND text are both written (the only ones offered).
 interface ConsentTemplate {
     type: ConsentType;
-    title: string;
-    content: string;
+    title: Record<string, string | null>;
+    content: Record<string, string | null>;
+    locales: string[];
     version: number;
 }
 
@@ -25,6 +29,7 @@ interface Consent {
     type: ConsentType;
     source: ConsentSource;
     version: number | null;
+    locale: string | null;
     template_version: number | null;
     signer_name: string;
     accepted_at: string;
@@ -43,9 +48,9 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [] }>();
 
 const typeLabels: Record<ConsentType, string> = {
-    treatment: 'Consentement au traitement',
-    data_privacy: 'Protection des données (RGPD)',
-    image_rights: "Droit à l'image",
+    treatment: tr('misc.consentTypes.treatment'),
+    data_privacy: tr('misc.consentTypes.data_privacy'),
+    image_rights: tr('misc.consentTypes.image_rights'),
 };
 
 const types: ConsentType[] = ['treatment', 'data_privacy', 'image_rights'];
@@ -88,10 +93,25 @@ const submitError = ref<string | null>(null);
 
 const activeTemplate = computed(() => (dialogType.value ? templateFor(dialogType.value) : null));
 
+// Language the patient reads and signs in: the interface language when
+// the template is written in it, otherwise its first available one.
+const signingLocale = ref<string>('fr');
+
+function defaultSigningLocale(template: ConsentTemplate | null): string {
+    if (!template?.locales.length) return 'fr';
+
+    return template.locales.includes(currentLocale()) ? currentLocale() : template.locales[0];
+}
+
+const dialogTitle = computed(() =>
+    activeTemplate.value?.title[signingLocale.value] ?? (dialogType.value ? typeLabels[dialogType.value] : undefined),
+);
+
 function openDialog(type: ConsentType) {
     dialogType.value = type;
     dialogSource.value = null;
     resetForm();
+    signingLocale.value = defaultSigningLocale(templateFor(type));
     dialogVisible.value = true;
 }
 
@@ -122,6 +142,7 @@ function submit() {
             signer_name: signerName.value,
             signature_svg: signatureSvg.value,
             accepted: accepted.value,
+            locale: dialogSource.value === 'digital' ? signingLocale.value : null,
             accepted_at: acceptedAt.value ? acceptedAt.value.toISOString().slice(0, 10) : null,
             files: files.value,
         },
@@ -150,14 +171,16 @@ function submit() {
                 <template v-if="latestConsentFor(type)">
                     <div class="d-flex align-center ga-2 flex-wrap">
                         <v-chip size="small" :color="isUpToDate(type) ? 'success' : 'warning'" variant="tonal">
-                            {{ isUpToDate(type) ? 'À jour' : 'À renouveler' }}
+                            {{ isUpToDate(type) ? $t('misc.upToDate') : $t('misc.toRenew') }}
                         </v-chip>
                         <v-chip size="small" variant="outlined">
-                            {{ latestConsentFor(type)!.source === 'uploaded' ? 'Document importé' : 'Signature électronique' }}
+                            {{ latestConsentFor(type)!.source === 'uploaded' ? $t('misc.importedDocument') : $t('ui.signatureElectronique') }}
+                        </v-chip>
+                        <v-chip v-if="latestConsentFor(type)!.locale" size="small" variant="outlined" prepend-icon="mdi-translate">
+                            {{ LOCALE_LABELS[latestConsentFor(type)!.locale as AppLocale] ?? latestConsentFor(type)!.locale }}
                         </v-chip>
                         <span class="text-body-2">
-                            Signé par {{ latestConsentFor(type)!.signer_name }} le
-                            {{ new Date(latestConsentFor(type)!.accepted_at).toLocaleDateString() }}
+                            {{ $t('misc.signedBy', { name: latestConsentFor(type)!.signer_name, date: new Date(latestConsentFor(type)!.accepted_at).toLocaleDateString($i18n.locale) }) }}
                             <template v-if="latestConsentFor(type)!.version">(v{{ latestConsentFor(type)!.version }})</template>
                         </span>
                     </div>
@@ -167,18 +190,18 @@ function submit() {
                             as="a"
                             :href="latestConsentFor(type)!.download_url"
                             target="_blank"
-                            label="Télécharger le PDF"
+                            :label="$t('ui.telechargerLePdf')"
                             icon="mdi-download"
                             severity="secondary"
                             size="small"
                         />
                     </div>
                 </template>
-                <p v-else class="text-body-2 text-medium-emphasis mb-0">Aucun consentement recueilli pour l'instant.</p>
+                <p v-else class="text-body-2 text-medium-emphasis mb-0">{{ $t('ui.aucunConsentementRecueilliPourLInstant') }}</p>
 
                 <div v-if="!readonly">
                     <AppButton
-                        :label="latestConsentFor(type) ? 'Renouveler le consentement' : 'Recueillir le consentement'"
+                        :label="latestConsentFor(type) ? $t('misc.renewConsent') : $t('misc.collectConsent')"
                         icon="mdi-file-sign"
                         severity="secondary"
                         size="small"
@@ -188,19 +211,19 @@ function submit() {
             </v-card-text>
         </AppCard>
 
-        <AppDialog v-model:visible="dialogVisible" :header="activeTemplate?.title ?? (dialogType ? typeLabels[dialogType] : undefined)" max-width="640px">
+        <AppDialog v-model:visible="dialogVisible" :header="dialogTitle" max-width="640px">
             <div v-if="dialogType" class="d-flex flex-column ga-4">
                 <!-- Step 1: pick how this consent is being recorded. -->
                 <div v-if="!dialogSource" class="d-flex flex-column ga-3">
-                    <p class="text-body-2 text-medium-emphasis mb-0">Comment ce consentement a-t-il été recueilli ?</p>
+                    <p class="text-body-2 text-medium-emphasis mb-0">{{ $t('ui.commentCeConsentementATIl') }}</p>
 
                     <AppCard clickable variant="outlined" @click="chooseSource('digital')">
                         <v-card-text class="d-flex align-center ga-3">
                             <v-icon icon="mdi-draw" size="32" color="primary" />
                             <div>
-                                <p class="text-body-1 mb-0">Signature électronique</p>
+                                <p class="text-body-1 mb-0">{{ $t('ui.signatureElectronique') }}</p>
                                 <p class="text-caption text-medium-emphasis mb-0">
-                                    Le patient signe directement dans l'application, sur le texte du modèle actif.
+                                    {{ $t('ui.lePatientSigneDirectementDansL') }}
                                 </p>
                             </div>
                         </v-card-text>
@@ -210,9 +233,9 @@ function submit() {
                         <v-card-text class="d-flex align-center ga-3">
                             <v-icon icon="mdi-file-upload-outline" size="32" color="primary" />
                             <div>
-                                <p class="text-body-1 mb-0">Document déjà signé</p>
+                                <p class="text-body-1 mb-0">{{ $t('ui.documentDejaSigne') }}</p>
                                 <p class="text-caption text-medium-emphasis mb-0">
-                                    Le patient a signé un document papier — importer une photo ou un scan.
+                                    {{ $t('ui.lePatientASigneUnDocument') }}
                                 </p>
                             </div>
                         </v-card-text>
@@ -222,46 +245,54 @@ function submit() {
                 <!-- Step 2a: digital signature, against the active template. -->
                 <template v-else-if="dialogSource === 'digital'">
                     <p v-if="!activeTemplate" class="text-body-2 text-error mb-0">
-                        Aucun modèle actif pour ce type — à configurer en administration avant de pouvoir recueillir une
-                        signature électronique.
+                        {{ $t('ui.aucunModeleActifPourCeType') }}
                     </p>
                     <template v-else>
-                        <div class="consent-text text-body-2">{{ activeTemplate.content }}</div>
+                        <div v-if="activeTemplate.locales.length > 1" class="d-flex align-center flex-wrap ga-2">
+                            <span class="text-body-2 text-medium-emphasis">{{ $t('misc.signingLanguage') }}</span>
+                            <v-btn-toggle v-model="signingLocale" mandatory density="compact" variant="outlined" divided color="primary">
+                                <v-btn v-for="locale in activeTemplate.locales" :key="locale" :value="locale" size="small">
+                                    {{ LOCALE_LABELS[locale as AppLocale] ?? locale }}
+                                </v-btn>
+                            </v-btn-toggle>
+                        </div>
 
-                        <AppInputText v-model="signerName" label="Nom du signataire" />
+                        <div class="consent-text text-body-2" :dir="isRtl(signingLocale) ? 'rtl' : 'ltr'">{{ activeTemplate.content[signingLocale] }}</div>
 
-                        <AppSignaturePad v-model="signatureSvg" label="Signature (optionnelle)" />
+                        <AppInputText v-model="signerName" :label="$t('ui.nomDuSignataire')" />
 
-                        <AppCheckbox v-model="accepted" label="Le patient (ou son représentant) accepte les termes ci-dessus." />
+                        <AppSignaturePad v-model="signatureSvg" :label="$t('ui.signatureOptionnelle')" />
+
+                        <AppCheckbox v-model="accepted" :label="$t('ui.lePatientOuSonRepresentantAccepte')" />
 
                         <p v-if="submitError" class="text-caption text-error mb-0">{{ submitError }}</p>
 
                         <div class="d-flex justify-space-between ga-2">
-                            <AppButton label="Retour" severity="secondary" @click="dialogSource = null" />
-                            <AppButton label="Valider" :loading="submitting" @click="submit" />
+                            <AppButton :label="$t('ui.retour')" severity="secondary" @click="dialogSource = null" />
+                            <AppButton :label="$t('ui.valider')" :loading="submitting" @click="submit" />
                         </div>
                     </template>
                 </template>
 
                 <!-- Step 2b: an already-signed paper document, imported as-is. -->
                 <template v-else>
-                    <AppInputText v-model="signerName" label="Nom du signataire" />
+                    <AppInputText v-model="signerName" :label="$t('ui.nomDuSignataire')" />
 
-                    <AppDatePicker v-model="acceptedAt" label="Date de signature du document" />
+                    <AppDatePicker v-model="acceptedAt" :label="$t('ui.dateDeSignatureDuDocument')" />
 
                     <AppFileUpload
                         v-model="files"
                         multiple
-                        label="Document signé (plusieurs photos d'un même document sont fusionnées en un seul PDF)"
+                        :label="$t('ui.documentSignePlusieursPhotosDUn')"
                     />
 
-                    <AppCheckbox v-model="accepted" label="Le patient (ou son représentant) a bien accepté les termes présentés." />
+                    <AppCheckbox v-model="accepted" :label="$t('ui.lePatientOuSonRepresentantA')" />
 
                     <p v-if="submitError" class="text-caption text-error mb-0">{{ submitError }}</p>
 
                     <div class="d-flex justify-space-between ga-2">
-                        <AppButton label="Retour" severity="secondary" @click="dialogSource = null" />
-                        <AppButton label="Valider" :loading="submitting" @click="submit" />
+                        <AppButton :label="$t('ui.retour')" severity="secondary" @click="dialogSource = null" />
+                        <AppButton :label="$t('ui.valider')" :loading="submitting" @click="submit" />
                     </div>
                 </template>
             </div>

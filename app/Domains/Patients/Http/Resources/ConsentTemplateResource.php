@@ -18,8 +18,11 @@ class ConsentTemplateResource extends JsonResource
             'id' => $this->id,
             'type' => $this->type,
             'version' => $this->version,
-            'title' => $this->title,
-            'content' => $this->content,
+            // All languages: the admin edits them, and the consent dialog
+            // shows the one chosen for signing.
+            'title' => $this->getTranslations('title'),
+            'content' => $this->getTranslations('content'),
+            'locales' => $this->availableLocales(),
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
         ];

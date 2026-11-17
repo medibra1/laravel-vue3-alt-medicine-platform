@@ -13,7 +13,7 @@ class PractitionerTimeOffPolicy
 {
     public function before(User $user, string $ability): ?bool
     {
-        return $user->isSuperAdmin() ? true : null;
+        return $user->isGlobalAdmin() ? true : null;
     }
 
     public function viewAny(User $user): bool

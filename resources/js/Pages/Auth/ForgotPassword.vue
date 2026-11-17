@@ -2,7 +2,7 @@
 import AppButton from '@/Components/App/AppButton.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps<{
     status?: string;
@@ -18,42 +18,27 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Forgot Password" />
+    <GuestLayout :title="$t('auth.forgot.title')" :subtitle="$t('auth.forgot.subtitle')">
+        <Head :title="$t('auth.forgot.title')" />
 
-        <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
-        </div>
+        <v-alert v-if="status" type="success" variant="tonal" class="mb-6">{{ status }}</v-alert>
 
-        <div
-            v-if="status"
-            class="mb-4 text-sm font-medium text-green-600"
-        >
-            {{ status }}
-        </div>
+        <form class="d-flex flex-column ga-5" @submit.prevent="submit">
+            <AppInputText
+                id="email"
+                v-model="form.email"
+                type="email"
+                :label="$t('common.email')"
+                autofocus
+                autocomplete="username"
+                :error="form.errors.email"
+            />
 
-        <form @submit.prevent="submit">
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Email</label>
-                <AppInputText
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    autofocus
-                    autocomplete="username"
-                    :error="form.errors.email"
-                />
-            </div>
+            <AppButton type="submit" size="large" block :label="$t('auth.forgot.submit')" :loading="form.processing" />
 
-            <div class="mt-4 flex items-center justify-end">
-                <AppButton
-                    type="submit"
-                    label="Email Password Reset Link"
-                    :loading="form.processing"
-                />
-            </div>
+            <Link :href="route('login')" class="text-body-2 font-weight-medium text-primary text-center">
+                {{ $t('auth.forgot.backToLogin') }}
+            </Link>
         </form>
     </GuestLayout>
 </template>

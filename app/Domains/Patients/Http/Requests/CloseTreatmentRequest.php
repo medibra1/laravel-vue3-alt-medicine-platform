@@ -41,7 +41,7 @@ class CloseTreatmentRequest extends FormRequest
             $treatment = $this->route('treatment');
 
             if ($treatment->currentStatusName() !== 'ongoing') {
-                $validator->errors()->add('closure_reason', 'Seul un traitement en cours peut être clôturé.');
+                $validator->errors()->add('closure_reason', __('treatments.close_only_ongoing'));
             }
         });
     }

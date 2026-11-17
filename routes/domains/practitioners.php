@@ -3,7 +3,7 @@
 use App\Domains\Practitioners\Http\Controllers\Admin\PractitionerController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'center.access'])
+Route::middleware(['auth', 'verified', 'center.access', 'module:practitioners'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {

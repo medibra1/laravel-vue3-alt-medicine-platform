@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import WeeklySlotsEditor from '@/Components/Scheduling/WeeklySlotsEditor.vue';
@@ -30,7 +31,7 @@ watch(
 );
 
 function clearAll() {
-    if (confirm('Effacer toutes les plages de ce praticien ?')) {
+    if (confirm(tr('misc.confirmClearPractitionerRanges'))) {
         grid.value = emptyGrid();
     }
 }
@@ -57,10 +58,10 @@ function save() {
         <WeeklySlotsEditor :grid="grid" :errors="rowErrors" />
 
         <div class="d-flex justify-space-between flex-wrap ga-2 mt-4">
-            <AppButton label="Tout effacer" severity="danger" @click="clearAll" />
+            <AppButton :label="$t('ui.toutEffacer')" severity="danger" @click="clearAll" />
             <div class="d-flex ga-2">
-                <AppButton label="Annuler" severity="secondary" @click="emit('update:visible', false)" />
-                <AppButton label="Enregistrer" :loading="processing" @click="save" />
+                <AppButton :label="$t('ui.annuler')" severity="secondary" @click="emit('update:visible', false)" />
+                <AppButton :label="$t('ui.enregistrer')" :loading="processing" @click="save" />
             </div>
         </div>
     </AppDialog>

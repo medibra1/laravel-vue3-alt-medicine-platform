@@ -1,3 +1,4 @@
+import { tr } from '@/lib/i18n';
 export type TDiseaseOutcome = 'cured' | 'not_cured' | 'percentage' | 'ongoing';
 
 interface OutcomeOption {
@@ -11,10 +12,10 @@ interface OutcomeOption {
 // outcomeLabel() below, which needs the actual percentage value) and for
 // the base labels reused by outcomeLabel().
 export const outcomeOptions: OutcomeOption[] = [
-    { label: 'Guéri', value: 'cured' },
-    { label: 'Non guéri', value: 'not_cured' },
-    { label: 'En cours', value: 'ongoing' },
-    { label: 'Pourcentage', value: 'percentage' },
+    { label: tr('domain.outcome.cured'), value: 'cured' },
+    { label: tr('domain.outcome.not_cured'), value: 'not_cured' },
+    { label: tr('domain.outcome.ongoing'), value: 'ongoing' },
+    { label: tr('domain.outcome.percentage'), value: 'percentage' },
 ];
 
 const outcomeLabels: Record<TDiseaseOutcome, string> = Object.fromEntries(
@@ -28,7 +29,7 @@ const outcomeLabels: Record<TDiseaseOutcome, string> = Object.fromEntries(
  */
 export function outcomeLabel(outcome: string | null, percentage?: number | null): string {
     if (outcome === null) {
-        return 'Non renseigné';
+        return tr('domain.outcome.unknown');
     }
 
     if (outcome === 'percentage') {

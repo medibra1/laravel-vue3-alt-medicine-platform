@@ -10,6 +10,7 @@ use App\Domains\Auth\Notifications\ManagerAssignedNotification;
 use App\Domains\Auth\Notifications\WelcomeSetPasswordNotification;
 use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Core\Models\Center;
+use App\Domains\Core\Support\Modules;
 use App\Domains\Practitioners\Models\Practitioner;
 use App\Domains\Practitioners\Services\PractitionerCodeGenerator;
 use App\Http\Controllers\Controller;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
@@ -60,6 +62,7 @@ class UserController extends Controller
             'users' => $users,
             'filters' => (object) $request->only(['filter', 'sort']),
             'centers' => Center::query()->orderBy('name')->get(['id', 'name']),
+            'allModules' => Modules::all(),
         ]);
     }
 
@@ -86,6 +89,7 @@ class UserController extends Controller
                 'password' => $creationMode === 'invite' ? Str::password(32) : $request->string('password')->value(),
                 'email_verified_at' => $creationMode === 'direct' ? now() : null,
                 'is_active' => true,
+                'modules' => $role === 'manager' ? Modules::normalize($request->input('modules')) : null,
             ]);
 
             if ($role === 'manager') {
@@ -134,6 +138,7 @@ class UserController extends Controller
             $user->update([
                 'name' => $request->string('name')->value(),
                 'email' => $request->string('email')->value(),
+                'modules' => Modules::normalize($request->input('modules')),
             ]);
 
             $this->syncManagerCenters($user, $newCenterIds);
@@ -153,6 +158,42 @@ class UserController extends Controller
         }
 
         return redirect()->route('admin.users.index');
+    }
+
+    /**
+     * Narrows (or resets, with null) the modules of any non-admin
+     * account — the only edit available on a practitioner account here.
+     */
+    public function updateModules(Request $request, User $user): RedirectResponse
+    {
+        Gate::authorize('manageModules', $user);
+
+        $validated = $request->validate([
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(Modules::all())],
+        ]);
+
+        $user->update(['modules' => Modules::normalize($validated['modules'] ?? null)]);
+
+        return back();
+    }
+
+    /**
+     * A manager narrowing what a practitioner can use on the center
+     * being worked on — and only there.
+     */
+    public function updateCenterModules(Request $request, User $user): RedirectResponse
+    {
+        Gate::authorize('manageCenterModules', $user);
+
+        $validated = $request->validate([
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(Modules::all())],
+        ]);
+
+        $user->setCenterModules((int) getPermissionsTeamId(), $validated['modules'] ?? null);
+
+        return back();
     }
 
     public function destroy(User $user): RedirectResponse

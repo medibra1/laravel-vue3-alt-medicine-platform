@@ -40,7 +40,7 @@ class BulkSyncPractitionerAvailabilitiesRequest extends FormRequest
         $validator->after(function (Validator $validator) {
             $this->validateNoOverlappingSlots($validator);
 
-            if ($this->user()->isSuperAdmin()) {
+            if ($this->user()->isGlobalAdmin()) {
                 return;
             }
 
@@ -52,7 +52,7 @@ class BulkSyncPractitionerAvailabilitiesRequest extends FormRequest
                 ->exists();
 
             if ($outsideCenter) {
-                $validator->errors()->add('practitioner_ids', __('Un ou plusieurs praticiens n\'appartiennent pas à votre centre.'));
+                $validator->errors()->add('practitioner_ids', __('access.practitioners_not_in_center'));
             }
         });
     }

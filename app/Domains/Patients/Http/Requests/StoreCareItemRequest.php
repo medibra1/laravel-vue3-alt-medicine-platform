@@ -30,9 +30,13 @@ class StoreCareItemRequest extends FormRequest
             'label' => ['required', 'array'],
             'label.fr' => ['required', 'string', 'max:255'],
             'label.en' => ['required', 'string', 'max:255'],
+            // Optional: falls back to French when absent.
+            'label.ar' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'array'],
             'description.fr' => ['nullable', 'string'],
             'description.en' => ['nullable', 'string'],
+            // Optional: falls back to French when absent.
+            'description.ar' => ['nullable', 'string'],
             'order' => ['sometimes', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
         ];

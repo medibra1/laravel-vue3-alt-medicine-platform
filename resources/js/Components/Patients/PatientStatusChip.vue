@@ -15,6 +15,6 @@ const emit = defineEmits<{ click: [] }>();
 
 <template>
     <v-chip size="small" variant="tonal" :color="status.color" :link="clickable" @click="clickable && emit('click')">
-        {{ status.label }}
+        {{ $t(`domain.patientStatus.${status.key}`) }}
     </v-chip>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -12,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
@@ -21,7 +23,7 @@ interface EnumOption {
     enum_type: string;
     domain: string | null;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
     order: number;
     active: boolean;
 }
@@ -67,12 +69,12 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'enum_type', header: 'Type', sortable: true },
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'label', header: 'Libellé' },
-    { field: 'order', header: 'Ordre', sortable: true },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'enum_type', header: tr('ui.type'), sortable: true },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'label', header: tr('ui.libelle') },
+    { field: 'order', header: tr('ui.ordre'), sortable: true },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 const enumTypeOptions = props.enumTypes.map((type) => ({ id: type, label: type }));
@@ -84,7 +86,7 @@ const createForm = useForm({
     enum_type: '',
     domain: '',
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -108,7 +110,7 @@ const editForm = useForm({
     enum_type: '',
     domain: '',
     code: '',
-    label: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
     order: 0,
     active: true,
 });
@@ -119,7 +121,7 @@ function openEdit(option: EnumOption) {
     editForm.enum_type = option.enum_type;
     editForm.domain = option.domain ?? '';
     editForm.code = option.code;
-    editForm.label = { fr: option.label.fr, en: option.label.en };
+    editForm.label = { ...option.label };
     editForm.order = option.order;
     editForm.active = option.active;
 }
@@ -136,7 +138,7 @@ function submitEdit() {
 }
 
 function destroy(option: EnumOption) {
-    if (!confirm(`Supprimer l'option ${option.code} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: option.code }))) {
         return;
     }
 
@@ -145,12 +147,12 @@ function destroy(option: EnumOption) {
 </script>
 
 <template>
-    <Head title="Options dynamiques" />
+    <Head :title="$t('ui.optionsDynamiques')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Options dynamiques" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Options dynamiques' }]">
+        <AppPageHeader :title="$t('ui.optionsDynamiques')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.optionsDynamiques') }]">
             <template #actions>
-                <AppButton label="Nouvelle option" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouvelleOption')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -160,7 +162,7 @@ function destroy(option: EnumOption) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (code, libellé)"
+                        :label="$t('ui.rechercherCodeLibelle')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
@@ -169,11 +171,11 @@ function destroy(option: EnumOption) {
                         :options="enumTypeOptions"
                         option-label="label"
                         option-value="id"
-                        label="Type"
+                        :label="$t('ui.type')"
                         show-clear
                         style="min-width: 220px"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -187,18 +189,18 @@ function destroy(option: EnumOption) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label.fr }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -209,78 +211,78 @@ function destroy(option: EnumOption) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouvelle option">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouvelleOption')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppInputText
                     v-model="createForm.enum_type"
-                    label="Type (ex. disease_category.type)"
+                    :label="$t('ui.typeExDiseaseCategoryType')"
                     :error="createForm.errors.enum_type"
                 />
 
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="createForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.label"
-                    label="Libellé"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
-                <AppInputNumber v-model="createForm.order" label="Ordre" :min="0" />
+                <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingOption !== null"
-            header="Modifier l'option"
+            :header="$t('ui.modifierLOption')"
             @update:visible="editingOption = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <AppInputText
                     v-model="editForm.enum_type"
-                    label="Type"
+                    :label="$t('ui.type')"
                     :error="editForm.errors.enum_type"
                 />
 
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="editForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.label"
-                    label="Libellé"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
-                <AppInputNumber v-model="editForm.order" label="Ordre" :min="0" />
+                <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingOption = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

@@ -46,7 +46,7 @@ class AppointmentController extends Controller
     {
         Gate::authorize('viewAny', Appointment::class);
 
-        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
+        $centerId = $request->user()->isGlobalAdmin() ? null : getPermissionsTeamId();
 
         // Opening hours of every center the user can display, shipped once
         // so switching weeks/centers never needs another request. Keyed by
@@ -128,7 +128,7 @@ class AppointmentController extends Controller
 
         $query = Appointment::query()->with(['patient', 'practitioner']);
 
-        if (! $request->user()->isSuperAdmin()) {
+        if (! $request->user()->isGlobalAdmin()) {
             $query->where('center_id', getPermissionsTeamId());
         } elseif ($request->filled('center_id')) {
             $query->where('center_id', $request->integer('center_id'));
@@ -248,7 +248,7 @@ class AppointmentController extends Controller
      */
     private function assertPractitionerVisibleOnCenter(Request $request, int $practitionerId, ?int $centerId): void
     {
-        if ($request->user()->isSuperAdmin()) {
+        if ($request->user()->isGlobalAdmin()) {
             return;
         }
 

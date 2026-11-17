@@ -38,7 +38,7 @@ test('super admin can create an enum option', function () {
 
     $response->assertRedirect(route('admin.enum-options.index'));
     $option = EnumOption::query()->where('enum_type', 'expense.category')->where('code', 'RENT')->firstOrFail();
-    expect($option->label)->toBe(['fr' => 'Loyer', 'en' => 'Rent']);
+    expect($option->getTranslations('label'))->toBe(['fr' => 'Loyer', 'en' => 'Rent']);
 });
 
 test('manager cannot create an enum option', function () {
@@ -93,7 +93,7 @@ test('super admin can update an enum option', function () {
     ]);
 
     $response->assertRedirect(route('admin.enum-options.index'));
-    expect($option->fresh()->label)->toBe(['fr' => 'Nouveau', 'en' => 'New']);
+    expect($option->fresh()->getTranslations('label'))->toBe(['fr' => 'Nouveau', 'en' => 'New']);
 });
 
 test('super admin can delete an enum option', function () {

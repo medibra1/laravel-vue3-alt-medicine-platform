@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { VAutocomplete, VSelect } from 'vuetify/components';
 
 const props = withDefaults(
     defineProps<{
@@ -12,6 +13,8 @@ const props = withDefaults(
         showClear?: boolean;
         multiple?: boolean;
         disabled?: boolean;
+        /** Type to filter: for long lists (catalogs...). */
+        searchable?: boolean;
         error?: string | null;
     }>(),
     {
@@ -20,6 +23,7 @@ const props = withDefaults(
         showClear: false,
         multiple: false,
         disabled: false,
+        searchable: false,
         error: null,
     },
 );
@@ -35,7 +39,8 @@ const items = computed(() =>
 </script>
 
 <template>
-    <v-select
+    <component
+        :is="searchable ? VAutocomplete : VSelect"
         :model-value="modelValue"
         :items="items"
         item-title="title"
@@ -45,7 +50,7 @@ const items = computed(() =>
         :clearable="showClear"
         :multiple="multiple"
         :disabled="disabled"
-        chips
+        :chips="multiple"
         :error-messages="error ?? undefined"
         variant="outlined"
         hide-details="auto"

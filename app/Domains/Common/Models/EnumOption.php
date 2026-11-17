@@ -5,10 +5,14 @@ namespace App\Domains\Common\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Spatie\Translatable\HasTranslations;
 
 class EnumOption extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTranslations;
+
+    /** Same mechanism as the other reference models (Disease, Zone...). */
+    public array $translatable = ['label'];
 
     protected $guarded = ['id'];
 
@@ -16,7 +20,6 @@ class EnumOption extends Model
         'active' => 'bool',
         'order' => 'int',
         'properties' => 'array',
-        'label' => 'array', // spatie/laravel-translatable can take over later for finer fallback handling
     ];
 
     public function parent()

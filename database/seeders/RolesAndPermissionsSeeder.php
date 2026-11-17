@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Domains\Auth\Support\RolePermissions;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -56,6 +57,12 @@ class RolesAndPermissionsSeeder extends Seeder
             'users.create',
             'users.update',
             'users.delete',
+            'invoices.viewAny',
+            'invoices.view',
+            'invoices.create',
+            'invoices.cancel',
+            'payments.create',
+            'payments.delete',
         ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
 
         // Role::create()/findOrCreate() auto-stamp team_id from the
@@ -70,11 +77,23 @@ class RolesAndPermissionsSeeder extends Seeder
         // pattern as super_admin — see User::isAdmin(). Gets every
         // permission too; the distinction from super_admin is enforced
         // at the policy level (UserPolicy/CenterPolicy), not here: an
+        // Whatever the center roles need exists before anything is
+        // synced, so a permission added to RolePermissions never has to
+        // be repeated in the list above.
+        collect([...RolePermissions::manager(), ...RolePermissions::practitioner()])
+            ->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+
         // admin can manage centers/users but never target another
         // admin/super_admin.
         $admin = Role::query()->firstOrCreate(
             ['name' => 'admin', 'guard_name' => 'web', 'team_id' => null],
         );
         $admin->syncPermissions(Permission::all());
+
+        // Per-center roles are created lazily with the permission set of
+        // the day; re-sync the existing ones so a newly added permission
+        // (billing...) reaches centers that already have a manager.
+        Role::query()->whereIn('name', ['manager', 'practitioner'])->whereNotNull('team_id')->get()
+            ->each(fn (Role $role) => $role->syncPermissions(RolePermissions::forRole($role->name)));
     }
 }

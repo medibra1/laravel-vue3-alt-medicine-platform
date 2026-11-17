@@ -26,57 +26,39 @@ const submit = () => {
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Log in" />
+    <GuestLayout :title="$t('auth.login.title')" :subtitle="$t('auth.login.subtitle')">
+        <Head :title="$t('auth.login.submit')" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-            {{ status }}
-        </div>
+        <v-alert v-if="status" type="success" variant="tonal" class="mb-6">{{ status }}</v-alert>
 
-        <form @submit.prevent="submit">
-            <div class="flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Email</label>
-                <AppInputText
-                    id="email"
-                    v-model="form.email"
-                    type="email"
-                    autofocus
-                    autocomplete="username"
-                    :error="form.errors.email"
-                />
-            </div>
+        <form class="d-flex flex-column ga-5" @submit.prevent="submit">
+            <AppInputText
+                id="email"
+                v-model="form.email"
+                type="email"
+                :label="$t('common.email')"
+                autofocus
+                autocomplete="username"
+                :error="form.errors.email"
+            />
 
-            <div class="mt-4 flex flex-col gap-1">
-                <label class="text-sm text-gray-600">Password</label>
-                <AppInputText
-                    id="password"
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="current-password"
-                    :error="form.errors.password"
-                />
-            </div>
+            <AppInputText
+                id="password"
+                v-model="form.password"
+                type="password"
+                :label="$t('auth.password')"
+                autocomplete="current-password"
+                :error="form.errors.password"
+            />
 
-            <div class="mt-4 block">
-                <AppCheckbox v-model="form.remember" label="Remember me" />
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    Forgot your password?
+            <div class="d-flex align-center justify-space-between flex-wrap ga-2">
+                <AppCheckbox v-model="form.remember" :label="$t('auth.login.remember')" />
+                <Link v-if="canResetPassword" :href="route('password.request')" class="text-body-2 font-weight-medium text-primary">
+                    {{ $t('auth.login.forgot') }}
                 </Link>
-
-                <AppButton
-                    type="submit"
-                    label="Log in"
-                    class="ms-4"
-                    :loading="form.processing"
-                />
             </div>
+
+            <AppButton type="submit" size="large" block :label="$t('auth.login.submit')" :loading="form.processing" />
         </form>
     </GuestLayout>
 </template>

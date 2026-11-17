@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { localized, tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -12,6 +13,7 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
+import type { TranslatableValue } from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { reactive, ref, watch } from 'vue';
@@ -19,18 +21,18 @@ import { reactive, ref, watch } from 'vue';
 interface DiseaseCategoryOption {
     id: number;
     code: string;
-    label: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
 }
 
 interface Disease {
     id: number;
     disease_category_id: number;
     code: string;
-    label: { fr: string; en: string };
-    description: { fr: string; en: string };
+    label: { fr: string; en: string; ar?: string };
+    description: { fr: string; en: string; ar?: string };
     default_duration_months: number;
     active: boolean;
-    category?: { id: number; code: string; label: { fr: string; en: string } };
+    category?: { id: number; code: string; label: { fr: string; en: string; ar?: string } };
 }
 
 const props = defineProps<{
@@ -73,18 +75,18 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'label', header: 'Libellé (FR)' },
-    { field: 'category', header: 'Catégorie' },
-    { field: 'default_duration_months', header: 'Durée (mois)' },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'label', header: tr('ui.libelleFr') },
+    { field: 'category', header: tr('ui.categorie') },
+    { field: 'default_duration_months', header: tr('ui.dureeMois') },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 const categoryOptions = props.categories.map((category) => ({
     id: category.id,
     code: category.code,
-    label: category.label.fr,
+    label: localized(category.label),
 }));
 
 const isCreating = ref(false);
@@ -93,8 +95,8 @@ const editingDisease = ref<Disease | null>(null);
 const createForm = useForm({
     disease_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     default_duration_months: 1,
     active: true,
 });
@@ -140,8 +142,8 @@ function submitCreate() {
 const editForm = useForm({
     disease_category_id: null as number | null,
     code: '',
-    label: { fr: '', en: '' },
-    description: { fr: '', en: '' },
+    label: { fr: '', en: '' } as TranslatableValue,
+    description: { fr: '', en: '' } as TranslatableValue,
     default_duration_months: 1,
     active: true,
 });
@@ -152,7 +154,7 @@ function openEdit(disease: Disease) {
     editForm.disease_category_id = disease.disease_category_id;
     editForm.code = disease.code;
     editForm.label = { ...disease.label };
-    editForm.description = { fr: disease.description?.fr ?? '', en: disease.description?.en ?? '' };
+    editForm.description = { fr: disease.description?.fr ?? '', en: disease.description?.en ?? '', ar: disease.description?.ar ?? '' };
     editForm.default_duration_months = disease.default_duration_months;
     editForm.active = disease.active;
 }
@@ -169,7 +171,7 @@ function submitEdit() {
 }
 
 function destroy(disease: Disease) {
-    if (!confirm(`Supprimer la maladie ${disease.label.fr} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: localized(disease.label) }))) {
         return;
     }
 
@@ -178,12 +180,12 @@ function destroy(disease: Disease) {
 </script>
 
 <template>
-    <Head title="Maladies" />
+    <Head :title="$t('ui.maladies')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Maladies" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Maladies' }]">
+        <AppPageHeader :title="$t('ui.maladies')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.maladies') }]">
             <template #actions>
-                <AppButton label="Nouvelle maladie" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouvelleMaladie')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -193,11 +195,11 @@ function destroy(disease: Disease) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (code, libellé)"
+                        :label="$t('ui.rechercherCodeLibelle')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -211,19 +213,19 @@ function destroy(disease: Disease) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label.fr }}</template>
-                    <template #column-category="{ item }">{{ item.category?.label.fr }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-label="{ item }">{{ localized(item.label) }}</template>
+                    <template #column-category="{ item }">{{ localized(item.category?.label) }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -234,62 +236,62 @@ function destroy(disease: Disease) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouvelle maladie">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouvelleMaladie')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppSelect
                     v-model="createForm.disease_category_id"
                     :options="categoryOptions"
                     option-label="label"
                     option-value="id"
-                    label="Catégorie"
-                    placeholder="Choisir une catégorie"
+                    :label="$t('ui.categorie')"
+                    :placeholder="$t('ui.choisirUneCategorie')"
                     :error="createForm.errors.disease_category_id"
                 />
 
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code (3 chiffres, suggéré automatiquement)"
+                    :label="$t('ui.code3ChiffresSuggereAutomatiquement')"
                     :maxlength="3"
                     :error="createForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.label"
-                    label="Libellé"
-                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'], ar: createForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.description"
-                    label="Description"
+                    :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'] }"
+                    :error="{ fr: createForm.errors['description.fr'], en: createForm.errors['description.en'], ar: createForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber
                     v-model="createForm.default_duration_months"
-                    label="Durée par défaut (mois)"
+                    :label="$t('ui.dureeParDefautMois')"
                     :min="0"
                     :error="createForm.errors.default_duration_months"
                 />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingDisease !== null"
-            header="Modifier la maladie"
+            :header="$t('ui.modifierLaMaladie')"
             @update:visible="editingDisease = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
@@ -298,47 +300,47 @@ function destroy(disease: Disease) {
                     :options="categoryOptions"
                     option-label="label"
                     option-value="id"
-                    label="Catégorie"
+                    :label="$t('ui.categorie')"
                     :error="editForm.errors.disease_category_id"
                 />
 
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code (3 chiffres)"
+                    :label="$t('ui.code3Chiffres')"
                     :maxlength="3"
                     :error="editForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.label"
-                    label="Libellé"
-                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
+                    :label="$t('ui.libelle')"
+                    :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'], ar: editForm.errors['label.ar'] }"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.description"
-                    label="Description"
+                    :label="$t('ui.description')"
                     multiline
-                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'] }"
+                    :error="{ fr: editForm.errors['description.fr'], en: editForm.errors['description.en'], ar: editForm.errors['description.ar'] }"
                 />
 
                 <AppInputNumber
                     v-model="editForm.default_duration_months"
-                    label="Durée par défaut (mois)"
+                    :label="$t('ui.dureeParDefautMois')"
                     :min="0"
                     :error="editForm.errors.default_duration_months"
                 />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingDisease = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

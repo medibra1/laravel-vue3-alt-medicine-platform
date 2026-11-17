@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import WeeklySlotsEditor from '@/Components/Scheduling/WeeklySlotsEditor.vue';
@@ -32,7 +33,7 @@ watch(
 );
 
 function clearAll() {
-    if (confirm('Effacer tous les horaires de ce centre ?')) {
+    if (confirm(tr('misc.confirmClearCenterHours'))) {
         grid.value = emptyGrid();
     }
 }
@@ -53,8 +54,7 @@ function save() {
         @update:visible="emit('update:visible', $event)"
     >
         <p class="text-body-2 text-medium-emphasis mb-3">
-            Un jour sans plage est considéré comme fermé. Ces horaires définissent la plage affichée dans l'agenda ; ils
-            ne remplacent pas les disponibilités des praticiens.
+            {{ $t('ui.unJourSansPlageEstConsidere') }}
         </p>
 
         <v-alert v-if="generalErrors.length" type="error" variant="tonal" density="compact" class="mb-3">
@@ -64,10 +64,10 @@ function save() {
         <WeeklySlotsEditor :grid="grid" :errors="rowErrors" />
 
         <div class="d-flex justify-space-between flex-wrap ga-2 mt-4">
-            <AppButton label="Tout effacer" severity="danger" @click="clearAll" />
+            <AppButton :label="$t('ui.toutEffacer')" severity="danger" @click="clearAll" />
             <div class="d-flex ga-2">
-                <AppButton label="Annuler" severity="secondary" @click="emit('update:visible', false)" />
-                <AppButton label="Enregistrer" :loading="processing" @click="save" />
+                <AppButton :label="$t('ui.annuler')" severity="secondary" @click="emit('update:visible', false)" />
+                <AppButton :label="$t('ui.enregistrer')" :loading="processing" @click="save" />
             </div>
         </div>
     </AppDialog>

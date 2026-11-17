@@ -47,14 +47,14 @@ class StorePractitionerTimeOffRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($this->user()->isSuperAdmin()) {
+            if ($this->user()->isGlobalAdmin()) {
                 return;
             }
 
             $practitioner = Practitioner::query()->find($this->integer('practitioner_id'));
 
             if ($practitioner && $practitioner->center_id !== getPermissionsTeamId()) {
-                $validator->errors()->add('practitioner_id', __('Ce praticien n\'appartient pas à votre centre.'));
+                $validator->errors()->add('practitioner_id', __('access.practitioner_not_in_center'));
             }
         });
     }

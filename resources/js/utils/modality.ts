@@ -1,3 +1,4 @@
+import { tr } from '@/lib/i18n';
 export type TModality = 'in_person' | 'remote';
 
 interface ModalityOption {
@@ -9,8 +10,8 @@ interface ModalityOption {
 // TreatmentSessionDialog, and for the labels/icons reused wherever a
 // modality needs to be displayed (calendar events, timeline badges).
 export const modalityOptions: ModalityOption[] = [
-    { label: 'Présentiel', value: 'in_person' },
-    { label: 'À distance', value: 'remote' },
+    { label: tr('domain.modality.in_person'), value: 'in_person' },
+    { label: tr('domain.modality.remote'), value: 'remote' },
 ];
 
 const modalityLabels: Record<TModality, string> = Object.fromEntries(
@@ -18,7 +19,7 @@ const modalityLabels: Record<TModality, string> = Object.fromEntries(
 ) as Record<TModality, string>;
 
 export function modalityLabel(modality: string | null): string {
-    return modalityLabels[modality as TModality] ?? modality ?? 'Présentiel';
+    return modalityLabels[modality as TModality] ?? modality ?? modalityLabels.in_person;
 }
 
 const modalityIcons: Record<TModality, string> = {

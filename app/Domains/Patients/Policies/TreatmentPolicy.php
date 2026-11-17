@@ -8,11 +8,11 @@ use App\Domains\Patients\Models\Treatment;
 class TreatmentPolicy
 {
     /**
-     * super_admin bypasses every ability below — see User::isSuperAdmin().
+     * super_admin bypasses every ability below — see User::isGlobalAdmin().
      */
     public function before(User $user, string $ability): ?bool
     {
-        return $user->isSuperAdmin() ? true : null;
+        return $user->isGlobalAdmin() ? true : null;
     }
 
     public function viewAny(User $user): bool

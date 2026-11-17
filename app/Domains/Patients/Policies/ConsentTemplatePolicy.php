@@ -15,7 +15,7 @@ class ConsentTemplatePolicy
 {
     public function before(User $user, string $ability): ?bool
     {
-        return $user->isSuperAdmin() || $user->isAdmin() ? true : false;
+        return $user->isGlobalAdmin();
     }
 
     public function viewAny(User $user): bool

@@ -9,6 +9,8 @@ Route::middleware(['auth', 'verified', 'center.access'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {
+        Route::put('users/{user}/modules', [UserController::class, 'updateModules'])->name('users.modules.update');
+        Route::put('users/{user}/center-modules', [UserController::class, 'updateCenterModules'])->name('users.center-modules.update');
         Route::resource('users', UserController::class)
             ->only(['index', 'store', 'update', 'destroy']);
 

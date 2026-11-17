@@ -2,12 +2,174 @@
 
 @theme {
     --font-sans:
-        'Figtree', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+        'Plus Jakarta Sans', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
-/* Authenticated shell (AuthenticatedLayout, .ruqya-shell class set on
-   <v-app>): Poppins. Scoped to this class so Guest/Welcome pages keep
-   Figtree — see CLAUDE.md. */
-.ruqya-shell {
-    font-family: 'Poppins', 'Figtree', ui-sans-serif, system-ui, sans-serif;
+/* ------------------------------------------------------------------
+ * Design system (2026-11-16 redesign). Everything here styles Vuetify
+ * through its own CSS variables so light/dark and RTL keep working.
+ * ------------------------------------------------------------------ */
+
+:root {
+    --app-font: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+    --app-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+    --app-shadow-md: 0 4px 6px -2px rgb(15 23 42 / 0.04), 0 12px 24px -6px rgb(15 23 42 / 0.1);
+}
+
+html[dir='rtl'] {
+    --app-font: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+.v-application,
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.v-application .text-subtitle-1,
+.v-application .text-subtitle-2,
+.v-application .text-body-1,
+.v-application .text-body-2,
+.v-application .text-caption,
+.v-application .text-overline,
+.v-application .v-btn,
+.v-overlay-container {
+    font-family: var(--app-font) !important;
+}
+
+.v-application {
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Headings: tighter, heavier — the main "premium" cue. */
+.v-application h1,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6 {
+    letter-spacing: -0.02em !important;
+}
+
+/* Cards: hairline border + soft shadow instead of Material elevation. */
+.v-card.v-card--variant-elevated,
+.v-card.v-card--variant-flat {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    box-shadow: var(--app-shadow-sm) !important;
+}
+
+.v-overlay__content > .v-card,
+.v-menu > .v-overlay__content > .v-list,
+.v-menu > .v-overlay__content > .v-card {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    box-shadow: var(--app-shadow-md) !important;
+    border-radius: 16px;
+}
+
+.v-dialog > .v-overlay__content > .v-card {
+    border-radius: 20px;
+}
+
+.v-card-title {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* Buttons */
+.v-btn {
+    letter-spacing: 0 !important;
+}
+
+.v-btn--variant-flat:not(.v-btn--disabled),
+.v-btn--variant-elevated:not(.v-btn--disabled) {
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.12) !important;
+}
+
+/* Tables */
+.v-data-table {
+    background: transparent !important;
+    border-radius: inherit;
+}
+
+.v-data-table thead th {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)) !important;
+    background: rgba(var(--v-theme-on-surface), 0.025) !important;
+    white-space: nowrap;
+}
+
+.v-data-table tbody td {
+    height: 56px !important;
+}
+
+.v-data-table .v-data-table-footer {
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    padding: 8px 12px;
+}
+
+/* Fields */
+.v-field--variant-outlined .v-field__outline {
+    --v-field-border-opacity: 0.18;
+}
+
+.v-field--variant-outlined.v-field--focused .v-field__outline {
+    --v-field-border-opacity: 1;
+}
+
+.v-label {
+    letter-spacing: 0;
+}
+
+/* Chips & tabs */
+.v-chip {
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.v-tab.v-tab {
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* Thin, unobtrusive scrollbars. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.5) transparent;
+}
+
+/* Small helpers used by the shell and dashboard. */
+.app-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.app-tabular {
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Radii: 16px cards (Vuetify's own scale jumps from 8px to 24px). */
+.v-card {
+    border-radius: 16px;
+}
+
+/* Tighter icon-to-label gap in navigation lists. */
+.v-list--nav .v-list-item__prepend > .v-list-item__spacer {
+    width: 14px;
 }

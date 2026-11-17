@@ -12,8 +12,11 @@ return new class extends Migration
             $table->id();
             $table->string('type'); // 'treatment' | 'data_privacy' | 'image_rights'
             $table->unsignedInteger('version');
-            $table->string('title');
-            $table->longText('content'); // text shown to the patient before signing
+            // Translatable {fr, en, ar} (spatie/laravel-translatable):
+            // French required, other languages optional. One version
+            // covers all of its languages.
+            $table->json('title');
+            $table->json('content'); // text shown to the patient before signing
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
