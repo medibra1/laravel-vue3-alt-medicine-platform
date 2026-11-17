@@ -1,5 +1,6 @@
 export default {
     fr: {
+        finance: { collected: 'Encaissements', expenses: 'Dépenses', chartTitle: 'Encaissements et dépenses sur 12 mois', overdue: 'Échéances en retard', overdueHint: 'Montants échus non réglés', discounts: 'Remises ce mois', discountsHint: 'Cas sociaux et gestes accordés', expensesMonth: 'Dépenses ce mois', lastMonth: 'Mois dernier : {amount}', net: 'Résultat du mois', netHint: 'Encaissements moins dépenses' },
         title: 'Tableau de bord', greetingMorning: 'Bonjour', greetingAfternoon: 'Bon après-midi', greetingEvening: 'Bonsoir',
         subtitle: 'Voici l\'activité de {scope}.', scopeAll: 'tous les centres', scopeCenter: 'votre centre',
         allCenters: 'Tous les centres',
@@ -22,6 +23,7 @@ export default {
         noModule: 'Aucun module n\'est activé pour votre compte. Contactez votre administrateur.',
     },
     en: {
+        finance: { collected: 'Collections', expenses: 'Expenses', chartTitle: 'Collections and expenses over 12 months', overdue: 'Overdue instalments', overdueHint: 'Amounts past due and unpaid', discounts: 'Discounts this month', discountsHint: 'Social cases and goodwill granted', expensesMonth: 'Expenses this month', lastMonth: 'Last month: {amount}', net: 'Result this month', netHint: 'Collections minus expenses' },
         title: 'Dashboard', greetingMorning: 'Good morning', greetingAfternoon: 'Good afternoon', greetingEvening: 'Good evening',
         subtitle: 'Here is the activity of {scope}.', scopeAll: 'all centers', scopeCenter: 'your center',
         allCenters: 'All centers',
@@ -44,6 +46,7 @@ export default {
         noModule: 'No module is enabled for your account. Contact your administrator.',
     },
     ar: {
+        finance: { collected: 'التحصيلات', expenses: 'المصاريف', chartTitle: 'التحصيلات والمصاريف خلال 12 شهراً', overdue: 'أقساط متأخرة', overdueHint: 'مبالغ مستحقة غير مسدَّدة', discounts: 'خصومات هذا الشهر', discountsHint: 'حالات اجتماعية وبوادر ممنوحة', expensesMonth: 'مصاريف هذا الشهر', lastMonth: 'الشهر الماضي: {amount}', net: 'نتيجة الشهر', netHint: 'التحصيلات ناقص المصاريف' },
         title: 'لوحة التحكم', greetingMorning: 'صباح الخير', greetingAfternoon: 'مساء الخير', greetingEvening: 'مساء الخير',
         subtitle: 'هذا نشاط {scope}.', scopeAll: 'جميع المراكز', scopeCenter: 'مركزك',
         allCenters: 'جميع المراكز',

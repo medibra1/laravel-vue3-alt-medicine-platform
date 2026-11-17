@@ -15,6 +15,13 @@ interface CurrencyStats {
     collected_this_month: number;
     collected_last_month: number;
     outstanding: number;
+    overdue: number;
+    discounts_this_month: number;
+    /** Only sent to those who may see expenses. */
+    expenses_this_month?: number;
+    expenses_last_month?: number;
+    expense_series?: number[];
+    net_this_month?: number;
     series: number[];
     methods: Record<string, number>;
 }
@@ -54,7 +61,7 @@ interface Stats {
         }[];
     };
     practitioners?: { total: number };
-    billing?: { currencies: CurrencyStats[]; unpaid_invoices: number };
+    billing?: { currencies: CurrencyStats[]; unpaid_invoices: number; shows_expenses: boolean };
     centers?: { id: number; name: string; city: string | null; patients: number; ongoing_treatments: number; practitioners: number }[];
 }
 
@@ -114,7 +121,12 @@ const currencies = computed(() => props.stats.billing?.currencies ?? []);
 const selectedCurrency = ref(currencies.value[0]?.currency ?? null);
 const currencyStats = computed(() => currencies.value.find((row) => row.currency === selectedCurrency.value) ?? null);
 const money = (amount: number) => (currencyStats.value ? formatMoney(amount, currencyStats.value.currency, locale.value) : String(amount));
-const hasRevenue = computed(() => (currencyStats.value?.series ?? []).some((value) => value > 0));
+const hasRevenue = computed(() => [...(currencyStats.value?.series ?? []), ...(currencyStats.value?.expense_series ?? [])].some((value) => value > 0));
+const showsExpenses = computed(() => props.stats.billing?.shows_expenses ?? false);
+const revenueSeries = computed(() => [
+    { label: t('dashboard.finance.collected'), data: currencyStats.value?.series ?? [], color: SERIES.patients },
+    ...(showsExpenses.value ? [{ label: t('dashboard.finance.expenses'), data: currencyStats.value?.expense_series ?? [], color: SERIES.sessions }] : []),
+]);
 
 const outcomeRows = computed(() => {
     const outcomes = props.stats.treatments?.outcomes ?? {};
@@ -341,12 +353,56 @@ function day(value: string): string {
                 </v-card>
             </v-col>
 
+            <!-- Finance follow-up: late payments, discounts, money out, result -->
+            <template v-if="stats.billing && currencyStats">
+                <v-col cols="12" sm="6" :lg="showsExpenses ? 3 : 6">
+                    <AppStatCard
+                        :label="t('dashboard.finance.overdue')"
+                        :value="money(currencyStats.overdue)"
+                        icon="mdi-alert-circle-outline"
+                        :color="currencyStats.overdue > 0 ? 'error' : 'secondary'"
+                        :hint="t('dashboard.finance.overdueHint')"
+                        :href="route('admin.billing.index', { status: 'overdue' })"
+                    />
+                </v-col>
+                <v-col cols="12" sm="6" :lg="showsExpenses ? 3 : 6">
+                    <AppStatCard
+                        :label="t('dashboard.finance.discounts')"
+                        :value="money(currencyStats.discounts_this_month)"
+                        icon="mdi-hand-heart-outline"
+                        color="primary"
+                        :hint="t('dashboard.finance.discountsHint')"
+                    />
+                </v-col>
+                <template v-if="showsExpenses">
+                    <v-col cols="12" sm="6" lg="3">
+                        <AppStatCard
+                            :label="t('dashboard.finance.expensesMonth')"
+                            :value="money(currencyStats.expenses_this_month ?? 0)"
+                            icon="mdi-cash-minus"
+                            color="warning"
+                            :hint="t('dashboard.finance.lastMonth', { amount: money(currencyStats.expenses_last_month ?? 0) })"
+                            :href="route('admin.billing.expenses.index')"
+                        />
+                    </v-col>
+                    <v-col cols="12" sm="6" lg="3">
+                        <AppStatCard
+                            :label="t('dashboard.finance.net')"
+                            :value="money(currencyStats.net_this_month ?? 0)"
+                            icon="mdi-scale-balance"
+                            :color="(currencyStats.net_this_month ?? 0) < 0 ? 'error' : 'success'"
+                            :hint="t('dashboard.finance.netHint')"
+                        />
+                    </v-col>
+                </template>
+            </template>
+
             <!-- Revenue -->
             <v-col v-if="stats.billing" cols="12" lg="7">
                 <v-card variant="flat" class="h-100">
                     <v-card-text class="pa-6">
                         <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-4">
-                            <h2 class="text-subtitle-1 font-weight-bold">{{ t('dashboard.revenue.title') }}</h2>
+                            <h2 class="text-subtitle-1 font-weight-bold">{{ t(showsExpenses ? 'dashboard.finance.chartTitle' : 'dashboard.revenue.title') }}</h2>
                             <v-btn-toggle v-if="currencies.length > 1" v-model="selectedCurrency" mandatory density="compact" color="primary" variant="outlined" divided>
                                 <v-btn v-for="row in currencies" :key="row.currency" :value="row.currency" size="small">{{ row.currency }}</v-btn>
                             </v-btn-toggle>
@@ -356,7 +412,7 @@ function day(value: string): string {
                             <AppChart
                                 type="bar"
                                 :labels="monthLabels"
-                                :series="[{ label: t('dashboard.kpi.collectedMonth'), data: currencyStats.series, color: SERIES.patients }]"
+                                :series="revenueSeries"
                                 :format="money"
                                 :height="260"
                             />

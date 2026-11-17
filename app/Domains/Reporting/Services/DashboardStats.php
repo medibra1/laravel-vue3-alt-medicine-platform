@@ -106,7 +106,7 @@ class DashboardStats
         }
 
         if ($has(Modules::BILLING)) {
-            $data['billing'] = $this->billing($centerId, $months);
+            $data['billing'] = $this->billing($user, $centerId, $months);
         }
 
         if ($centerId === null && $user->isGlobalAdmin()) {
@@ -187,8 +187,14 @@ class DashboardStats
      * @param  Collection<int, Carbon>  $months
      * @return array<string, mixed>
      */
-    private function billing(?int $centerId, Collection $months): array
+    private function billing(User $user, ?int $centerId, Collection $months): array
     {
+        // Expenses (and so the net result) are the manager's: a
+        // practitioner bills and collects but never sees them.
+        $seesExpenses = $user->isGlobalAdmin() || $user->can('expenses.viewAny');
+        $today = now()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+
         $payments = Payment::query()
             ->join('billing_invoices', 'billing_invoices.id', '=', 'billing_payments.invoice_id')
             ->when($centerId, fn ($query) => $query->where('billing_invoices.center_id', $centerId))
@@ -217,11 +223,39 @@ class DashboardStats
             ->groupBy('currency')->selectRaw('currency, SUM(total - credited_total - paid_total) as amount, COUNT(*) as invoices')
             ->get();
 
-        // A currency with unpaid invoices but no payment yet still gets a row.
-        foreach ($outstanding as $row) {
-            if (! $byCurrency->has($row->currency)) {
-                $byCurrency[$row->currency] = [
-                    'currency' => $row->currency,
+        $scoped = fn () => DB::table('billing_invoices')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->whereNull('cancelled_at');
+
+        // Scheduled amounts whose date has passed and are still unpaid
+        // (payments settle the oldest instalment first).
+        $overdueSql = '(SELECT COALESCE(SUM(i.amount), 0) FROM billing_invoice_installments i WHERE i.invoice_id = billing_invoices.id AND i.due_on < ?)';
+        $overdue = $scoped()->whereRaw($overdueSql.' > paid_total', [$today])
+            ->groupBy('currency')->selectRaw('currency, SUM('.$overdueSql.' - paid_total) as amount', [$today])
+            ->pluck('amount', 'currency');
+
+        $discounts = $scoped()->where('issued_on', '>=', $monthStart)->where('discount_amount', '>', 0)
+            ->groupBy('currency')->selectRaw('currency, SUM(discount_amount) as amount')
+            ->pluck('amount', 'currency');
+
+        /** @var Collection<string, Collection<string, float>> $expenses currency → month → amount */
+        $expenses = ! $seesExpenses ? collect() : DB::table('billing_expenses')
+            ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
+            ->where('spent_on', '>=', $months->first()->toDateString())
+            ->get(['amount', 'spent_on', 'currency'])
+            ->groupBy('currency')
+            ->map(fn (Collection $rows) => $rows
+                ->groupBy(fn ($row) => Carbon::parse($row->spent_on)->format('Y-m'))
+                ->map(fn (Collection $rows) => round((float) $rows->sum('amount'), 2)));
+
+        // A currency with unpaid invoices, discounts or expenses but no
+        // payment yet still gets a row.
+        foreach ([...$outstanding->pluck('currency'), ...$overdue->keys(), ...$discounts->keys(), ...$expenses->keys()] as $currency) {
+            $currency = (string) $currency;
+
+            if (! $byCurrency->has($currency)) {
+                $byCurrency[$currency] = [
+                    'currency' => $currency,
                     'collected_this_month' => 0.0,
                     'collected_last_month' => 0.0,
                     'series' => $months->map(fn () => 0.0)->all(),
@@ -233,10 +267,30 @@ class DashboardStats
         $outstandingByCurrency = $outstanding->pluck('amount', 'currency');
 
         return [
-            'currencies' => $byCurrency->map(fn (array $row) => [
-                ...$row,
-                'outstanding' => round((float) ($outstandingByCurrency[$row['currency']] ?? 0), 2),
-            ])->values()->all(),
+            'shows_expenses' => $seesExpenses,
+            'currencies' => $byCurrency->map(function (array $row) use ($outstandingByCurrency, $overdue, $discounts, $expenses, $seesExpenses, $months, $monthKey, $lastMonthKey) {
+                $currency = $row['currency'];
+                $row += [
+                    'outstanding' => round((float) ($outstandingByCurrency[$currency] ?? 0), 2),
+                    'overdue' => round((float) ($overdue[$currency] ?? 0), 2),
+                    'discounts_this_month' => round((float) ($discounts[$currency] ?? 0), 2),
+                ];
+
+                if (! $seesExpenses) {
+                    return $row;
+                }
+
+                $perMonth = $expenses[$currency] ?? collect();
+                $spent = (float) ($perMonth[$monthKey] ?? 0);
+
+                return $row + [
+                    'expenses_this_month' => $spent,
+                    'expenses_last_month' => (float) ($perMonth[$lastMonthKey] ?? 0),
+                    'expense_series' => $months->map(fn (Carbon $month) => (float) ($perMonth[$month->format('Y-m')] ?? 0))->all(),
+                    // Cash basis: what came in minus what went out.
+                    'net_this_month' => round($row['collected_this_month'] - $spent, 2),
+                ];
+            })->values()->all(),
             'unpaid_invoices' => Invoice::query()->active()->when($centerId, fn ($query) => $query->where('center_id', $centerId))
                 ->whereRaw('paid_total < total - credited_total')->count(),
         ];
