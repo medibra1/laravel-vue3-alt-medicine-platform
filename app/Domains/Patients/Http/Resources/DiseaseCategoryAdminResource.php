@@ -32,7 +32,7 @@ class DiseaseCategoryAdminResource extends JsonResource
             'type' => $this->whenLoaded('type', fn () => [
                 'id' => $this->type->id,
                 'code' => $this->type->code,
-                'label' => $this->type->label['fr'] ?? $this->type->code,
+                'label' => $this->type->localizedLabel(),
             ]),
         ];
     }

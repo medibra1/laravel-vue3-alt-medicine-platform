@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -62,11 +63,11 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'name', header: 'Nom', sortable: true },
-    { field: 'order', header: 'Ordre', sortable: true },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'name', header: tr('ui.nom'), sortable: true },
+    { field: 'order', header: tr('ui.ordre'), sortable: true },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 function zoneName(zone: Zone): string {
@@ -127,7 +128,7 @@ function submitEdit() {
 }
 
 function destroy(zone: Zone) {
-    if (!confirm(`Supprimer la zone ${zoneName(zone)} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: zoneName(zone) }))) {
         return;
     }
 
@@ -136,12 +137,12 @@ function destroy(zone: Zone) {
 </script>
 
 <template>
-    <Head title="Zones" />
+    <Head :title="$t('ui.zones')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Zones" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Zones' }]">
+        <AppPageHeader :title="$t('ui.zones')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.zones') }]">
             <template #actions>
-                <AppButton label="Nouvelle zone" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouvelleZone')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -151,11 +152,11 @@ function destroy(zone: Zone) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (nom, code)"
+                        :label="$t('ui.rechercherNomCode')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -170,17 +171,17 @@ function destroy(zone: Zone) {
                     @sort="onSort"
                 >
                     <template #column-name="{ item }">{{ zoneName(item) }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -191,76 +192,76 @@ function destroy(zone: Zone) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouvelle zone">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouvelleZone')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="createForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.name"
-                    label="Nom"
+                    :label="$t('ui.nom')"
                     :error="{ fr: createForm.errors['name.fr'], en: createForm.errors['name.en'] }"
                 />
 
                 <AppInputNumber
                     v-model="createForm.order"
-                    label="Ordre"
+                    :label="$t('ui.ordre')"
                     :min="0"
                     :error="createForm.errors.order"
                 />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingZone !== null"
-            header="Modifier la zone"
+            :header="$t('ui.modifierLaZone')"
             @update:visible="editingZone = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code"
+                    :label="$t('ui.code')"
                     :error="editForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.name"
-                    label="Nom"
+                    :label="$t('ui.nom')"
                     :error="{ fr: editForm.errors['name.fr'], en: editForm.errors['name.en'] }"
                 />
 
                 <AppInputNumber
                     v-model="editForm.order"
-                    label="Ordre"
+                    :label="$t('ui.ordre')"
                     :min="0"
                     :error="editForm.errors.order"
                 />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingZone = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, {
@@ -63,15 +64,15 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'patient', header: 'Patient' },
-    { field: 'practitioner', header: 'Praticien' },
-    { field: 'started_at', header: 'Début', sortable: true },
-    { field: 'center', header: 'Centre' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'patient', header: tr('ui.patient') },
+    { field: 'practitioner', header: tr('ui.praticien') },
+    { field: 'started_at', header: tr('ui.debut'), sortable: true },
+    { field: 'center', header: tr('ui.centre') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 function destroy(treatment: Treatment) {
-    if (!confirm('Supprimer ce traitement ?')) {
+    if (!confirm(tr('misc.confirmDeleteTreatment'))) {
         return;
     }
 
@@ -80,13 +81,13 @@ function destroy(treatment: Treatment) {
 </script>
 
 <template>
-    <Head title="Traitements" />
+    <Head :title="$t('ui.traitements')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Traitements" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Traitements' }]">
+        <AppPageHeader :title="$t('ui.traitements')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.traitements') }]">
             <template v-if="can_create" #actions>
                 <Link :href="route('admin.treatments.create')">
-                    <AppButton label="Nouveau traitement" icon="mdi-plus" as="span" />
+                    <AppButton :label="$t('ui.nouveauTraitement')" icon="mdi-plus" as="span" />
                 </Link>
             </template>
         </AppPageHeader>
@@ -109,21 +110,21 @@ function destroy(treatment: Treatment) {
                         {{ item.practitioner ? `${item.practitioner.first_name} ${item.practitioner.last_name}` : '' }}
                     </template>
                     <template #column-started_at="{ item }">
-                        {{ item.started_at ? new Date(item.started_at).toLocaleDateString() : '' }}
+                        {{ item.started_at ? new Date(item.started_at).toLocaleDateString($i18n.locale) : '' }}
                     </template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #actions="{ item }">
                         <div v-if="can_create" class="d-flex ga-2">
                             <Link :href="route('admin.treatments.edit', item.id)">
                                 <AppButton
-                                    label="Modifier"
+                                    :label="$t('ui.modifier')"
                                     severity="secondary"
                                     size="small"
                                     as="span"
                                 />
                             </Link>
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"

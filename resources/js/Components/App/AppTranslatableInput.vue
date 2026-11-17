@@ -3,16 +3,20 @@ import AppInputText from '@/Components/App/AppInputText.vue';
 import AppTextarea from '@/Components/App/AppTextarea.vue';
 
 /**
- * Edits a spatie/laravel-translatable JSON field ({fr, en}) as two
- * locale-labeled inputs side by side. First precedent in the codebase
- * for editing a translatable attribute via a form — see CLAUDE.md
- * "Introduction des API Resources" session for why Resources must
- * expose ->getTranslations() rather than the locale-resolved string
- * when the value needs to be editable.
+ * Edits a spatie/laravel-translatable JSON field as one input per
+ * language. French and English are the required pair; Arabic is
+ * optional and simply left out of the payload when empty, so the
+ * backend falls back to French for it.
  */
-withDefaults(
+export interface TranslatableValue {
+    fr: string;
+    en: string;
+    ar?: string;
+}
+
+const props = withDefaults(
     defineProps<{
-        modelValue: { fr: string; en: string };
+        modelValue: TranslatableValue;
         label: string;
         multiline?: boolean;
         error?: Record<string, string | undefined> | null;
@@ -23,49 +27,40 @@ withDefaults(
     },
 );
 
-defineEmits<{ 'update:modelValue': [value: { fr: string; en: string }] }>();
+const emit = defineEmits<{ 'update:modelValue': [value: TranslatableValue] }>();
+
+const LOCALES = [
+    { code: 'fr', label: 'Français', dir: 'ltr' },
+    { code: 'en', label: 'English', dir: 'ltr' },
+    { code: 'ar', label: 'العربية', dir: 'rtl' },
+] as const;
+
+function update(code: 'fr' | 'en' | 'ar', value: string) {
+    const next: TranslatableValue = { ...props.modelValue, [code]: value };
+
+    if (code === 'ar' && value === '') {
+        delete next.ar;
+    }
+
+    emit('update:modelValue', next);
+}
 </script>
 
 <template>
     <div class="d-flex flex-column ga-2">
         <span class="text-caption text-medium-emphasis">{{ label }}</span>
         <div class="d-flex flex-wrap ga-3">
-            <AppTextarea
-                v-if="multiline"
-                :model-value="modelValue.fr"
-                label="Français"
-                :error="error?.fr"
+            <component
+                :is="multiline ? AppTextarea : AppInputText"
+                v-for="locale in LOCALES"
+                :key="locale.code"
+                :model-value="modelValue[locale.code] ?? ''"
+                :label="locale.label"
+                :error="error?.[locale.code]"
+                :dir="locale.dir"
                 class="flex-1-1"
-                style="min-width: 240px"
-                @update:model-value="$emit('update:modelValue', { ...modelValue, fr: $event })"
-            />
-            <AppInputText
-                v-else
-                :model-value="modelValue.fr"
-                label="Français"
-                :error="error?.fr"
-                class="flex-1-1"
-                style="min-width: 240px"
-                @update:model-value="$emit('update:modelValue', { ...modelValue, fr: $event })"
-            />
-
-            <AppTextarea
-                v-if="multiline"
-                :model-value="modelValue.en"
-                label="English"
-                :error="error?.en"
-                class="flex-1-1"
-                style="min-width: 240px"
-                @update:model-value="$emit('update:modelValue', { ...modelValue, en: $event })"
-            />
-            <AppInputText
-                v-else
-                :model-value="modelValue.en"
-                label="English"
-                :error="error?.en"
-                class="flex-1-1"
-                style="min-width: 240px"
-                @update:model-value="$emit('update:modelValue', { ...modelValue, en: $event })"
+                style="min-width: 200px"
+                @update:model-value="update(locale.code, $event)"
             />
         </div>
     </div>

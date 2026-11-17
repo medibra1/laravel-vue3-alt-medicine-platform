@@ -14,18 +14,21 @@ Route::middleware(['auth', 'verified', 'center.access'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {
-        Route::post('patients/draft', [PatientController::class, 'storeDraft'])->name('patients.draft.store');
-        Route::patch('patients/{patient}/draft', [PatientController::class, 'updateDraft'])->name('patients.draft.update');
-        Route::post('patients/{patient}/confirm', [PatientController::class, 'confirm'])->name('patients.confirm');
-        Route::resource('patients', PatientController::class)->only(['index', 'create', 'edit', 'destroy']);
+        Route::middleware('module:patients')->group(function () {
+            Route::post('patients/draft', [PatientController::class, 'storeDraft'])->name('patients.draft.store');
+            Route::patch('patients/{patient}/draft', [PatientController::class, 'updateDraft'])->name('patients.draft.update');
+            Route::post('patients/{patient}/confirm', [PatientController::class, 'confirm'])->name('patients.confirm');
+            Route::resource('patients', PatientController::class)->only(['index', 'create', 'edit', 'destroy']);
 
-        Route::post('patients/{patient}/documents', [PatientDocumentController::class, 'store'])->name('patients.documents.store');
-        Route::delete('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'destroy'])->name('patients.documents.destroy');
-        Route::get('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'show'])->name('patients.documents.show');
-        Route::get('patients/{patient}/documents/{media}/thumb', [PatientDocumentController::class, 'thumb'])->name('patients.documents.thumb');
+            Route::post('patients/{patient}/documents', [PatientDocumentController::class, 'store'])->name('patients.documents.store');
+            Route::delete('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'destroy'])->name('patients.documents.destroy');
+            Route::get('patients/{patient}/documents/{media}', [PatientDocumentController::class, 'show'])->name('patients.documents.show');
+            Route::get('patients/{patient}/documents/{media}/thumb', [PatientDocumentController::class, 'thumb'])->name('patients.documents.thumb');
 
-        Route::post('patients/{patient}/consents', [PatientConsentController::class, 'store'])->name('patients.consents.store');
-        Route::get('patients/{patient}/consents/{consent}', [PatientConsentController::class, 'show'])->name('patients.consents.show');
+            Route::post('patients/{patient}/consents', [PatientConsentController::class, 'store'])->name('patients.consents.store');
+            Route::get('patients/{patient}/consents/{consent}', [PatientConsentController::class, 'show'])->name('patients.consents.show');
+
+        });
 
         Route::resource('consent-templates', ConsentTemplateController::class)
             ->only(['index', 'store', 'update']);

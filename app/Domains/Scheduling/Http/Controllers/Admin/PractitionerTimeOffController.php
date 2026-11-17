@@ -26,7 +26,7 @@ class PractitionerTimeOffController extends Controller
     public function index(Request $request, Practitioner $practitioner): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', PractitionerTimeOff::class);
-        abort_unless($request->user()->isSuperAdmin() || $practitioner->center_id === getPermissionsTeamId(), 403);
+        abort_unless($request->user()->isGlobalAdmin() || $practitioner->center_id === getPermissionsTeamId(), 403);
 
         $timeOffs = $practitioner->timeOffs()
             ->when($request->boolean('upcoming'), fn ($query) => $query->whereDate('ends_on', '>=', today()))

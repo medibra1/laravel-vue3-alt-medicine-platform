@@ -27,7 +27,7 @@ class AppointmentReminderNotification extends Notification
             'type' => 'appointment_reminder',
             'title' => __('Rappel de rendez-vous'),
             'message' => __('Rendez-vous le :date avec :patient.', [
-                'date' => $this->appointment->starts_at->translatedFormat('d F Y à H:i'),
+                'date' => $this->appointment->localStartsAt()->translatedFormat('d F Y à H:i'),
                 'patient' => trim($this->appointment->patient->first_name.' '.$this->appointment->patient->last_name),
             ]),
             'action_url' => route('admin.patients.edit', $this->appointment->patient_id),

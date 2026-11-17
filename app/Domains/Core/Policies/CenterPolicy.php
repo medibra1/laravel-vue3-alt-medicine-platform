@@ -54,4 +54,14 @@ class CenterPolicy
         return $center->id === getPermissionsTeamId()
             && in_array($center->id, $user->managedCenterIds(), true);
     }
+
+    /**
+     * Prices, defaults and contact details of a center: same audience as
+     * the opening hours. Which modules a center has stays global-admin
+     * only (see CenterSettingsController::update()).
+     */
+    public function manageSettings(User $user, Center $center): bool
+    {
+        return $this->manageOperatingHours($user, $center);
+    }
 }

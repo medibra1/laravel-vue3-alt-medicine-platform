@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
@@ -21,9 +22,9 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 // stats can tell "couldn't reach the patient" apart from "reached them, but
 // they didn't follow the sessions/care plan".
 const reasonOptions = [
-    { label: 'Injoignable', value: 'lost_to_follow_up' },
-    { label: 'Arrêté — protocole non suivi (séances/soins non respectés)', value: 'protocol_not_followed' },
-    { label: 'Autre motif', value: 'closed_manually' },
+    { label: tr('ui.injoignable'), value: 'lost_to_follow_up' },
+    { label: tr('ui.arreteProtocoleNonSuiviSeancesSoins'), value: 'protocol_not_followed' },
+    { label: tr('ui.autreMotif'), value: 'closed_manually' },
 ];
 
 const form = reactive({
@@ -69,11 +70,10 @@ function close() {
 </script>
 
 <template>
-    <AppDialog :visible="visible" header="Clôturer le traitement" max-width="560px" @update:visible="close">
+    <AppDialog :visible="visible" :header="$t('ui.cloturerLeTraitement')" max-width="560px" @update:visible="close">
         <div class="d-flex flex-column ga-4">
             <p class="text-body-2 text-medium-emphasis">
-                Un traitement clôturé libère le patient pour un nouveau traitement. À utiliser quand toutes les
-                maladies suivies ne seront pas résolues normalement (le traitement se ferme alors automatiquement).
+                {{ $t('ui.unTraitementClotureLibereLePatient') }}
             </p>
 
             <AppSelect
@@ -81,16 +81,16 @@ function close() {
                 :options="reasonOptions"
                 option-label="label"
                 option-value="value"
-                label="Motif de clôture"
-                placeholder="Choisir un motif"
+                :label="$t('ui.motifDeCloture')"
+                :placeholder="$t('ui.choisirUnMotif')"
                 :error="errors.closure_reason"
             />
 
-            <AppTextarea v-model="form.notes" label="Détail (optionnel)" :rows="3" />
+            <AppTextarea v-model="form.notes" :label="$t('ui.detailOptionnel')" :rows="3" />
 
             <div class="d-flex justify-end ga-2">
-                <AppButton type="button" label="Annuler" severity="secondary" @click="close" />
-                <AppButton type="button" label="Clôturer" severity="danger" :loading="saving" @click="save" />
+                <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="close" />
+                <AppButton type="button" :label="$t('ui.cloturer')" severity="danger" :loading="saving" @click="save" />
             </div>
         </div>
     </AppDialog>

@@ -5,7 +5,7 @@ use App\Domains\Scheduling\Http\Controllers\Admin\PractitionerAvailabilityContro
 use App\Domains\Scheduling\Http\Controllers\Admin\PractitionerTimeOffController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'center.access'])
+Route::middleware(['auth', 'verified', 'center.access', 'module:scheduling'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {

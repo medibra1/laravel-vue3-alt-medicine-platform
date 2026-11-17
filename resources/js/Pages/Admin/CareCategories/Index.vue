@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -62,11 +63,11 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'label', header: 'Libellé' },
-    { field: 'order', header: 'Ordre', sortable: true },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'label', header: tr('ui.libelle') },
+    { field: 'order', header: tr('ui.ordre'), sortable: true },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 const isCreating = ref(false);
@@ -123,7 +124,7 @@ function submitEdit() {
 }
 
 function destroy(careCategory: CareCategory) {
-    if (!confirm(`Supprimer la catégorie de soin ${careCategory.label.fr} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: careCategory.label.fr }))) {
         return;
     }
 
@@ -132,12 +133,12 @@ function destroy(careCategory: CareCategory) {
 </script>
 
 <template>
-    <Head title="Catégories de soins" />
+    <Head :title="$t('ui.categoriesDeSoins')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Catégories de soins" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Catégories de soins' }]">
+        <AppPageHeader :title="$t('ui.categoriesDeSoins')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.categoriesDeSoins') }]">
             <template #actions>
-                <AppButton label="Nouvelle catégorie" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouvelleCategorie')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -147,11 +148,11 @@ function destroy(careCategory: CareCategory) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (code, libellé)"
+                        :label="$t('ui.rechercherCodeLibelle')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -165,18 +166,18 @@ function destroy(careCategory: CareCategory) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-label="{ item }">{{ item.label.fr }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -187,66 +188,66 @@ function destroy(careCategory: CareCategory) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouvelle catégorie de soin">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouvelleCategorieDeSoin')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code (identifiant, ex. 'ointment')"
+                    :label="$t('ui.codeIdentifiantExOintment')"
                     :error="createForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="createForm.label"
-                    label="Libellé"
+                    :label="$t('ui.libelle')"
                     :error="{ fr: createForm.errors['label.fr'], en: createForm.errors['label.en'] }"
                 />
 
-                <AppInputNumber v-model="createForm.order" label="Ordre" :min="0" />
+                <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingCareCategory !== null"
-            header="Modifier la catégorie de soin"
+            :header="$t('ui.modifierLaCategorieDeSoin')"
             @update:visible="editingCareCategory = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code (identifiant)"
+                    :label="$t('ui.codeIdentifiant')"
                     :error="editForm.errors.code"
                 />
 
                 <AppTranslatableInput
                     v-model="editForm.label"
-                    label="Libellé"
+                    :label="$t('ui.libelle')"
                     :error="{ fr: editForm.errors['label.fr'], en: editForm.errors['label.en'] }"
                 />
 
-                <AppInputNumber v-model="editForm.order" label="Ordre" :min="0" />
+                <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingCareCategory = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

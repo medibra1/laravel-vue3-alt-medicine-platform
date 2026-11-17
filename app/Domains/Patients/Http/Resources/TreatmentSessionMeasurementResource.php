@@ -21,7 +21,7 @@ class TreatmentSessionMeasurementResource extends JsonResource
             // spatie/laravel-translatable (unlike Disease/DiseaseCategory) —
             // resolve the French label explicitly, same as
             // PatientController::religionOptions().
-            'measurement_type_label' => $this->whenLoaded('measurementType', fn () => $this->measurementType->label['fr'] ?? $this->measurementType->code),
+            'measurement_type_label' => $this->whenLoaded('measurementType', fn () => $this->measurementType->localizedLabel()),
             'value' => $this->value,
             'unit' => $this->unit,
             'notes' => $this->notes,

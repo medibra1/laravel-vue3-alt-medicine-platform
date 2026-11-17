@@ -41,6 +41,12 @@ class RolePermissions
             'appointments.create',
             'appointments.update',
             'appointments.cancel',
+            'invoices.viewAny',
+            'invoices.view',
+            'invoices.create',
+            'invoices.cancel',
+            'payments.create',
+            'payments.delete',
         ];
     }
 
@@ -79,6 +85,11 @@ class RolePermissions
             'appointments.create',
             'appointments.update',
             'appointments.cancel',
+            // Can bill and take a payment, never cancel or remove one.
+            'invoices.viewAny',
+            'invoices.view',
+            'invoices.create',
+            'payments.create',
         ];
     }
 

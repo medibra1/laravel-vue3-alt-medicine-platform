@@ -67,4 +67,19 @@ class EnumOption extends Model
         static::saved(fn (self $option) => static::flushCache($option->enum_type, $option->domain));
         static::deleted(fn (self $option) => static::flushCache($option->enum_type, $option->domain));
     }
+
+    /**
+     * Label in the request's language, falling back to French then to
+     * the code (`label` is a plain array cast, not a translatable field).
+     */
+    public function localizedLabel(): string
+    {
+        foreach ([app()->getLocale(), 'fr'] as $locale) {
+            if (filled($this->label[$locale] ?? null)) {
+                return (string) $this->label[$locale];
+            }
+        }
+
+        return (string) $this->code;
+    }
 }

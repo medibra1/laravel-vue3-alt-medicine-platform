@@ -16,7 +16,7 @@ trait ResolvesCenterOptions
 {
     protected function centerOptions(Request $request): AnonymousResourceCollection
     {
-        $centers = $request->user()->isSuperAdmin()
+        $centers = $request->user()->isGlobalAdmin()
             ? Center::query()->orderBy('code')->get()
             : collect();
 

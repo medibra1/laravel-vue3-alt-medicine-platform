@@ -25,6 +25,7 @@ class EnumOptionResource extends JsonResource
             'label' => [
                 'fr' => $this->label['fr'] ?? '',
                 'en' => $this->label['en'] ?? '',
+                'ar' => $this->label['ar'] ?? '',
             ],
             'order' => $this->order,
             'active' => $this->active,

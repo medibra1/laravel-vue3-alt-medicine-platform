@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -173,13 +174,13 @@ const currentStep = ref<'infos' | 'diseases' | 'careItems'>('infos');
 const steps = computed(() =>
     isCreatingNewTreatment.value
         ? [
-              { title: 'Infos générales', value: 'infos' },
-              { title: 'Maladies', value: 'diseases' },
-              { title: 'Soins — 1ère séance', value: 'careItems' },
+              { title: tr('ui.infosGenerales'), value: 'infos' },
+              { title: tr('ui.maladies'), value: 'diseases' },
+              { title: tr('ui.soins1ereSeance'), value: 'careItems' },
           ]
         : [
-              { title: 'Infos générales', value: 'infos' },
-              { title: 'Maladies', value: 'diseases' },
+              { title: tr('ui.infosGenerales'), value: 'infos' },
+              { title: tr('ui.maladies'), value: 'diseases' },
           ],
 );
 
@@ -199,16 +200,16 @@ const endedAtBinding = dateBinding('ended_at');
 
 const savedLabel = computed(() => {
     if (saving.value) {
-        return 'Enregistrement…';
+        return tr('misc.saving');
     }
 
     if (!lastSavedAt.value) {
-        return 'Pas encore enregistré';
+        return tr('misc.notSavedYet');
     }
 
     const time = new Date(lastSavedAt.value).toLocaleTimeString();
 
-    return `Brouillon enregistré à ${time}`;
+    return tr('misc.draftSavedAt', { time });
 });
 
 // --- Disease selection (step 2) ---
@@ -416,7 +417,7 @@ function close() {
 <template>
     <AppDialog
         :visible="visible"
-        :header="treatment ? 'Modifier le traitement' : 'Nouveau traitement'"
+        :header="treatment ? $t('misc.editTreatment') : $t('ui.nouveauTraitement')"
         max-width="960px"
         @update:visible="close"
     >
@@ -427,7 +428,7 @@ function close() {
             type="error"
             variant="tonal"
             class="mb-4"
-            title="Enregistrement impossible"
+            :title="$t('ui.enregistrementImpossible')"
         >
             <ul class="ps-4">
                 <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
@@ -439,7 +440,7 @@ function close() {
             type="error"
             variant="tonal"
             class="mb-4"
-            title="Confirmation impossible"
+            :title="$t('ui.confirmationImpossible')"
         >
             <!-- The field with the error can live on a step the user has
                  already moved past (e.g. "Date de début" on step 1 while
@@ -462,8 +463,8 @@ function close() {
                                 :options="centers"
                                 option-label="name"
                                 option-value="id"
-                                label="Centre"
-                                placeholder="Choisir un centre"
+                                :label="$t('ui.centre')"
+                                :placeholder="$t('ui.choisirUnCentre')"
                                 :error="fieldErrors.center_id"
                             />
                         </v-col>
@@ -474,8 +475,8 @@ function close() {
                                 :options="patientOptions"
                                 option-label="name"
                                 option-value="id"
-                                label="Patient"
-                                placeholder="Choisir un patient"
+                                :label="$t('ui.patient')"
+                                :placeholder="$t('ui.choisirUnPatient')"
                                 :error="fieldErrors.patient_id"
                             />
                         </v-col>
@@ -486,8 +487,8 @@ function close() {
                                 :options="practitionerOptions"
                                 option-label="name"
                                 option-value="id"
-                                label="Praticien"
-                                placeholder="Choisir un praticien"
+                                :label="$t('ui.praticien')"
+                                :placeholder="$t('ui.choisirUnPraticien')"
                                 :error="fieldErrors.practitioner_id"
                             />
                         </v-col>
@@ -495,34 +496,33 @@ function close() {
                         <v-col cols="12" md="6">
                             <AppDatePicker
                                 v-model="startedAtBinding"
-                                label="Date de début"
+                                :label="$t('ui.dateDeDebut')"
                                 :error="fieldErrors.started_at"
                             />
                         </v-col>
                         <v-col cols="12" md="6">
-                            <AppDatePicker v-model="endedAtBinding" label="Date de fin" />
+                            <AppDatePicker v-model="endedAtBinding" :label="$t('ui.dateDeFin')" />
                         </v-col>
 
                         <v-col cols="12">
-                            <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
+                            <AppTextarea v-model="form.notes" :label="$t('ui.notes')" :rows="3" />
                         </v-col>
                     </v-row>
 
                     <div v-else-if="step === 'diseases'" class="d-flex flex-column ga-4">
                         <v-alert v-if="lockedDiseaseIdSet.size" type="info" variant="tonal" density="compact">
-                            Certaines maladies ne peuvent plus être retirées car elles ont déjà un suivi de
-                            séance.
+                            {{ $t('ui.certainesMaladiesNePeuventPlusEtre') }}
                         </v-alert>
 
                         <AppInputText
                             v-model="diseaseSearch"
-                            label="Rechercher une maladie (toutes catégories)"
-                            placeholder="Ex. anxiété, cauchemar…"
+                            :label="$t('ui.rechercherUneMaladieToutesCategories')"
+                            :placeholder="$t('ui.exAnxieteCauchemar')"
                         />
 
                         <div v-if="diseaseSearch.trim()" class="d-flex flex-column ga-2">
                             <p class="text-body-2 text-medium-emphasis">
-                                {{ searchResults.length }} résultat(s)
+                                {{ $t('misc.results', { n: searchResults.length }) }}
                             </p>
                             <div
                                 v-for="disease in searchResults"
@@ -536,7 +536,7 @@ function close() {
                                         @update:model-value="toggleDisease(disease.id)"
                                     />
                                     <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
-                                        Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                        {{ $t('ui.cetteMaladieADejaUnSuivi') }}
                                     </v-tooltip>
                                 </span>
                                 <span>{{ disease.code }} — {{ disease.label }}</span>
@@ -550,11 +550,11 @@ function close() {
                                 <span v-if="selectedDiseaseIds.has(disease.id)">
                                     <AppCheckbox
                                         :model-value="isActivelyTracked(disease.id)"
-                                        label="Suivi actif à chaque séance"
+                                        :label="$t('ui.suiviActifAChaqueSeance')"
                                         @update:model-value="toggleActivelyTracked(disease.id)"
                                     />
                                     <v-tooltip activator="parent" location="top">
-                                        Les maladies en suivi actif comptent dans le calcul du statut de guérison du patient — les autres sont ignorées.
+                                        {{ $t('ui.lesMaladiesEnSuiviActifComptent') }}
                                     </v-tooltip>
                                 </span>
                             </div>
@@ -611,7 +611,7 @@ function close() {
                                                     icon="mdi-close"
                                                     severity="secondary"
                                                     size="small"
-                                                    aria-label="Fermer la liste des maladies"
+                                                    :aria-label="$t('ui.fermerLaListeDesMaladies')"
                                                     @click="activeCategoryId = null"
                                                 />
                                             </div>
@@ -629,7 +629,7 @@ function close() {
                                                         @update:model-value="toggleDisease(disease.id)"
                                                     />
                                                     <v-tooltip v-if="isDiseaseLocked(disease.id)" activator="parent" location="top">
-                                                        Cette maladie a déjà un suivi enregistré et ne peut plus être retirée.
+                                                        {{ $t('ui.cetteMaladieADejaUnSuivi') }}
                                                     </v-tooltip>
                                                 </span>
                                                 <span v-if="disease.description">
@@ -641,11 +641,11 @@ function close() {
                                                 <span v-if="selectedDiseaseIds.has(disease.id)">
                                                     <AppCheckbox
                                                         :model-value="isActivelyTracked(disease.id)"
-                                                        label="Suivi actif à chaque séance"
+                                                        :label="$t('ui.suiviActifAChaqueSeance')"
                                                         @update:model-value="toggleActivelyTracked(disease.id)"
                                                     />
                                                     <v-tooltip activator="parent" location="top">
-                                                        Les maladies en suivi actif comptent dans le calcul du statut de guérison du patient — les autres sont ignorées.
+                                                        {{ $t('ui.lesMaladiesEnSuiviActifComptent') }}
                                                     </v-tooltip>
                                                 </span>
                                             </div>
@@ -662,8 +662,7 @@ function close() {
 
                     <div v-else-if="step === 'careItems'" class="d-flex flex-column ga-4">
                         <p class="text-body-2 text-medium-emphasis">
-                            Soins donnés lors de cette première séance — pas un protocole pour
-                            l'ensemble du traitement, seulement ce qui a été fait aujourd'hui.
+                            {{ $t('ui.soinsDonnesLorsDeCettePremiere') }}
                         </p>
 
                         <CareItemsPicker v-model="selectedCareItemIds" :care-categories="careCategories" />
@@ -673,26 +672,26 @@ function close() {
         </AppStepper>
 
         <div class="d-flex justify-space-between ga-2 mt-4">
-            <AppButton type="button" label="Fermer" severity="secondary" @click="close" />
+            <AppButton type="button" :label="$t('ui.fermer')" severity="secondary" @click="close" />
 
             <div class="d-flex ga-2">
                 <AppButton
                     v-if="currentStep !== 'infos'"
                     type="button"
-                    label="Précédent"
+                    :label="$t('ui.precedent')"
                     severity="secondary"
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) - 1].value as typeof currentStep"
                 />
                 <AppButton
                     v-if="!isLastStep"
                     type="button"
-                    label="Suivant"
+                    :label="$t('ui.suivant')"
                     @click="currentStep = steps[steps.findIndex((s) => s.value === currentStep) + 1].value as typeof currentStep"
                 />
                 <AppButton
                     v-else
                     type="button"
-                    label="Confirmer"
+                    :label="$t('ui.confirmer')"
                     :loading="confirming"
                     @click="confirmTreatment"
                 />

@@ -100,7 +100,7 @@ il tourne contre la DB de dev locale (`database/database.sqlite`), pas
 une DB isolée comme Pest (sqlite `:memory:`), donc à éviter en même
 temps qu'un usage manuel actif de cette DB.
 
-## État d'avancement (2026-09-09)
+## État d'avancement (2026-11-17)
 
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
@@ -112,7 +112,8 @@ temps qu'un usage manuel actif de cette DB.
 | Patients (dossier, maladies, traitements) | Référentiel maladies (`DiseaseCategory`/`Disease`) et catalogue de soins (`CareCategory`/`CareItem`) : **CRUD admin fait** (9 catégories dont Cauchemars, contenu soins toujours placeholder) ; `Patient` (mono-étape) fait ; `Treatment` (wizard 3 étapes) fait ; `TreatmentSession` (CRUD, catalogue de soins, mesures libres par `EnumOption`) fait ; dossier patient unifié fait (4 onglets, dont Documents — identité/médical/autres, fusion PDF auto via `spatie/laravel-medialibrary`) ; `ExternalMedicalRecord` à faire |
 | Scheduling (RDV, campagnes) | RDV **fait** — calendrier praticien/centre, disponibilités récurrentes (éditeur hebdomadaire par praticien + application en masse), horaires d'ouverture par centre et par jour (plage affichée de l'agenda), congés praticien et fermetures exceptionnelles de centre (bloquants, journées entières), détection de conflit, conversion RDV→séance automatique, modalité présentiel/à distance (RDV et séances). Campagnes (tournées) pas commencé |
 | Catalog (produits, stock) | Pas commencé |
-| Billing (factures, paie) | Paie (deux modes) posée ; factures/dépenses à faire |
+| Billing (factures, paie) | **Factures et paiements faits** (onglet du dossier patient, page Facturation, PDF, tarifs par centre) ; paie (deux modes) posée ; dépenses à faire |
+| Transverse | **Interface en français, anglais et arabe (RTL)** ; modules activables par centre et par utilisateur ; réglages par centre (devise, fuseau, tarifs) ; tableau de bord chiffré |
 | Reporting (stats signées) | Pas commencé |
 
 **Vérification Practitioners** (2026-08-19) : 36 tests Pest passent (13

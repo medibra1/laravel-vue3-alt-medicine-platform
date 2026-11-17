@@ -33,7 +33,7 @@ class StorePractitionerAvailabilityRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($this->user()->isSuperAdmin()) {
+            if ($this->user()->isGlobalAdmin()) {
                 return;
             }
 

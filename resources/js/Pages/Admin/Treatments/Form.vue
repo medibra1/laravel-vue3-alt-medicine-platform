@@ -102,10 +102,10 @@ function onClose(value: boolean) {
 </script>
 
 <template>
-    <Head :title="treatment ? 'Modifier le traitement' : 'Nouveau traitement'" />
+    <Head :title="treatment ? $t('misc.editTreatment') : $t('ui.nouveauTraitement')" />
 
     <AuthenticatedLayout>
-        <template #header>{{ treatment ? 'Modifier le traitement' : 'Nouveau traitement' }}</template>
+        <template #header>{{ treatment ? $t('misc.editTreatment') : $t('ui.nouveauTraitement') }}</template>
 
         <TreatmentWizardDialog
             :visible="visible"

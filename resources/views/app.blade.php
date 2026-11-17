@@ -5,15 +5,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title data-inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title data-inertia>Praxia</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-        {{-- Poppins, applied only to the authenticated shell (.ruqya-shell
-             class, see resources/css/app.css) — Guest/Welcome pages keep
-             Figtree. --}}
-        <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800|ibm-plex-sans-arabic:400,500,600,700&display=swap" rel="stylesheet" />
+
+        {{-- Applies the saved dark preference before first paint (no flash). --}}
+        <script>
+            try {
+                if (localStorage.getItem('ruqya-theme') === 'dark') {
+                    document.documentElement.style.background = '#0A1211';
+                    document.documentElement.style.colorScheme = 'dark';
+                }
+            } catch (e) {}
+        </script>
 
         <!-- Scripts -->
         @routes

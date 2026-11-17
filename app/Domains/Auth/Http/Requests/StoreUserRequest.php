@@ -3,6 +3,7 @@
 namespace App\Domains\Auth\Http\Requests;
 
 use App\Domains\Auth\Models\User;
+use App\Domains\Core\Support\Modules;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,9 @@ class StoreUserRequest extends FormRequest
                 ? ['required', 'array', 'min:1']
                 : ['array', 'max:0'],
             'center_ids.*' => ['integer', 'exists:centers,id'],
+            // null/absent = no restriction beyond the center's own modules.
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(Modules::all())],
             'creation_mode' => ['required', Rule::in(['direct', 'invite'])],
             // In invite mode the frontend still submits empty
             // password/password_confirmation strings (unfilled form

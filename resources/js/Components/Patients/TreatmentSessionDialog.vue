@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
@@ -91,6 +92,8 @@ const props = withDefaults(
          * appointment is already linked by then).
          */
         appointmentId?: number | null;
+        /** The center's defaults for a new session (duration, modality). */
+        defaults?: { duration_minutes: number | null; modality: string } | null;
         treatmentDiseases: TreatmentDisease[];
         careCategories: CareCategoryOption[];
         measurementTypes: MeasurementTypeOption[];
@@ -131,12 +134,12 @@ const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [] }>();
 // because AppTabs only renders tabs listed here. Decision was to keep
 // document management solely on the patient file's Documents tab for now,
 // "as it was at the start" — how a session-level entry point should really
-// fit in is still to be worked out. Add { title: 'Documents', value:
+// fit in is still to be worked out. Add { title: tr('ui.documents'), value:
 // 'documents' } back to re-enable once that's settled.
 const sessionTabs: AppTabItem[] = [
-    { title: 'Soins', value: 'care' },
-    { title: 'Suivi des maladies', value: 'diseases' },
-    { title: 'Mesures', value: 'measurements' },
+    { title: tr('ui.soins'), value: 'care' },
+    { title: tr('ui.suiviDesMaladies'), value: 'diseases' },
+    { title: tr('ui.mesures'), value: 'measurements' },
 ];
 const activeSessionTab = ref<string>('care');
 
@@ -223,8 +226,9 @@ const medicalUploadError = ref<string | null>(null);
 function resetForm() {
     activeSessionTab.value = 'care';
     form.session_date = props.session?.session_date ?? toLocalDateString(new Date());
-    form.duration_minutes = props.session?.duration_minutes ?? null;
-    form.modality = props.session?.modality ?? 'in_person';
+    // A new session starts from the center's defaults; an existing one keeps its own values.
+    form.duration_minutes = props.session ? props.session.duration_minutes : (props.defaults?.duration_minutes ?? null);
+    form.modality = props.session?.modality ?? props.defaults?.modality ?? 'in_person';
     form.notes = props.session?.notes ?? null;
     selectedCareItemIds.value = new Set((props.session?.care_items ?? []).map((item) => item.id));
     pendingMedicalFiles.value = [];
@@ -362,19 +366,19 @@ function uploadMedicalDocuments() {
 <template>
     <AppDialog
         :visible="visible"
-        :header="session ? 'Modifier la séance' : 'Nouvelle séance'"
+        :header="session ? $t('ui.modifierLaSeance') : $t('misc.newSession')"
         max-width="720px"
         @update:visible="close"
     >
         <div class="d-flex flex-column ga-4">
             <v-row>
                 <v-col cols="12" md="6">
-                    <AppDatePicker v-model="sessionDateBinding" label="Date de la séance" :error="errors.session_date" />
+                    <AppDatePicker v-model="sessionDateBinding" :label="$t('ui.dateDeLaSeance')" :error="errors.session_date" />
                 </v-col>
                 <v-col cols="12" md="6">
                     <AppInputNumber
                         v-model="form.duration_minutes"
-                        label="Durée (minutes)"
+                        :label="$t('ui.dureeMinutes')"
                         :min="1"
                         :error="errors.duration_minutes"
                     />
@@ -385,7 +389,7 @@ function uploadMedicalDocuments() {
                         :options="modalityOptions"
                         option-label="label"
                         option-value="value"
-                        label="Modalité"
+                        :label="$t('ui.modalite')"
                         :error="errors.modality"
                     />
                 </v-col>
@@ -402,7 +406,7 @@ function uploadMedicalDocuments() {
                             <div class="d-flex align-center ga-2">
                                 <p class="text-body-2 mb-0">{{ disease.code }} — {{ disease.label }}</p>
                                 <v-chip v-if="prefilledDiseaseIds.has(disease.id)" size="x-small" variant="tonal" color="info">
-                                    Reprise de la dernière séance
+                                    {{ $t('ui.repriseDeLaDerniereSeance') }}
                                 </v-chip>
                             </div>
 
@@ -411,16 +415,16 @@ function uploadMedicalDocuments() {
                                 :options="outcomeOptions"
                                 option-label="label"
                                 option-value="value"
-                                label="Issue"
+                                :label="$t('ui.issue')"
                                 show-clear
-                                placeholder="Non renseignée"
+                                :placeholder="$t('ui.nonRenseignee')"
                                 @update:model-value="clearPrefilled(disease.id)"
                             />
 
                             <AppInputNumber
                                 v-if="diseaseOutcomes[disease.id].outcome === 'percentage'"
                                 v-model="diseaseOutcomes[disease.id].outcome_percentage"
-                                label="Pourcentage"
+                                :label="$t('ui.pourcentage')"
                                 :min="1"
                                 :max="99"
                                 @update:model-value="clearPrefilled(disease.id)"
@@ -428,13 +432,13 @@ function uploadMedicalDocuments() {
 
                             <AppTextarea
                                 v-model="diseaseOutcomes[disease.id].notes"
-                                label="Notes"
+                                :label="$t('ui.notes')"
                                 :rows="2"
                                 @update:model-value="clearPrefilled(disease.id)"
                             />
                         </div>
                     </div>
-                    <p v-else class="text-body-2 text-medium-emphasis">Aucune maladie suivie sur ce traitement.</p>
+                    <p v-else class="text-body-2 text-medium-emphasis">{{ $t('ui.aucuneMaladieSuivieSurCeTraitement') }}</p>
                 </template>
 
                 <template #documents>
@@ -463,24 +467,24 @@ function uploadMedicalDocuments() {
                             </div>
                         </template>
                         <p v-else class="text-body-2 text-medium-emphasis mb-0">
-                            Aucun document médical lié à cette séance.
+                            {{ $t('ui.aucunDocumentMedicalLieACette') }}
                         </p>
 
                         <AppFileUpload
                             v-model="pendingMedicalFiles"
                             multiple
                             :error="medicalUploadError"
-                            label="Ajouter des documents médicaux (plusieurs photos d'un même document sont fusionnées en un seul PDF)"
+                            :label="$t('ui.ajouterDesDocumentsMedicauxPlusieursPhotos')"
                         />
                         <AppButton
                             v-if="pendingMedicalFiles.length"
-                            label="Enregistrer les documents"
+                            :label="$t('ui.enregistrerLesDocuments')"
                             :loading="uploadingMedical"
                             @click="uploadMedicalDocuments"
                         />
                     </div>
                     <p v-else class="text-body-2 text-medium-emphasis">
-                        Enregistrez la séance pour pouvoir y attacher un document médical.
+                        {{ $t('ui.enregistrezLaSeancePourPouvoirY') }}
                     </p>
                 </template>
 
@@ -498,7 +502,7 @@ function uploadMedicalDocuments() {
                                         icon="mdi-delete"
                                         severity="danger"
                                         size="small"
-                                        aria-label="Retirer cette mesure"
+                                        :aria-label="$t('ui.retirerCetteMesure')"
                                         @click="removeMeasurementRow(row.measurement_type_option_id)"
                                     />
                                 </div>
@@ -507,20 +511,20 @@ function uploadMedicalDocuments() {
                                     <v-col cols="8">
                                         <AppInputText
                                             v-model="row.value"
-                                            label="Valeur"
+                                            :label="$t('ui.valeur')"
                                             :placeholder="measurementPlaceholder(row.measurement_type_option_id)"
                                             :error="errors[`measurements.${measurementRows.indexOf(row)}.value`]"
                                         />
                                     </v-col>
                                     <v-col cols="4">
-                                        <AppInputText v-model="row.unit" label="Unité" />
+                                        <AppInputText v-model="row.unit" :label="$t('ui.unite')" />
                                     </v-col>
                                 </v-row>
 
-                                <AppTextarea v-model="row.notes" label="Notes" :rows="2" />
+                                <AppTextarea v-model="row.notes" :label="$t('ui.notes')" :rows="2" />
                             </div>
                         </div>
-                        <p v-else class="text-body-2 text-medium-emphasis">Aucune mesure enregistrée pour cette séance.</p>
+                        <p v-else class="text-body-2 text-medium-emphasis">{{ $t('ui.aucuneMesureEnregistreePourCetteSeance') }}</p>
 
                         <v-row v-if="availableMeasurementTypes.length" align="center">
                             <v-col cols="8">
@@ -529,14 +533,14 @@ function uploadMedicalDocuments() {
                                     :options="availableMeasurementTypes"
                                     option-label="label"
                                     option-value="id"
-                                    label="Type de mesure"
-                                    placeholder="Choisir un type"
+                                    :label="$t('ui.typeDeMesure')"
+                                    :placeholder="$t('ui.choisirUnType')"
                                 />
                             </v-col>
                             <v-col cols="4">
                                 <AppButton
                                     type="button"
-                                    label="Ajouter une mesure"
+                                    :label="$t('ui.ajouterUneMesure')"
                                     icon="mdi-plus"
                                     severity="secondary"
                                     :disabled="newMeasurementTypeId === null"
@@ -548,11 +552,11 @@ function uploadMedicalDocuments() {
                 </template>
             </AppTabs>
 
-            <AppTextarea v-model="form.notes" label="Notes générales de la séance" :rows="3" />
+            <AppTextarea v-model="form.notes" :label="$t('ui.notesGeneralesDeLaSeance')" :rows="3" />
 
             <div class="d-flex justify-end ga-2">
-                <AppButton type="button" label="Annuler" severity="secondary" @click="close" />
-                <AppButton type="button" label="Enregistrer" :loading="saving" @click="save" />
+                <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="close" />
+                <AppButton type="button" :label="$t('ui.enregistrer')" :loading="saving" @click="save" />
             </div>
         </div>
     </AppDialog>

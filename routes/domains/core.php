@@ -2,6 +2,7 @@
 
 use App\Domains\Core\Http\Controllers\Admin\CenterClosureController;
 use App\Domains\Core\Http\Controllers\Admin\CenterController;
+use App\Domains\Core\Http\Controllers\Admin\CenterSettingsController;
 use App\Domains\Core\Http\Controllers\Admin\CountryController;
 use App\Domains\Core\Http\Controllers\Admin\ZoneController;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +11,9 @@ Route::middleware(['auth', 'verified', 'center.access'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {
+        Route::get('center-settings', [CenterSettingsController::class, 'current'])->name('center-settings');
+        Route::get('centers/{center}/settings', [CenterSettingsController::class, 'edit'])->name('centers.settings.edit');
+        Route::put('centers/{center}/settings', [CenterSettingsController::class, 'update'])->name('centers.settings.update');
         Route::get('centers/next-code', [CenterController::class, 'nextCode'])->name('centers.next-code');
         Route::put('centers/{center}/operating-hours', [CenterController::class, 'syncOperatingHours'])
             ->name('centers.operating-hours.sync');

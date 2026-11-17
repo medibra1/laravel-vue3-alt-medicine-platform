@@ -39,6 +39,15 @@ class Appointment extends Model
         );
     }
 
+    /**
+     * Start time in the center's own time zone — what a patient or
+     * practitioner should read in an e-mail (the app stores UTC).
+     */
+    public function localStartsAt(): CarbonInterface
+    {
+        return $this->starts_at->copy()->timezone($this->center->timezone ?: config('app.timezone'));
+    }
+
     /** @return BelongsTo<Center, $this> */
     public function center(): BelongsTo
     {

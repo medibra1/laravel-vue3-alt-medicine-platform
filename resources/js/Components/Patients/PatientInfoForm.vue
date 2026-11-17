@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
@@ -56,15 +57,15 @@ const props = withDefaults(
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
 const genderOptions = [
-    { label: 'Homme', value: 'male' },
-    { label: 'Femme', value: 'female' },
+    { label: tr('ui.homme'), value: 'male' },
+    { label: tr('ui.femme'), value: 'female' },
 ];
 
 const maritalStatusOptions = [
-    { label: 'Célibataire', value: 'single' },
-    { label: 'Marié(e)', value: 'married' },
-    { label: 'Divorcé(e)', value: 'divorced' },
-    { label: 'Veuf/Veuve', value: 'widowed' },
+    { label: tr('ui.celibataire'), value: 'single' },
+    { label: tr('ui.marieE'), value: 'married' },
+    { label: tr('ui.divorceE'), value: 'divorced' },
+    { label: tr('ui.veufVeuve'), value: 'widowed' },
 ];
 
 const birthDateBinding = computed<Date | null>({
@@ -83,7 +84,7 @@ const birthDateBinding = computed<Date | null>({
         type="error"
         variant="tonal"
         class="mb-4"
-        title="Enregistrement impossible"
+        :title="$t('ui.enregistrementImpossible')"
     >
         <ul class="ps-4">
             <li v-for="(messages, field) in saveErrors" :key="field">{{ messages[0] }}</li>
@@ -102,17 +103,17 @@ const birthDateBinding = computed<Date | null>({
                             :options="centers"
                             option-label="name"
                             option-value="id"
-                            label="Centre d'accueil"
-                            placeholder="Choisir un centre"
+                            :label="$t('ui.centreDAccueil')"
+                            :placeholder="$t('ui.choisirUnCentre')"
                             :error="fieldErrors.intake_center_id"
                         />
                     </v-col>
 
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.first_name" label="Prénom" :error="fieldErrors.first_name" />
+                        <AppInputText v-model="form.first_name" :label="$t('ui.prenom')" :error="fieldErrors.first_name" />
                     </v-col>
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.last_name" label="Nom" :error="fieldErrors.last_name" />
+                        <AppInputText v-model="form.last_name" :label="$t('ui.nom')" :error="fieldErrors.last_name" />
                     </v-col>
 
                     <v-col cols="12" md="6">
@@ -121,14 +122,14 @@ const birthDateBinding = computed<Date | null>({
                             :options="genderOptions"
                             option-label="label"
                             option-value="value"
-                            label="Genre"
+                            :label="$t('ui.genre')"
                             show-clear
-                            placeholder="Non renseigné"
+                            :placeholder="$t('ui.nonRenseigne')"
                             :error="fieldErrors.gender"
                         />
                     </v-col>
                     <v-col cols="12" md="6">
-                        <AppDatePicker v-model="birthDateBinding" label="Date de naissance" />
+                        <AppDatePicker v-model="birthDateBinding" :label="$t('ui.dateDeNaissance')" />
                     </v-col>
 
                     <v-col cols="12" md="6">
@@ -137,16 +138,16 @@ const birthDateBinding = computed<Date | null>({
                             :options="maritalStatusOptions"
                             option-label="label"
                             option-value="value"
-                            label="Situation matrimoniale"
+                            :label="$t('ui.situationMatrimoniale')"
                             show-clear
-                            placeholder="Non renseignée"
+                            :placeholder="$t('ui.nonRenseignee')"
                             :error="fieldErrors.marital_status"
                         />
                     </v-col>
                     <v-col cols="12" md="6">
                         <AppInputNumber
                             v-model="form.children_count"
-                            label="Nombre d'enfants"
+                            :label="$t('ui.nombreDEnfants')"
                             :min="0"
                             :error="fieldErrors.children_count"
                         />
@@ -158,40 +159,40 @@ const birthDateBinding = computed<Date | null>({
                             :options="religionOptions"
                             option-label="label"
                             option-value="id"
-                            label="Religion"
+                            :label="$t('ui.religion')"
                             show-clear
-                            placeholder="Non renseignée"
+                            :placeholder="$t('ui.nonRenseignee')"
                             :error="fieldErrors.religion_option_id"
                         />
                     </v-col>
 
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.phone" label="Téléphone" :error="fieldErrors.phone" />
+                        <AppInputText v-model="form.phone" :label="$t('ui.telephone')" :error="fieldErrors.phone" />
                     </v-col>
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.email" type="email" label="Email" />
+                        <AppInputText v-model="form.email" type="email" :label="$t('ui.email')" />
                     </v-col>
 
                     <v-col cols="12">
-                        <AppInputText v-model="form.city" label="Ville" :error="fieldErrors.city" />
+                        <AppInputText v-model="form.city" :label="$t('ui.ville')" :error="fieldErrors.city" />
                     </v-col>
 
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.emergency_contact_name" label="Contact d'urgence — nom" />
+                        <AppInputText v-model="form.emergency_contact_name" :label="$t('ui.contactDUrgenceNom')" />
                     </v-col>
                     <v-col cols="12" md="6">
-                        <AppInputText v-model="form.emergency_contact_phone" label="Contact d'urgence — téléphone" />
+                        <AppInputText v-model="form.emergency_contact_phone" :label="$t('ui.contactDUrgenceTelephone')" />
                     </v-col>
 
                     <v-col cols="12">
-                        <AppTextarea v-model="form.notes" label="Notes" :rows="3" />
+                        <AppTextarea v-model="form.notes" :label="$t('ui.notes')" :rows="3" />
                     </v-col>
                 </v-row>
                 </fieldset>
 
                 <div class="d-flex justify-end ga-2 mt-2">
-                    <AppButton type="button" label="Retour à la liste" severity="secondary" @click="emit('cancel')" />
-                    <AppButton v-if="!readonly" type="submit" label="Confirmer" :loading="confirming" />
+                    <AppButton type="button" :label="$t('ui.retourALaListe')" severity="secondary" @click="emit('cancel')" />
+                    <AppButton v-if="!readonly" type="submit" :label="$t('ui.confirmer')" :loading="confirming" />
                 </div>
             </form>
         </v-card-text>

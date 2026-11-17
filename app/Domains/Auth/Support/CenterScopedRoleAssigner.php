@@ -4,6 +4,7 @@ namespace App\Domains\Auth\Support;
 
 use App\Domains\Auth\Models\User;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -69,7 +70,12 @@ class CenterScopedRoleAssigner
         // creation-time set forever (found for practitioner on
         // 2026-08-25). Cheap no-op when the permission set hasn't
         // actually changed.
-        $roleModel->syncPermissions(RolePermissions::forRole($role));
+        // findOrCreate: a permission added to the role set after the last
+        // seeder run (a deploy that adds a module) must not break grants.
+        $permissions = collect(RolePermissions::forRole($role))
+            ->map(fn (string $name) => Permission::findOrCreate($name, 'web'));
+
+        $roleModel->syncPermissions($permissions);
 
         $user->assignRole($roleModel);
 

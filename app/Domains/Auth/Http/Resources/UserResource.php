@@ -43,6 +43,9 @@ class UserResource extends JsonResource
                 ? Center::query()->whereIn('id', $centerIds)->orderBy('name')->get(['id', 'name'])
                 : [],
             'is_active' => $this->is_active,
+            // null = every module of the center.
+            'modules' => $this->modules,
+            'can_manage_modules' => $request->user()?->can('manageModules', $this->resource) ?? false,
             // Direct-mode creation verifies the email immediately (the
             // admin vouches for the address); invite-mode leaves it null
             // until the user goes through Password::reset() — see

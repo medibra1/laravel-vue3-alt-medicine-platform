@@ -4,6 +4,7 @@ import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTabs, { type AppTabItem } from '@/Components/App/AppTabs.vue';
 import AppointmentDialog from '@/Components/Scheduling/AppointmentDialog.vue';
+import PatientBillingTab from '@/Components/Billing/PatientBillingTab.vue';
 import PatientConsentsTab from '@/Components/Patients/PatientConsentsTab.vue';
 import PatientDocumentsTab from '@/Components/Patients/PatientDocumentsTab.vue';
 import PatientInfoForm from '@/Components/Patients/PatientInfoForm.vue';
@@ -14,8 +15,10 @@ import TreatmentSessionDialog from '@/Components/Patients/TreatmentSessionDialog
 import TreatmentWizardDialog from '@/Components/Patients/TreatmentWizardDialog.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { useResilientForm } from '@/composables/useResilientForm';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { tr } from '@/lib/i18n';
+import { useI18n } from 'vue-i18n';
 
 interface Center {
     id: number;
@@ -202,6 +205,7 @@ const props = defineProps<{
     religionOptions?: ReligionOption[];
     measurementTypes?: MeasurementTypeOption[];
     can_update: boolean;
+    sessionDefaults?: { duration_minutes: number | null; modality: string } | null;
     documents?: PatientDocuments;
     consents?: Consent[];
     consentTemplates?: ConsentTemplate[];
@@ -246,16 +250,16 @@ const fieldErrors = computed<Record<string, string>>(() => ({
 
 const savedLabel = computed(() => {
     if (saving.value) {
-        return 'Enregistrement…';
+        return tr('misc.saving');
     }
 
     if (!lastSavedAt.value) {
-        return 'Pas encore enregistré';
+        return tr('misc.notSavedYet');
     }
 
     const time = new Date(lastSavedAt.value).toLocaleTimeString();
 
-    return `Brouillon enregistré à ${time}`;
+    return tr('misc.draftSavedAt', { time });
 });
 
 const confirming = ref(false);
@@ -330,13 +334,17 @@ const pastTreatments = computed(() => (props.treatments ?? []).filter((t) => t.s
 // record (treatments, derived_status...).
 const effectivePatientId = computed(() => props.patient?.id ?? serverId.value);
 
-const tabs: AppTabItem[] = [
-    { title: 'Informations', value: 'informations' },
-    { title: 'Traitement en cours', value: 'ongoing' },
-    { title: 'Documents', value: 'documents' },
-    { title: 'Consentement', value: 'consent' },
-    { title: 'Historique', value: 'history' },
-];
+const { t } = useI18n();
+const hasBilling = computed(() => usePage().props.auth.modules.includes('billing'));
+
+const tabs = computed<AppTabItem[]>(() => [
+    { title: t('patients.tabs.informations'), value: 'informations' },
+    { title: t('patients.tabs.ongoing'), value: 'ongoing' },
+    { title: t('patients.tabs.documents'), value: 'documents' },
+    { title: t('patients.tabs.consent'), value: 'consent' },
+    ...(hasBilling.value ? [{ title: t('billing.tab'), value: 'billing' }] : []),
+    { title: t('patients.tabs.history'), value: 'history' },
+]);
 
 const urlParams = new URLSearchParams(window.location.search);
 const tabFromUrl = urlParams.get('tab');
@@ -345,7 +353,7 @@ const tabFromUrl = urlParams.get('tab');
 // ongoing treatment — in that case the raqi almost always came here to log
 // a session or close it, not to re-edit identity fields.
 const activeTab = ref<string>(
-    tabFromUrl && tabs.some((tab) => tab.value === tabFromUrl)
+    tabFromUrl && tabs.value.some((tab) => tab.value === tabFromUrl)
         ? tabFromUrl
         : ongoingTreatment.value
           ? 'ongoing'
@@ -465,7 +473,7 @@ function openCloseTreatment(treatment: TreatmentSummary) {
 // capture, so a plain confirm() is enough (same pattern as destroy()
 // elsewhere in this app), no dedicated dialog like TreatmentCloseDialog.
 function reopenTreatment(treatment: TreatmentSummary) {
-    if (!confirm('Rouvrir ce traitement ? Il redeviendra "en cours" et bloquera à nouveau la création d\'un nouveau traitement pour ce patient.')) {
+    if (!confirm(tr('misc.confirmReopen'))) {
         return;
     }
 
@@ -555,7 +563,7 @@ function medicalDocumentsForSession(sessionId: number): PatientDocument[] {
 }
 
 const pageTitle = computed(() =>
-    props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : 'Nouveau patient',
+    props.patient ? `${props.patient.first_name ?? ''} ${props.patient.last_name ?? ''}`.trim() : t('ui.nouveauPatient'),
 );
 
 // Clickable only when the latest treatment is still ongoing — a closed
@@ -577,8 +585,8 @@ function onStatusChipClick() {
         <AppPageHeader
             :title="pageTitle"
             :breadcrumbs="[
-                { label: 'Tableau de bord', href: route('dashboard') },
-                { label: 'Patients', href: route('admin.patients.index') },
+                { label: $t('shell.nav.dashboard'), href: route('dashboard') },
+                { label: $t('ui.patients'), href: route('admin.patients.index') },
                 { label: pageTitle },
             ]"
         >
@@ -609,20 +617,20 @@ function onStatusChipClick() {
                         <AppCard v-if="nextAppointment" variant="tonal" class="mb-4">
                             <v-card-text class="d-flex flex-wrap align-center justify-space-between ga-3">
                                 <div>
-                                    <p class="text-overline mb-0">Prochain rendez-vous</p>
+                                    <p class="text-overline mb-0">{{ $t('ui.prochainRendezVous') }}</p>
                                     <p class="text-body-1 font-weight-medium mb-0">
-                                        {{ new Date(nextAppointment.starts_at).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) }}
+                                        {{ new Date(nextAppointment.starts_at).toLocaleString($i18n.locale, { dateStyle: 'long', timeStyle: 'short' }) }}
                                     </p>
                                     <p v-if="nextAppointment.practitioner" class="text-body-2 text-medium-emphasis mb-0">
-                                        Avec {{ nextAppointment.practitioner.first_name }} {{ nextAppointment.practitioner.last_name }}
+                                        {{ $t('misc.withName', { name: `${nextAppointment.practitioner.first_name} ${nextAppointment.practitioner.last_name}` }) }}
                                     </p>
                                     <p v-if="nextAppointment.reminder_sent_at" class="text-caption text-medium-emphasis mb-0">
-                                        Rappel envoyé le {{ new Date(nextAppointment.reminder_sent_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}
+                                        {{ $t('misc.reminderSentOn', { date: new Date(nextAppointment.reminder_sent_at).toLocaleString($i18n.locale, { dateStyle: 'short', timeStyle: 'short' }) }) }}
                                     </p>
                                 </div>
                                 <div class="d-flex ga-2">
                                     <AppButton
-                                        label="Voir dans l'agenda"
+                                        :label="$t('ui.voirDansLAgenda')"
                                         severity="secondary"
                                         size="small"
                                         :href="route('admin.agenda', { practitioner_id: nextAppointment.practitioner_id, date: nextAppointment.starts_at })"
@@ -630,7 +638,7 @@ function onStatusChipClick() {
                                     />
                                     <AppButton
                                         v-if="can_update"
-                                        label="Marquer honoré"
+                                        :label="$t('ui.marquerHonore')"
                                         size="small"
                                         @click="openMarkHonored(nextAppointment)"
                                     />
@@ -639,18 +647,18 @@ function onStatusChipClick() {
                         </AppCard>
 
                         <div class="d-flex align-center justify-space-between mb-1">
-                            <h2 class="text-h6">Traitement en cours</h2>
+                            <h2 class="text-h6">{{ $t('ui.traitementEnCours') }}</h2>
                             <div class="d-flex ga-2">
                                 <AppButton
                                     v-if="can_update"
-                                    label="Nouveau rendez-vous"
+                                    :label="$t('ui.nouveauRendezVous')"
                                     icon="mdi-calendar-plus"
                                     severity="secondary"
                                     @click="openNewAppointment"
                                 />
                                 <AppButton
                                     v-if="!ongoingTreatment && can_update"
-                                    label="Ajouter un traitement"
+                                    :label="$t('ui.ajouterUnTraitement')"
                                     icon="mdi-plus"
                                     @click="openNewTreatment"
                                 />
@@ -658,7 +666,7 @@ function onStatusChipClick() {
                         </div>
 
                         <p v-if="!ongoingTreatment" class="text-body-2 text-medium-emphasis">
-                            Aucun traitement en cours pour ce patient.
+                            {{ $t('ui.aucunTraitementEnCoursPourCe') }}
                         </p>
 
                         <TreatmentCard
@@ -677,7 +685,7 @@ function onStatusChipClick() {
                          confirmed patient, not just an id, so this stays a plain
                          message rather than reusing the "Ajouter un traitement" flow. -->
                     <p v-else class="text-body-2 text-medium-emphasis">
-                        Confirmez d'abord les informations du patient pour pouvoir ajouter un traitement.
+                        {{ $t('ui.confirmezDAbordLesInformationsDu') }}
                     </p>
                 </template>
 
@@ -703,12 +711,17 @@ function onStatusChipClick() {
                     />
                 </template>
 
+                <template #billing>
+                    <PatientBillingTab v-if="patient" :patient-id="patient.id" />
+                    <p v-else class="text-body-2 text-medium-emphasis">{{ t('patients.confirmFirst') }}</p>
+                </template>
+
                 <template #history>
                     <div v-if="patient">
-                        <h2 class="text-h6 mb-3">Historique des traitements</h2>
+                        <h2 class="text-h6 mb-3">{{ $t('ui.historiqueDesTraitements') }}</h2>
 
                         <p v-if="!pastTreatments.length" class="text-body-2 text-medium-emphasis">
-                            Aucun traitement passé pour ce patient.
+                            {{ $t('ui.aucunTraitementPassePourCePatient') }}
                         </p>
 
                         <TreatmentCard
@@ -725,7 +738,7 @@ function onStatusChipClick() {
                         />
                     </div>
                     <p v-else class="text-body-2 text-medium-emphasis">
-                        Confirmez d'abord les informations du patient pour voir son historique.
+                        {{ $t('ui.confirmezDAbordLesInformationsDu2') }}
                     </p>
                 </template>
             </AppTabs>
@@ -767,6 +780,7 @@ function onStatusChipClick() {
             :treatment-id="sessionTreatmentId"
             :session="editingSession"
             :appointment-id="sessionAppointmentId"
+            :defaults="sessionDefaults"
             :treatment-diseases="treatmentDiseasesFor(sessionTreatmentId)"
             :care-categories="careCategories ?? []"
             :measurement-types="measurementTypes ?? []"

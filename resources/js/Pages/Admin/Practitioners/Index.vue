@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -97,15 +98,15 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'name', header: 'Nom' },
-    { field: 'full_code', header: 'Code', sortable: true },
-    { field: 'matricule', header: 'Matricule', sortable: true },
-    { field: 'center', header: 'Centre' },
-    { field: 'grade', header: 'Grade' },
-    { field: 'access', header: 'Accès' },
-    { field: 'phone', header: 'Téléphone' },
-    { field: 'hired_at', header: 'Embauché le', sortable: true },
-    { field: 'actions', header: 'Actions' },
+    { field: 'name', header: tr('ui.nom') },
+    { field: 'full_code', header: tr('ui.code'), sortable: true },
+    { field: 'matricule', header: tr('ui.matricule'), sortable: true },
+    { field: 'center', header: tr('ui.centre') },
+    { field: 'grade', header: tr('ui.grade') },
+    { field: 'access', header: tr('ui.acces') },
+    { field: 'phone', header: tr('ui.telephone') },
+    { field: 'hired_at', header: tr('ui.embaucheLe'), sortable: true },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 const isCreating = ref(false);
@@ -312,7 +313,7 @@ function submitEdit() {
 }
 
 function destroy(practitioner: Practitioner) {
-    if (!confirm(`Supprimer le praticien ${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code}) ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: `${practitioner.first_name} ${practitioner.last_name} (${practitioner.full_code})` }))) {
         return;
     }
 
@@ -321,12 +322,12 @@ function destroy(practitioner: Practitioner) {
 </script>
 
 <template>
-    <Head title="Praticiens" />
+    <Head :title="$t('ui.praticiens')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Praticiens" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Praticiens' }]">
+        <AppPageHeader :title="$t('ui.praticiens')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.praticiens') }]">
             <template #actions>
-                <AppButton label="Nouveau praticien" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouveauPraticien')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -336,11 +337,11 @@ function destroy(practitioner: Practitioner) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (nom, code, matricule)"
+                        :label="$t('ui.rechercherNomCodeMatricule')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -359,19 +360,19 @@ function destroy(practitioner: Practitioner) {
                     <template #column-grade="{ item }">{{ item.grade?.label ?? '—' }}</template>
                     <template #column-access="{ item }">
                         <v-chip size="small" :color="item.user_id ? 'success' : undefined" variant="tonal">
-                            {{ item.user_id ? 'Avec accès' : 'Sans accès' }}
+                            {{ item.user_id ? $t('misc.withAccess') : $t('misc.withoutAccess') }}
                         </v-chip>
                     </template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -382,40 +383,37 @@ function destroy(practitioner: Practitioner) {
             </AppCard>
         </div>
 
-        <AppDialog :key="createDialogKey" v-model:visible="isCreating" header="Nouveau praticien">
+        <AppDialog :key="createDialogKey" v-model:visible="isCreating" :header="$t('ui.nouveauPraticien')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppCheckbox
                     v-model="createForm.grant_access"
-                    label="Donner un accès à l'application"
+                    :label="$t('ui.donnerUnAccesALApplication')"
                 />
 
                 <template v-if="createForm.grant_access">
                     <AppInputText
                         v-model="createForm.email"
-                        label="Email"
+                        :label="$t('ui.email')"
                         type="email"
                         :error="createForm.errors.email"
                     />
 
                     <v-alert v-if="accountStatus === 'checking'" type="info" variant="tonal" density="compact">
-                        Vérification…
+                        {{ $t('ui.verification') }}
                     </v-alert>
 
                     <v-alert v-else-if="accountStatus === 'existing'" type="info" variant="tonal" density="compact">
-                        {{ accountPractitionerName }} a déjà un compte praticien
-                        (centre{{ accountCurrentCenters.length > 1 ? 's' : '' }} :
-                        {{ accountCurrentCenters.join(', ') }}). Il/elle sera simplement ajouté·e à ce centre —
-                        aucun nouveau compte ni fiche praticien ne sera créé.
+                        {{ $t('misc.joinExisting', { name: accountPractitionerName, centers: accountCurrentCenters.join(', ') }) }}
                     </v-alert>
 
                     <v-alert v-else-if="accountStatus === 'taken'" type="error" variant="tonal" density="compact">
-                        Cet email est déjà utilisé par un autre compte (non praticien).
+                        {{ $t('ui.cetEmailEstDejaUtilisePar') }}
                     </v-alert>
                 </template>
 
                 <template v-if="!isJoiningExisting">
-                    <AppInputText v-model="createForm.first_name" label="Prénom" :error="createForm.errors.first_name" />
-                    <AppInputText v-model="createForm.last_name" label="Nom" :error="createForm.errors.last_name" />
+                    <AppInputText v-model="createForm.first_name" :label="$t('ui.prenom')" :error="createForm.errors.first_name" />
+                    <AppInputText v-model="createForm.last_name" :label="$t('ui.nom')" :error="createForm.errors.last_name" />
 
                     <AppSelect
                         v-if="centers.length"
@@ -423,14 +421,14 @@ function destroy(practitioner: Practitioner) {
                         :options="centers"
                         option-label="name"
                         option-value="id"
-                        label="Centre"
-                        placeholder="Choisir un centre"
+                        :label="$t('ui.centre')"
+                        :placeholder="$t('ui.choisirUnCentre')"
                         :error="createForm.errors.center_id"
                     />
 
                     <AppInputText
                         v-model="createForm.matricule"
-                        label="Matricule (3 chiffres, suggéré automatiquement)"
+                        :label="$t('ui.matricule3ChiffresSuggereAutomatiquement')"
                         :maxlength="3"
                         :error="createForm.errors.matricule"
                     />
@@ -440,17 +438,17 @@ function destroy(practitioner: Practitioner) {
                         :options="grades"
                         option-label="label"
                         option-value="id"
-                        label="Grade"
+                        :label="$t('ui.grade')"
                         show-clear
-                        placeholder="Aucun"
+                        :placeholder="$t('ui.aucun')"
                     />
 
-                    <AppInputNumber v-model="createForm.level" label="Niveau" :min="0" />
+                    <AppInputNumber v-model="createForm.level" :label="$t('ui.niveau')" :min="0" />
 
-                    <AppDatePicker v-model="createHiredAt" label="Date d'embauche" />
+                    <AppDatePicker v-model="createHiredAt" :label="$t('ui.dateDEmbauche')" />
 
-                    <AppInputText v-model="createForm.phone" label="Téléphone" :error="createForm.errors.phone" />
-                    <AppInputText v-model="createForm.address" label="Adresse" :error="createForm.errors.address" />
+                    <AppInputText v-model="createForm.phone" :label="$t('ui.telephone')" :error="createForm.errors.phone" />
+                    <AppInputText v-model="createForm.address" :label="$t('ui.adresse')" :error="createForm.errors.address" />
                 </template>
 
                 <template v-else>
@@ -462,8 +460,8 @@ function destroy(practitioner: Practitioner) {
                         :options="centers"
                         option-label="name"
                         option-value="id"
-                        label="Centre"
-                        placeholder="Choisir un centre"
+                        :label="$t('ui.centre')"
+                        :placeholder="$t('ui.choisirUnCentre')"
                         :error="createForm.errors.center_id"
                     />
                 </template>
@@ -472,24 +470,24 @@ function destroy(practitioner: Practitioner) {
                     <AppSelect
                         v-model="createForm.creation_mode"
                         :options="[
-                            { value: 'invite', label: 'Envoyer une invitation par email' },
-                            { value: 'direct', label: 'Définir un mot de passe directement' },
+                            { value: 'invite', label: $t('users.modeInvite') },
+                            { value: 'direct', label: $t('users.modeDirect') },
                         ]"
                         option-label="label"
                         option-value="value"
-                        label="Mode de création du compte"
+                        :label="$t('ui.modeDeCreationDuCompte')"
                     />
 
                     <template v-if="createForm.creation_mode === 'direct'">
                         <AppInputText
                             v-model="createForm.password"
-                            label="Mot de passe"
+                            :label="$t('ui.motDePasse')"
                             type="password"
                             :error="createForm.errors.password"
                         />
                         <AppInputText
                             v-model="createForm.password_confirmation"
-                            label="Confirmer le mot de passe"
+                            :label="$t('ui.confirmerLeMotDePasse')"
                             type="password"
                         />
                     </template>
@@ -498,13 +496,13 @@ function destroy(practitioner: Practitioner) {
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
                     <AppButton
                         type="submit"
-                        label="Créer"
+                        :label="$t('ui.creer')"
                         :loading="createForm.processing"
                         :disabled="accountStatus === 'taken'"
                     />
@@ -514,16 +512,16 @@ function destroy(practitioner: Practitioner) {
 
         <AppDialog
             :visible="editingPractitioner !== null"
-            header="Modifier le praticien"
+            :header="$t('ui.modifierLePraticien')"
             @update:visible="editingPractitioner = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
-                <AppInputText v-model="editForm.first_name" label="Prénom" :error="editForm.errors.first_name" />
-                <AppInputText v-model="editForm.last_name" label="Nom" :error="editForm.errors.last_name" />
+                <AppInputText v-model="editForm.first_name" :label="$t('ui.prenom')" :error="editForm.errors.first_name" />
+                <AppInputText v-model="editForm.last_name" :label="$t('ui.nom')" :error="editForm.errors.last_name" />
 
                 <AppInputText
                     v-model="editForm.matricule"
-                    label="Matricule (3 chiffres)"
+                    :label="$t('ui.matricule3Chiffres')"
                     :maxlength="3"
                     :error="editForm.errors.matricule"
                 />
@@ -533,27 +531,27 @@ function destroy(practitioner: Practitioner) {
                     :options="grades"
                     option-label="label"
                     option-value="id"
-                    label="Grade"
+                    :label="$t('ui.grade')"
                     show-clear
-                    placeholder="Aucun"
+                    :placeholder="$t('ui.aucun')"
                 />
 
-                <AppInputNumber v-model="editForm.level" label="Niveau" :min="0" />
+                <AppInputNumber v-model="editForm.level" :label="$t('ui.niveau')" :min="0" />
 
-                <AppDatePicker v-model="editHiredAt" label="Date d'embauche" />
+                <AppDatePicker v-model="editHiredAt" :label="$t('ui.dateDEmbauche')" />
 
-                <AppInputText v-model="editForm.phone" label="Téléphone" :error="editForm.errors.phone" />
-                <AppInputText v-model="editForm.address" label="Adresse" :error="editForm.errors.address" />
-                <AppInputText v-model="editForm.email" label="Email" :error="editForm.errors.email" />
+                <AppInputText v-model="editForm.phone" :label="$t('ui.telephone')" :error="editForm.errors.phone" />
+                <AppInputText v-model="editForm.address" :label="$t('ui.adresse')" :error="editForm.errors.address" />
+                <AppInputText v-model="editForm.email" :label="$t('ui.email')" :error="editForm.errors.email" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingPractitioner = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

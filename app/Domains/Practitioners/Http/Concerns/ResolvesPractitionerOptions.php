@@ -18,7 +18,7 @@ trait ResolvesPractitionerOptions
      */
     protected function practitionerOptions(Request $request): AnonymousResourceCollection
     {
-        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
+        $centerId = $request->user()->isGlobalAdmin() ? null : getPermissionsTeamId();
 
         $practitioners = Practitioner::query()
             ->when($centerId, fn ($query) => $query->visibleOnCenter($centerId))

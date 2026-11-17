@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { currentLocale } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
@@ -64,7 +65,7 @@ const props = defineProps<{
     practitionerCenterIds: Record<number, number[]>;
 }>();
 
-const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_super_admin?: boolean }).is_super_admin));
+const isSuperAdmin = computed(() => Boolean((usePage().props.auth as { is_global_admin?: boolean }).is_global_admin));
 
 // Two modes: a front-desk "Jour" view across every practitioner of the
 // active center, and a "Semaine" view scoped to one practitioner —
@@ -111,7 +112,7 @@ const rangeDates = computed<Date[]>(() => {
     });
 });
 
-const dayLabelFormatter = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+const dayLabelFormatter = new Intl.DateTimeFormat(currentLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
 
 // Visual hint only — the server rejects bookings on a time off day anyway
 // (NoTimeOffConflict).
@@ -286,23 +287,23 @@ function openNewAppointment() {
 </script>
 
 <template>
-    <Head title="Agenda" />
+    <Head :title="$t('ui.agenda')" />
 
     <AuthenticatedLayout>
         <AppPageHeader
-            title="Agenda"
-            :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Agenda' }]"
+            :title="$t('ui.agenda')"
+            :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.agenda') }]"
         >
             <template #actions>
-                <AppButton label="Nouveau rendez-vous" icon="mdi-plus" @click="openNewAppointment" />
+                <AppButton :label="$t('ui.nouveauRendezVous')" icon="mdi-plus" @click="openNewAppointment" />
             </template>
         </AppPageHeader>
 
         <AppCard variant="elevated" elevation="1" class="mb-4">
             <v-card-text class="d-flex flex-wrap align-end ga-3">
                 <v-btn-toggle v-model="mode" mandatory density="comfortable">
-                    <v-btn value="day">Jour</v-btn>
-                    <v-btn value="week">Semaine</v-btn>
+                    <v-btn value="day">{{ $t('ui.jour') }}</v-btn>
+                    <v-btn value="week">{{ $t('ui.semaine') }}</v-btn>
                 </v-btn-toggle>
 
                 <AppSelect
@@ -311,7 +312,7 @@ function openNewAppointment() {
                     :options="centerOptions"
                     option-label="name"
                     option-value="id"
-                    label="Centre"
+                    :label="$t('ui.centre')"
                 />
 
                 <AppSelect
@@ -320,12 +321,12 @@ function openNewAppointment() {
                     :options="practitionerOptions"
                     option-label="name"
                     option-value="id"
-                    label="Praticien"
+                    :label="$t('ui.praticien')"
                 />
 
                 <div class="d-flex ga-1 align-center">
                     <AppButton icon="mdi-chevron-left" severity="secondary" @click="goToPrevious" />
-                    <AppButton label="Aujourd'hui" severity="secondary" @click="goToToday" />
+                    <AppButton :label="$t('ui.aujourdHui')" severity="secondary" @click="goToToday" />
                     <AppButton icon="mdi-chevron-right" severity="secondary" @click="goToNext" />
                 </div>
             </v-card-text>

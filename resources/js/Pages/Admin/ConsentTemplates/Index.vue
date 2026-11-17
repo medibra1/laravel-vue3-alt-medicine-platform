@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppDataTable, { type AppDataTableColumn } from '@/Components/App/AppDataTable.vue';
@@ -26,19 +27,19 @@ const props = defineProps<{
 }>();
 
 const typeLabels: Record<string, string> = {
-    treatment: 'Consentement au traitement',
-    data_privacy: 'Protection des données (RGPD)',
-    image_rights: "Droit à l'image",
+    treatment: tr('misc.consentTypes.treatment'),
+    data_privacy: tr('misc.consentTypes.data_privacy'),
+    image_rights: tr('misc.consentTypes.image_rights'),
 };
 
 const typeOptions = Object.entries(typeLabels).map(([id, label]) => ({ id, label }));
 
 const columns: AppDataTableColumn[] = [
-    { field: 'type', header: 'Type' },
-    { field: 'version', header: 'Version' },
-    { field: 'title', header: 'Titre' },
-    { field: 'is_active', header: 'Statut' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'type', header: tr('ui.type') },
+    { field: 'version', header: tr('ui.version') },
+    { field: 'title', header: tr('ui.titre') },
+    { field: 'is_active', header: tr('ui.statut') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 // Only a type with no active version yet can be created from scratch — a
@@ -92,16 +93,16 @@ function submitEdit() {
 </script>
 
 <template>
-    <Head title="Modèles de consentement" />
+    <Head :title="$t('ui.modelesDeConsentement')" />
 
     <AuthenticatedLayout>
         <AppPageHeader
-            title="Modèles de consentement"
-            :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Modèles de consentement' }]"
+            :title="$t('ui.modelesDeConsentement')"
+            :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.modelesDeConsentement') }]"
         >
             <template #actions>
                 <AppButton
-                    label="Nouveau modèle"
+                    :label="$t('ui.nouveauModele')"
                     icon="mdi-plus"
                     :disabled="!typesWithoutActiveTemplate.length"
                     @click="openCreate"
@@ -110,8 +111,7 @@ function submitEdit() {
         </AppPageHeader>
 
         <p v-if="!typesWithoutActiveTemplate.length" class="text-body-2 text-medium-emphasis mb-4">
-            Les trois types de consentement ont déjà un modèle actif — utilisez "Modifier" pour créer une nouvelle
-            version.
+            {{ $t('ui.lesTroisTypesDeConsentementOnt') }}
         </p>
 
         <AppCard variant="elevated" elevation="1">
@@ -119,13 +119,13 @@ function submitEdit() {
                 <template #column-type="{ item }">{{ typeLabels[item.type] ?? item.type }}</template>
                 <template #column-is_active="{ item }">
                     <v-chip size="small" :color="item.is_active ? 'success' : 'secondary'" variant="tonal">
-                        {{ item.is_active ? 'Actif' : 'Archivé' }}
+                        {{ item.is_active ? $t('common.active') : $t('misc.archived') }}
                     </v-chip>
                 </template>
                 <template #actions="{ item }">
                     <AppButton
                         v-if="item.is_active"
-                        label="Modifier"
+                        :label="$t('ui.modifier')"
                         severity="secondary"
                         size="small"
                         @click="openEdit(item)"
@@ -134,58 +134,56 @@ function submitEdit() {
             </AppDataTable>
         </AppCard>
 
-        <AppDialog v-model:visible="isCreating" header="Nouveau modèle de consentement" max-width="640px">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouveauModeleDeConsentement')" max-width="640px">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppSelect
                     v-model="createForm.type"
                     :options="typesWithoutActiveTemplate"
                     option-label="label"
                     option-value="id"
-                    label="Type"
+                    :label="$t('ui.type')"
                     :error="createForm.errors.type"
                 />
 
-                <AppInputText v-model="createForm.title" label="Titre" :error="createForm.errors.title" />
+                <AppInputText v-model="createForm.title" :label="$t('ui.titre')" :error="createForm.errors.title" />
 
                 <AppTextarea
                     v-model="createForm.content"
-                    label="Texte présenté au patient"
+                    :label="$t('ui.textePresenteAuPatient')"
                     :rows="8"
                     :error="createForm.errors.content"
                 />
 
                 <div class="d-flex justify-end ga-2">
-                    <AppButton type="button" label="Annuler" severity="secondary" @click="isCreating = false" />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="isCreating = false" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingTemplate !== null"
-            header="Modifier le modèle (nouvelle version)"
+            :header="$t('ui.modifierLeModeleNouvelleVersion')"
             max-width="640px"
             @update:visible="editingTemplate = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
                 <p class="text-body-2 text-medium-emphasis mb-0">
-                    Enregistrer crée une nouvelle version (v{{ (editingTemplate?.version ?? 0) + 1 }}) — la version
-                    actuelle est archivée, jamais modifiée en place, pour ne jamais changer un texte déjà signé par
-                    un patient.
+                    {{ $t('misc.newVersionHint', { version: (editingTemplate?.version ?? 0) + 1 }) }}
                 </p>
 
-                <AppInputText v-model="editForm.title" label="Titre" :error="editForm.errors.title" />
+                <AppInputText v-model="editForm.title" :label="$t('ui.titre')" :error="editForm.errors.title" />
 
                 <AppTextarea
                     v-model="editForm.content"
-                    label="Texte présenté au patient"
+                    :label="$t('ui.textePresenteAuPatient')"
                     :rows="8"
                     :error="editForm.errors.content"
                 />
 
                 <div class="d-flex justify-end ga-2">
-                    <AppButton type="button" label="Annuler" severity="secondary" @click="editingTemplate = null" />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="editingTemplate = null" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

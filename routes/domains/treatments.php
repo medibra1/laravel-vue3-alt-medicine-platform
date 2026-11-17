@@ -4,7 +4,7 @@ use App\Domains\Patients\Http\Controllers\Admin\TreatmentController;
 use App\Domains\Patients\Http\Controllers\Admin\TreatmentSessionController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', 'center.access'])
+Route::middleware(['auth', 'verified', 'center.access', 'module:treatments'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {

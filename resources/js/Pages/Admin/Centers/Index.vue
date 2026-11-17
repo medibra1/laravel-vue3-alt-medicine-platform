@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tr } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppCard from '@/Components/App/AppCard.vue';
 import AppCheckbox from '@/Components/App/AppCheckbox.vue';
@@ -77,12 +78,12 @@ function onSort(event: AppDataTableSortEvent) {
 }
 
 const columns: AppDataTableColumn[] = [
-    { field: 'code', header: 'Code', sortable: true },
-    { field: 'name', header: 'Nom', sortable: true },
-    { field: 'city', header: 'Ville', sortable: true },
-    { field: 'country', header: 'Pays' },
-    { field: 'active', header: 'Actif' },
-    { field: 'actions', header: 'Actions' },
+    { field: 'code', header: tr('ui.code'), sortable: true },
+    { field: 'name', header: tr('ui.nom'), sortable: true },
+    { field: 'city', header: tr('ui.ville'), sortable: true },
+    { field: 'country', header: tr('ui.pays') },
+    { field: 'active', header: tr('ui.actif') },
+    { field: 'actions', header: tr('ui.actions') },
 ];
 
 function fullCenterCode(center: Center): string {
@@ -190,7 +191,7 @@ function openClosures(center: Center) {
 }
 
 function destroy(center: Center) {
-    if (!confirm(`Supprimer le centre ${center.name} ?`)) {
+    if (!confirm(tr('misc.confirmDeleteNamed', { name: center.name }))) {
         return;
     }
 
@@ -199,12 +200,12 @@ function destroy(center: Center) {
 </script>
 
 <template>
-    <Head title="Centres" />
+    <Head :title="$t('ui.centres')" />
 
     <AuthenticatedLayout>
-        <AppPageHeader title="Centres" :breadcrumbs="[{ label: 'Tableau de bord', href: route('dashboard') }, { label: 'Centres' }]">
+        <AppPageHeader :title="$t('ui.centres')" :breadcrumbs="[{ label: $t('shell.nav.dashboard'), href: route('dashboard') }, { label: $t('ui.centres') }]">
             <template #actions>
-                <AppButton label="Nouveau centre" icon="mdi-plus" @click="openCreate" />
+                <AppButton :label="$t('ui.nouveauCentre')" icon="mdi-plus" @click="openCreate" />
             </template>
         </AppPageHeader>
 
@@ -214,11 +215,11 @@ function destroy(center: Center) {
                     <AppInputText
                         id="filter-search"
                         v-model="search.search"
-                        label="Rechercher (nom, code)"
+                        :label="$t('ui.rechercherNomCode')"
                         prepend-inner-icon="mdi-magnify"
                         @keyup.enter="reload()"
                     />
-                    <AppButton label="Filtrer" severity="secondary" @click="reload()" />
+                    <AppButton :label="$t('ui.filtrer')" severity="secondary" @click="reload()" />
                 </v-card-text>
             </AppCard>
 
@@ -234,31 +235,31 @@ function destroy(center: Center) {
                 >
                     <template #column-code="{ item }">{{ fullCenterCode(item) }}</template>
                     <template #column-country="{ item }">{{ item.country?.name }}</template>
-                    <template #column-active="{ item }">{{ item.active ? 'Oui' : 'Non' }}</template>
+                    <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
-                                label="Modifier"
+                                :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
                                 @click="openEdit(item)"
                             />
                             <AppButton
-                                label="Horaires d'ouverture"
+                                :label="$t('ui.horairesDOuverture')"
                                 icon="mdi-clock-outline"
                                 severity="secondary"
                                 size="small"
                                 @click="openOperatingHours(item)"
                             />
                             <AppButton
-                                label="Fermetures"
+                                :label="$t('ui.fermetures')"
                                 icon="mdi-store-off-outline"
                                 severity="secondary"
                                 size="small"
                                 @click="openClosures(item)"
                             />
                             <AppButton
-                                label="Supprimer"
+                                :label="$t('ui.supprimer')"
                                 severity="danger"
                                 size="small"
                                 @click="destroy(item)"
@@ -269,53 +270,53 @@ function destroy(center: Center) {
             </AppCard>
         </div>
 
-        <AppDialog v-model:visible="isCreating" header="Nouveau centre">
+        <AppDialog v-model:visible="isCreating" :header="$t('ui.nouveauCentre')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">
                 <AppSelect
                     v-model="createForm.country_id"
                     :options="countries"
                     option-label="name"
                     option-value="id"
-                    label="Pays"
-                    placeholder="Choisir un pays"
+                    :label="$t('ui.pays')"
+                    :placeholder="$t('ui.choisirUnPays')"
                     :error="createForm.errors.country_id"
                 />
 
                 <AppInputText
                     v-model="createForm.code"
-                    label="Code centre (2 chiffres, suggéré automatiquement)"
+                    :label="$t('ui.codeCentre2ChiffresSuggereAutomatiquement')"
                     :maxlength="2"
                     :error="createForm.errors.code"
                 />
 
                 <AppInputText
                     v-model="createForm.name"
-                    label="Nom"
+                    :label="$t('ui.nom')"
                     :error="createForm.errors.name"
                 />
 
-                <AppInputText v-model="createForm.city" label="Ville" :error="createForm.errors.city" />
-                <AppInputText v-model="createForm.address" label="Adresse" />
-                <AppInputText v-model="createForm.phone" label="Téléphone" />
-                <AppInputText v-model="createForm.email" label="Email" :error="createForm.errors.email" />
+                <AppInputText v-model="createForm.city" :label="$t('ui.ville')" :error="createForm.errors.city" />
+                <AppInputText v-model="createForm.address" :label="$t('ui.adresse')" />
+                <AppInputText v-model="createForm.phone" :label="$t('ui.telephone')" />
+                <AppInputText v-model="createForm.email" :label="$t('ui.email')" :error="createForm.errors.email" />
 
-                <AppCheckbox v-model="createForm.active" label="Actif" />
+                <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="isCreating = false"
                     />
-                    <AppButton type="submit" label="Créer" :loading="createForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.creer')" :loading="createForm.processing" />
                 </div>
             </form>
         </AppDialog>
 
         <AppDialog
             :visible="editingCenter !== null"
-            header="Modifier le centre"
+            :header="$t('ui.modifierLeCentre')"
             @update:visible="editingCenter = null"
         >
             <form class="d-flex flex-column ga-4" @submit.prevent="submitEdit">
@@ -324,38 +325,38 @@ function destroy(center: Center) {
                     :options="countries"
                     option-label="name"
                     option-value="id"
-                    label="Pays"
+                    :label="$t('ui.pays')"
                     :error="editForm.errors.country_id"
                 />
 
                 <AppInputText
                     v-model="editForm.code"
-                    label="Code centre (2 chiffres)"
+                    :label="$t('ui.codeCentre2Chiffres')"
                     :maxlength="2"
                     :error="editForm.errors.code"
                 />
 
                 <AppInputText
                     v-model="editForm.name"
-                    label="Nom"
+                    :label="$t('ui.nom')"
                     :error="editForm.errors.name"
                 />
 
-                <AppInputText v-model="editForm.city" label="Ville" :error="editForm.errors.city" />
-                <AppInputText v-model="editForm.address" label="Adresse" />
-                <AppInputText v-model="editForm.phone" label="Téléphone" />
-                <AppInputText v-model="editForm.email" label="Email" :error="editForm.errors.email" />
+                <AppInputText v-model="editForm.city" :label="$t('ui.ville')" :error="editForm.errors.city" />
+                <AppInputText v-model="editForm.address" :label="$t('ui.adresse')" />
+                <AppInputText v-model="editForm.phone" :label="$t('ui.telephone')" />
+                <AppInputText v-model="editForm.email" :label="$t('ui.email')" :error="editForm.errors.email" />
 
-                <AppCheckbox v-model="editForm.active" label="Actif" />
+                <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
                     <AppButton
                         type="button"
-                        label="Annuler"
+                        :label="$t('ui.annuler')"
                         severity="secondary"
                         @click="editingCenter = null"
                     />
-                    <AppButton type="submit" label="Enregistrer" :loading="editForm.processing" />
+                    <AppButton type="submit" :label="$t('ui.enregistrer')" :loading="editForm.processing" />
                 </div>
             </form>
         </AppDialog>

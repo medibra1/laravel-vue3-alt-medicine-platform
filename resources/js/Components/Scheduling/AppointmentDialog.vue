@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { currentLocale } from '@/lib/i18n';
 import AppButton from '@/Components/App/AppButton.vue';
 import AppDatePicker from '@/Components/App/AppDatePicker.vue';
 import AppDialog from '@/Components/App/AppDialog.vue';
@@ -131,7 +132,7 @@ const loadingSlots = ref(false);
 const slotOptions = computed(() =>
     slots.value.map((slot) => ({
         value: slot.starts_at,
-        label: new Date(slot.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        label: new Date(slot.starts_at).toLocaleTimeString(currentLocale(), { hour: '2-digit', minute: '2-digit' }),
     })),
 );
 
@@ -243,7 +244,7 @@ function save() {
 </script>
 
 <template>
-    <AppDialog :visible="visible" :header="appointment ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'" max-width="560px" @update:visible="close">
+    <AppDialog :visible="visible" :header="appointment ? $t('misc.editAppointment') : $t('ui.nouveauRendezVous')" max-width="560px" @update:visible="close">
         <div class="d-flex flex-column ga-4">
             <AppSelect
                 v-if="centers.length && !appointment"
@@ -251,7 +252,7 @@ function save() {
                 :options="centers"
                 option-label="name"
                 option-value="id"
-                label="Centre"
+                :label="$t('ui.centre')"
                 :error="form.errors.center_id"
             />
 
@@ -260,7 +261,7 @@ function save() {
                 :options="patientOptions"
                 option-label="name"
                 option-value="id"
-                label="Patient"
+                :label="$t('ui.patient')"
                 :disabled="patientLocked"
                 :error="form.errors.patient_id"
             />
@@ -270,7 +271,7 @@ function save() {
                 :options="practitionerOptions"
                 option-label="name"
                 option-value="id"
-                label="Praticien"
+                :label="$t('ui.praticien')"
                 :error="form.errors.practitioner_id"
             />
 
@@ -280,48 +281,48 @@ function save() {
                 :options="openTreatmentOptions"
                 option-label="name"
                 option-value="id"
-                label="Traitement (optionnel)"
+                :label="$t('ui.traitementOptionnel')"
                 show-clear
-                placeholder="Aucun traitement"
+                :placeholder="$t('ui.aucunTraitement')"
             />
 
-            <AppDatePicker v-model="selectedDate" label="Date" />
+            <AppDatePicker v-model="selectedDate" :label="$t('ui.date')" />
 
             <AppSelect
                 v-model="selectedTime"
                 :options="slotOptions"
                 option-label="label"
                 option-value="value"
-                label="Créneau"
-                :placeholder="loadingSlots ? 'Chargement…' : 'Choisir un créneau'"
+                :label="$t('ui.creneau')"
+                :placeholder="loadingSlots ? $t('common.loading') : $t('misc.chooseSlot')"
                 :disabled="!form.practitioner_id || !selectedDate"
                 :error="form.errors.starts_at"
             />
 
-            <AppInputNumber v-model="form.duration_minutes" label="Durée (minutes)" :min="5" :max="480" :error="form.errors.duration_minutes" />
+            <AppInputNumber v-model="form.duration_minutes" :label="$t('ui.dureeMinutes')" :min="5" :max="480" :error="form.errors.duration_minutes" />
 
             <AppSelect
                 v-model="form.modality"
                 :options="modalityOptions"
                 option-label="label"
                 option-value="value"
-                label="Modalité"
+                :label="$t('ui.modalite')"
                 :error="form.errors.modality"
             />
 
             <AppInputText
                 v-if="form.modality === 'remote'"
                 v-model="form.meeting_link"
-                label="Lien / contact de visio"
+                :label="$t('ui.lienContactDeVisio')"
                 placeholder="https://..."
                 :error="form.errors.meeting_link ?? undefined"
             />
 
-            <AppTextarea v-model="form.reason" label="Motif" :rows="2" :error="form.errors.reason ?? undefined" />
+            <AppTextarea v-model="form.reason" :label="$t('ui.motif')" :rows="2" :error="form.errors.reason ?? undefined" />
 
             <div class="d-flex justify-end ga-2">
-                <AppButton type="button" label="Annuler" severity="secondary" @click="close" />
-                <AppButton type="button" label="Enregistrer" :loading="form.processing" @click="save" />
+                <AppButton type="button" :label="$t('ui.annuler')" severity="secondary" @click="close" />
+                <AppButton type="button" :label="$t('ui.enregistrer')" :loading="form.processing" @click="save" />
             </div>
         </div>
     </AppDialog>

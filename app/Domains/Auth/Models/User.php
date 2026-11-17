@@ -2,6 +2,8 @@
 
 namespace App\Domains\Auth\Models;
 
+use App\Domains\Core\Models\Center;
+use App\Domains\Core\Support\Modules;
 use Database\Factories\Domains\Auth\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,12 +12,15 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * @property array<int, string>|null $modules
+ */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'locale', 'is_active', 'email_verified_at', 'modules'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -25,6 +30,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'modules' => 'array',
         ];
     }
 
@@ -59,6 +65,16 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where('model_has_roles.model_type', static::class)
             ->where('roles.name', 'admin')
             ->exists();
+    }
+
+    /**
+     * super_admin or admin: works across every center, never scoped to
+     * one. What separates the two is user management and the reference
+     * data (UserPolicy, Zone/Country/Disease... policies), not this.
+     */
+    public function isGlobalAdmin(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAdmin();
     }
 
     /**
@@ -161,6 +177,31 @@ class User extends Authenticatable implements MustVerifyEmail
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * Modules this user can use on the given center: everything for
+     * super_admin/admin, otherwise the center's modules narrowed by the
+     * user's own restriction (null = none).
+     *
+     * @return array<int, string>
+     */
+    public function enabledModules(?int $centerId): array
+    {
+        if ($this->isSuperAdmin() || $this->isAdmin()) {
+            return Modules::all();
+        }
+
+        $center = $centerId !== null ? Center::query()->find($centerId) : null;
+        $modules = $center ? $center->enabledModules() : Modules::all();
+        $own = Modules::normalize($this->modules);
+
+        return $own === null ? $modules : array_values(array_intersect($modules, $own));
+    }
+
+    public function hasModule(string $module, ?int $centerId): bool
+    {
+        return in_array($module, $this->enabledModules($centerId), true);
     }
 
     /**

@@ -1,3 +1,4 @@
+import { tr } from '@/lib/i18n';
 /**
  * Weekly schedule helpers shared by the availability screens. Storage
  * keeps day_of_week as 0 = Sunday; only the display order starts on
@@ -16,8 +17,8 @@ export interface TimeRange {
 
 export type WeeklyGrid = Record<number, TimeRange[]>;
 
-export const dayLabels = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-export const shortDayLabels = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+export const dayLabels = [0, 1, 2, 3, 4, 5, 6].map((day) => tr(`domain.days[${day}]`));
+export const shortDayLabels = [0, 1, 2, 3, 4, 5, 6].map((day) => tr(`domain.daysShort[${day}]`));
 
 /** Monday → Sunday display order. */
 export const displayDayOrder = [1, 2, 3, 4, 5, 6, 0];

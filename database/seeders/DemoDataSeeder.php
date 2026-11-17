@@ -4,12 +4,15 @@ namespace Database\Seeders;
 
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Support\CenterScopedRoleAssigner;
+use App\Domains\Billing\Services\BillableSessionsResolver;
+use App\Domains\Billing\Services\CreateInvoiceAction;
 use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\CenterClosure;
 use App\Domains\Core\Models\CenterOperatingHours;
 use App\Domains\Core\Models\Country;
 use App\Domains\Core\Services\CenterCodeGenerator;
+use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\ConsentTemplate;
 use App\Domains\Patients\Models\Disease;
 use App\Domains\Patients\Models\Patient;
@@ -151,6 +154,9 @@ class DemoDataSeeder extends Seeder
 
             $this->consents($lyonPatients, $managerLyon);
             $this->documents($lyonPatients[1]);
+
+            $this->billing($lyon, 'EUR', 'Europe/Paris', 60, 45, $lyonPatients, $managerLyon);
+            $this->billing($abidjan, 'XOF', 'Africa/Abidjan', 15000, 10000, $abidjanPatients, $managerAbidjan);
         });
 
         $this->command->info('Demo data seeded — log in as manager.multi@demo.local / password.');
@@ -405,6 +411,68 @@ class DemoDataSeeder extends Seeder
     }
 
     /** Next weekday on or after $date that isn't the closure day. */
+    /**
+     * Center prices, then one invoice per patient for their sessions:
+     * most settled, some partially paid, some still due.
+     *
+     * @param  array<int, Patient>  $patients
+     */
+    private function billing(Center $center, string $currency, string $timezone, int $inPerson, int $remote, array $patients, User $author): void
+    {
+        $center->update([
+            'currency' => $currency,
+            'timezone' => $timezone,
+            'settings' => [
+                'session_price_in_person' => $inPerson,
+                'session_price_remote' => $remote,
+                'default_session_duration' => 60,
+                'default_modality' => 'in_person',
+            ],
+        ]);
+
+        CareItem::query()->orderBy('id')->limit(3)->get()->each(
+            fn (CareItem $item, int $index) => $center->careItemPrices()->create([
+                'care_item_id' => $item->id,
+                'price' => round($inPerson * (0.15 + 0.05 * $index)),
+            ]),
+        );
+
+        $resolver = app(BillableSessionsResolver::class);
+        $createInvoice = app(CreateInvoiceAction::class);
+        $methods = ['cash', 'mobile_money', 'card'];
+
+        foreach ($patients as $index => $patient) {
+            $sessions = $resolver->handle($patient, $center);
+
+            if ($sessions === []) {
+                continue;
+            }
+
+            $issuedOn = min($sessions[count($sessions) - 1]['session_date'], now()->toDateString());
+            $invoice = $createInvoice->handle($patient, $center, [
+                'issued_on' => $issuedOn,
+                'lines' => array_merge(...array_column($sessions, 'lines')),
+            ], $author);
+
+            // 0-2: paid in full, 3: half paid, 4: unpaid.
+            $share = match ($index % 5) {
+                3 => 0.5,
+                4 => 0.0,
+                default => 1.0,
+            };
+
+            if ($share > 0 && (float) $invoice->total > 0) {
+                $invoice->payments()->create([
+                    'amount' => round((float) $invoice->total * $share, 2),
+                    'method' => $methods[$index % 3],
+                    'paid_on' => $issuedOn,
+                    'received_by' => $author->id,
+                ]);
+                $invoice->refreshTotals();
+            }
+        }
+    }
+
     private function weekday(CarbonInterface $date, CarbonInterface $closureDay): CarbonInterface
     {
         $date = $date->copy();

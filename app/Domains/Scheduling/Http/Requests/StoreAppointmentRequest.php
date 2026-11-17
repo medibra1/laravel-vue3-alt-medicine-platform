@@ -29,7 +29,7 @@ class StoreAppointmentRequest extends FormRequest
             // meaningfully evaluated (same class of bug already fixed on
             // StorePractitionerRequest/StorePatientDraftRequest's own
             // center field).
-            'center_id' => $this->user()->isSuperAdmin()
+            'center_id' => $this->user()->isGlobalAdmin()
                 ? ['required', 'integer', 'exists:centers,id']
                 : ['prohibited'],
             'patient_id' => [
@@ -64,7 +64,7 @@ class StoreAppointmentRequest extends FormRequest
      */
     public function centerId(): ?int
     {
-        return $this->user()->isSuperAdmin()
+        return $this->user()->isGlobalAdmin()
             ? $this->integer('center_id')
             : getPermissionsTeamId();
     }

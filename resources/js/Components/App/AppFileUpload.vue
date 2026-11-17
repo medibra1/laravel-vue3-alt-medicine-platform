@@ -62,10 +62,10 @@ function formatSize(bytes: number): string {
 
         <div class="d-flex ga-2 flex-wrap">
             <v-btn variant="tonal" prepend-icon="mdi-camera" size="small" @click="cameraInput?.click()">
-                Prendre une photo
+                {{ $t('ui.prendreUnePhoto') }}
             </v-btn>
             <v-btn variant="tonal" prepend-icon="mdi-file-upload-outline" size="small" @click="fileInput?.click()">
-                Choisir un fichier{{ multiple ? '(s)' : '' }}
+                {{ $t('misc.chooseFile') }}
             </v-btn>
         </div>
 

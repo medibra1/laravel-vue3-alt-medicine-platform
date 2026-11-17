@@ -19,7 +19,7 @@ class UserPolicy
      */
     public function before(User $user, string $ability): ?bool
     {
-        if (in_array($ability, ['update', 'delete'], true)) {
+        if (in_array($ability, ['update', 'delete', 'manageModules'], true)) {
             return $user->isSuperAdmin() ? true : null;
         }
 
@@ -56,5 +56,14 @@ class UserPolicy
         // for it — see Admin/Users/Index.vue point 12 — but the same
         // "deactivate, never delete" action applies as for a manager).
         return $user->isAdmin() && ($target->isManager() || $target->isPractitioner()) && ! $target->isAdmin() && ! $target->isSuperAdmin();
+    }
+
+    /**
+     * Narrowing which modules an account can use — any non-admin account
+     * (manager or practitioner). super_admin already bypassed via before().
+     */
+    public function manageModules(User $user, User $target): bool
+    {
+        return $user->isAdmin() && ! $target->isAdmin() && ! $target->isSuperAdmin();
     }
 }

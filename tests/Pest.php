@@ -146,6 +146,21 @@ function grantUserManagementPermissions(): void
 }
 
 /**
+ * Same idea as grantPractitionerPermissions(), for Billing.
+ */
+function grantBillingPermissions(): void
+{
+    collect([
+        'invoices.viewAny',
+        'invoices.view',
+        'invoices.create',
+        'invoices.cancel',
+        'payments.create',
+        'payments.delete',
+    ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+}
+
+/**
  * A global super_admin, mirroring RolesAndPermissionsSeeder's sentinel
  * team-pivot pattern (see User::isSuperAdmin()).
  */
@@ -214,12 +229,19 @@ function actingAsManagerOf(Center $center): User
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
     grantAppointmentPermissions();
+    grantBillingPermissions();
 
     $user = User::factory()->create();
 
     setPermissionsTeamId($center->id);
     $role = Role::findOrCreate('manager', 'web');
     $role->syncPermissions([
+        'invoices.viewAny',
+        'invoices.view',
+        'invoices.create',
+        'invoices.cancel',
+        'payments.create',
+        'payments.delete',
         'practitioners.viewAny',
         'practitioners.view',
         'practitioners.create',
@@ -264,6 +286,7 @@ function actingAsPractitionerOf(Center ...$centers): User
     grantTreatmentPermissions();
     grantTreatmentSessionPermissions();
     grantAppointmentPermissions();
+    grantBillingPermissions();
 
     $user = User::factory()->create();
 

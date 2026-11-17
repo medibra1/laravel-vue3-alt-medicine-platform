@@ -39,7 +39,7 @@ class TreatmentController extends Controller
 
         $query = Treatment::query()->with(['patient', 'practitioner', 'center']);
 
-        if (! $request->user()->isSuperAdmin()) {
+        if (! $request->user()->isGlobalAdmin()) {
             $query->where('center_id', getPermissionsTeamId());
         }
 
@@ -244,7 +244,7 @@ class TreatmentController extends Controller
     /** @return array<string, mixed> */
     protected function formOptions(Request $request): array
     {
-        $centerId = $request->user()->isSuperAdmin() ? null : getPermissionsTeamId();
+        $centerId = $request->user()->isGlobalAdmin() ? null : getPermissionsTeamId();
 
         return [
             'centers' => $this->centerOptions($request),

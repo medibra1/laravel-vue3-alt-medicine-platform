@@ -36,7 +36,7 @@ class PractitionerController extends Controller
 
         $query = Practitioner::query()->with(['center.country', 'grade', 'user']);
 
-        if (! $request->user()->isSuperAdmin()) {
+        if (! $request->user()->isGlobalAdmin()) {
             // visibleOnCenter(), not a plain center_id filter — a
             // manager/practitioner who has access to this center only
             // via a 'practitioner' role grant (not their Practitioner
@@ -68,7 +68,7 @@ class PractitionerController extends Controller
         return Inertia::render('Admin/Practitioners/Index', [
             'practitioners' => $practitioners,
             'filters' => (object) $request->only(['filter', 'sort']),
-            'centers' => $request->user()->isSuperAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
+            'centers' => $request->user()->isGlobalAdmin() ? Center::query()->orderBy('code')->get(['id', 'name', 'code']) : [],
             'grades' => Grade::query()->orderBy('order')->get(['id', 'label', 'coefficient']),
         ]);
     }
@@ -81,7 +81,7 @@ class PractitionerController extends Controller
     {
         Gate::authorize('create', Practitioner::class);
 
-        $centerId = $request->user()->isSuperAdmin()
+        $centerId = $request->user()->isGlobalAdmin()
             ? $request->integer('center_id')
             : getPermissionsTeamId();
 

@@ -1713,3 +1713,43 @@ Les notions récurrentes décrivent un fonctionnement normal (on laisse les
 exceptions passer) ; les notions datées décrivent une absence réelle (on
 bloque). Aucune ne se déduit d'une autre. Aucune notion bloquante n'annule
 un RDV déjà pris — elle avertit, un humain tranche.
+
+
+## Modules, réglages par centre, facturation (2026-11-16)
+
+### `centers` — colonnes ajoutées
+- `currency` string(3), défaut `EUR` — devise des factures du centre.
+- `timezone` string, défaut `UTC` — utilisé pour l'heure des rappels.
+- `modules` json nullable — modules activés (`null` = tous). Voir
+  `App\Domains\Core\Support\Modules`.
+- `settings` json nullable — `session_price_in_person`,
+  `session_price_remote`, `default_session_duration`, `default_modality`.
+
+### `users.modules`
+json nullable — restriction propre au compte (`null` = aucune). Les
+modules effectifs sont l'intersection avec ceux du centre actif.
+
+### `center_care_item_prices`
+`center_id`, `care_item_id`, `price` decimal(12,2) ;
+`unique(center_id, care_item_id)`. Une ligne absente = soin non facturé.
+
+### `billing_invoices`
+`center_id`, `patient_id`, `treatment_id` nullable, `number` (unique par
+centre, `F-AAAA-00001`), `currency`, `issued_on`, `total`, `paid_total`
+(cache recalculé par `Invoice::refreshTotals()`), `notes`,
+`cancelled_at`, `created_by`. **Pas de colonne statut** : dérivé
+(annulée / payée / partielle / non payée).
+
+### `billing_invoice_lines`
+`invoice_id`, `label`, `quantity`, `unit_price`, `total`,
+`treatment_session_id` nullable (une séance est « facturée » dès qu'une
+ligne d'une facture non annulée la référence), `care_item_id` nullable.
+
+### `billing_payments`
+`invoice_id`, `amount`, `method` (`cash`, `card`, `mobile_money`,
+`bank_transfer`, `cheque`, `other`), `paid_on`, `reference`, `notes`,
+`received_by`. Un paiement ne peut pas dépasser le reste à payer.
+
+### Champs traduisibles
+Les règles `*.ar` (nullable) ont été ajoutées à côté de `*.fr`/`*.en` :
+l'arabe est optionnel et retombe sur le français.

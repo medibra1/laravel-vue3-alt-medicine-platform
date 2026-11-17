@@ -31,7 +31,7 @@ class StoreTreatmentDraftRequest extends FormRequest
             // Separate branches, not 'prohibited' stacked with
             // 'integer'/'exists' — see the identical fix/reasoning on
             // StorePatientDraftRequest::rules() for center_id.
-            'center_id' => $this->user()->isSuperAdmin()
+            'center_id' => $this->user()->isGlobalAdmin()
                 ? ['required', 'integer', 'exists:centers,id']
                 : ['prohibited'],
             'practitioner_id' => ['sometimes', 'nullable', 'integer', 'exists:practitioners,id'],
@@ -61,7 +61,7 @@ class StoreTreatmentDraftRequest extends FormRequest
      */
     public function centerId(): ?int
     {
-        return $this->user()->isSuperAdmin()
+        return $this->user()->isGlobalAdmin()
             ? $this->integer('center_id')
             : getPermissionsTeamId();
     }
