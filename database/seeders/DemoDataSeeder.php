@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Support\CenterScopedRoleAssigner;
+use App\Domains\Billing\Models\Expense;
 use App\Domains\Billing\Services\BillableSessionsResolver;
 use App\Domains\Billing\Services\CreateInvoiceAction;
 use App\Domains\Common\Models\EnumOption;
@@ -12,6 +13,7 @@ use App\Domains\Core\Models\CenterClosure;
 use App\Domains\Core\Models\CenterOperatingHours;
 use App\Domains\Core\Models\Country;
 use App\Domains\Core\Services\CenterCodeGenerator;
+use App\Domains\Patients\Models\CareCategory;
 use App\Domains\Patients\Models\CareItem;
 use App\Domains\Patients\Models\ConsentTemplate;
 use App\Domains\Patients\Models\Disease;
@@ -436,6 +438,44 @@ class DemoDataSeeder extends Seeder
                 'price' => round($inPerson * (0.15 + 0.05 * $index)),
             ]),
         );
+
+        // Cupping is billed as one flat price per session.
+        $cupping = CareCategory::query()->where('code', 'cupping')->first();
+
+        if ($cupping !== null) {
+            $center->careCategoryPrices()->create(['care_category_id' => $cupping->id, 'price' => round($inPerson * 0.4)]);
+        }
+
+        // Three months of running costs.
+        $expenseCategories = EnumOption::query()->where('enum_type', Expense::CATEGORY_TYPE)->pluck('id', 'code');
+
+        foreach ([0, 1, 2] as $monthsAgo) {
+            $month = now()->subMonthsNoOverflow($monthsAgo)->startOfMonth();
+
+            foreach ([
+                ['RENT', 'Loyer du local', 8, 'bank_transfer', 'Agence immobilière', 2],
+                ['SUPPLIES', 'Fournitures et produits de soin', 2.5, 'cash', 'Fournisseur local', 9],
+                ['TRANSPORT', 'Déplacements', 1, 'cash', null, 16],
+            ] as [$code, $label, $factor, $method, $supplier, $day]) {
+                $spentOn = $month->copy()->addDays($day);
+
+                if ($spentOn->isFuture() || ! isset($expenseCategories[$code])) {
+                    continue;
+                }
+
+                Expense::query()->create([
+                    'center_id' => $center->id,
+                    'category_option_id' => $expenseCategories[$code],
+                    'label' => $label,
+                    'supplier' => $supplier,
+                    'amount' => round($inPerson * $factor),
+                    'currency' => $currency,
+                    'spent_on' => $spentOn->toDateString(),
+                    'method' => $method,
+                    'created_by' => $author->id,
+                ]);
+            }
+        }
 
         $resolver = app(BillableSessionsResolver::class);
         $createInvoice = app(CreateInvoiceAction::class);

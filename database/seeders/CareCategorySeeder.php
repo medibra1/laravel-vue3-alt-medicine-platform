@@ -256,7 +256,14 @@ class CareCategorySeeder extends Seeder
         foreach ($categories as $categoryData) {
             $category = CareCategory::query()->firstOrCreate(
                 ['code' => $categoryData['code']],
-                ['label' => $categoryData['label'], 'order' => $categoryData['order'], 'active' => true]
+                [
+                    'label' => $categoryData['label'],
+                    'order' => $categoryData['order'],
+                    'active' => true,
+                    // Verses are never billed; cupping is one flat price
+                    // per session, not one per body zone (2026-11-17).
+                    'pricing_mode' => ['verse' => CareCategory::PRICING_NONE, 'cupping' => CareCategory::PRICING_CATEGORY][$categoryData['code']] ?? CareCategory::PRICING_ITEM,
+                ]
             );
 
             foreach ($categoryData['items'] as $itemData) {

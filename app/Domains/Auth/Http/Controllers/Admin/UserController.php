@@ -175,7 +175,9 @@ class UserController extends Controller
 
         $user->update(['modules' => Modules::normalize($validated['modules'] ?? null)]);
 
-        return redirect()->route('admin.users.index');
+        // Reached from the users page (admins) and from the
+        // practitioners page (managers).
+        return back();
     }
 
     public function destroy(User $user): RedirectResponse

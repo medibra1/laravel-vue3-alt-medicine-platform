@@ -198,25 +198,39 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 </div>
 
                 <template #append>
-                    <div class="pa-3 d-none d-md-block">
+                    <div class="pa-3 d-none d-md-flex" :class="isRail ? 'justify-center' : ''">
                         <v-btn
+                            v-if="isRail"
+                            icon="mdi-chevron-double-right"
+                            variant="tonal"
+                            color="primary"
+                            size="small"
+                            :aria-label="t('shell.expand')"
+                            @click="toggleRail"
+                        />
+                        <v-btn
+                            v-else
                             block
                             variant="text"
                             color="secondary"
-                            :prepend-icon="isRail ? undefined : 'mdi-chevron-double-left'"
-                            :icon="isRail ? 'mdi-chevron-double-right' : false"
-                            :aria-label="isRail ? t('shell.expand') : t('shell.collapse')"
+                            prepend-icon="mdi-chevron-double-left"
                             class="justify-start"
                             @click="toggleRail"
                         >
-                            <template v-if="!isRail">{{ t('shell.collapse') }}</template>
+                            {{ t('shell.collapse') }}
                         </v-btn>
                     </div>
                 </template>
             </v-navigation-drawer>
 
             <v-app-bar flat height="68" class="app-bar">
-                <v-app-bar-nav-icon class="d-md-none" :aria-label="t('shell.openMenu')" @click="drawer = !drawer" />
+                <v-app-bar-nav-icon
+                    :aria-label="mdAndUp ? (isRail ? t('shell.expand') : t('shell.collapse')) : t('shell.openMenu')"
+                    @click="mdAndUp ? toggleRail() : (drawer = !drawer)"
+                >
+                    <v-icon :icon="mdAndUp && !isRail ? 'mdi-menu-open' : 'mdi-menu'" />
+                    <v-tooltip v-if="mdAndUp" activator="parent" location="bottom" :text="isRail ? t('shell.expand') : t('shell.collapse')" />
+                </v-app-bar-nav-icon>
 
                 <button type="button" class="app-search ms-md-2" @click="paletteOpen = true">
                     <v-icon icon="mdi-magnify" size="20" />

@@ -10,6 +10,7 @@ import AppDataTable, {
 import AppDialog from '@/Components/App/AppDialog.vue';
 import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
+import AppSelect from '@/Components/App/AppSelect.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppTranslatableInput from '@/Components/App/AppTranslatableInput.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -22,6 +23,7 @@ interface CareCategory {
     label: { fr: string; en: string };
     order: number;
     active: boolean;
+    pricing_mode: 'item' | 'category' | 'none';
 }
 
 const props = defineProps<{
@@ -66,11 +68,14 @@ const columns: AppDataTableColumn[] = [
     { field: 'code', header: tr('ui.code'), sortable: true },
     { field: 'label', header: tr('ui.libelle') },
     { field: 'order', header: tr('ui.ordre'), sortable: true },
+    { field: 'pricing_mode', header: tr('users.pricingMode') },
     { field: 'active', header: tr('ui.actif') },
     { field: 'actions', header: tr('ui.actions') },
 ];
 
 const isCreating = ref(false);
+const pricingModeOptions = (['item', 'category', 'none'] as const).map((value) => ({ value, label: tr(`domain.pricingMode.${value}`) }));
+
 const editingCareCategory = ref<CareCategory | null>(null);
 
 const createForm = useForm({
@@ -78,6 +83,7 @@ const createForm = useForm({
     label: { fr: '', en: '' },
     order: 0,
     active: true,
+    pricing_mode: 'item' as 'item' | 'category' | 'none',
 });
 
 function openCreate() {
@@ -101,6 +107,7 @@ const editForm = useForm({
     label: { fr: '', en: '' },
     order: 0,
     active: true,
+    pricing_mode: 'item' as 'item' | 'category' | 'none',
 });
 
 function openEdit(careCategory: CareCategory) {
@@ -110,6 +117,7 @@ function openEdit(careCategory: CareCategory) {
     editForm.label = { ...careCategory.label };
     editForm.order = careCategory.order;
     editForm.active = careCategory.active;
+    editForm.pricing_mode = careCategory.pricing_mode;
 }
 
 function submitEdit() {
@@ -167,6 +175,7 @@ function destroy(careCategory: CareCategory) {
                     @sort="onSort"
                 >
                     <template #column-label="{ item }">{{ item.label[$i18n.locale as 'fr'] ?? item.label.fr }}</template>
+                    <template #column-pricing_mode="{ item }">{{ $t(`domain.pricingMode.${item.pricing_mode}`) }}</template>
                     <template #column-active="{ item }">{{ item.active ? $t('common.yes') : $t('common.no') }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
@@ -204,6 +213,15 @@ function destroy(careCategory: CareCategory) {
 
                 <AppInputNumber v-model="createForm.order" :label="$t('ui.ordre')" :min="0" />
 
+                <AppSelect
+                    v-model="createForm.pricing_mode"
+                    :options="pricingModeOptions"
+                    option-label="label"
+                    option-value="value"
+                    :label="$t('users.pricingMode')"
+                    :error="createForm.errors.pricing_mode"
+                />
+
                 <AppCheckbox v-model="createForm.active" :label="$t('ui.actif')" />
 
                 <div class="d-flex justify-end ga-2">
@@ -237,6 +255,15 @@ function destroy(careCategory: CareCategory) {
                 />
 
                 <AppInputNumber v-model="editForm.order" :label="$t('ui.ordre')" :min="0" />
+
+                <AppSelect
+                    v-model="editForm.pricing_mode"
+                    :options="pricingModeOptions"
+                    option-label="label"
+                    option-value="value"
+                    :label="$t('users.pricingMode')"
+                    :error="editForm.errors.pricing_mode"
+                />
 
                 <AppCheckbox v-model="editForm.active" :label="$t('ui.actif')" />
 

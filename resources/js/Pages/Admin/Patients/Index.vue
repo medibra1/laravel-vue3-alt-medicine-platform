@@ -130,7 +130,11 @@ function destroy(patient: Patient) {
                     @page="onPage"
                     @sort="onSort"
                 >
-                    <template #column-patient_number="{ item }">{{ fullPatientNumber(item) }}</template>
+                    <template #column-patient_number="{ item }">
+                        <Link :href="route('admin.patients.edit', item.id)" class="font-weight-bold text-primary text-decoration-none app-tabular">
+                            {{ fullPatientNumber(item) }}
+                        </Link>
+                    </template>
                     <template #column-center="{ item }">{{ item.center?.name }}</template>
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">

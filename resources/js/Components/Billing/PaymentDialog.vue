@@ -15,6 +15,8 @@ import { PAYMENT_METHODS, type Invoice } from './types';
 const props = defineProps<{
     visible: boolean;
     invoice: Invoice | null;
+    /** Refund: money going back to the patient, capped by the overpayment. */
+    refund?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -32,7 +34,7 @@ const methodOptions = computed(() => PAYMENT_METHODS.map((value) => ({ value, la
 
 watch(() => props.visible, (open) => {
     if (open && props.invoice) {
-        form.amount = props.invoice.balance;
+        form.amount = Math.abs(props.invoice.balance);
         form.method = 'cash';
         form.paid_on = new Date();
         form.reference = '';
@@ -49,7 +51,7 @@ async function submit() {
     errors.value = {};
 
     try {
-        const invoice = await http.post<Invoice>(route('admin.invoices.payments.store', props.invoice.id), {
+        const invoice = await http.post<Invoice>(route(props.refund ? 'admin.invoices.refunds.store' : 'admin.invoices.payments.store', props.invoice.id), {
             amount: form.amount,
             method: form.method,
             paid_on: form.paid_on ? toLocalDateString(form.paid_on) : null,
@@ -66,21 +68,21 @@ async function submit() {
 </script>
 
 <template>
-    <AppDialog :visible="visible" :header="invoice ? t('billing.paymentTitle', { number: invoice.number }) : ''" max-width="460px" @update:visible="emit('update:visible', $event)">
+    <AppDialog :visible="visible" :header="invoice ? t(refund ? 'billing.refundTitle' : 'billing.paymentTitle', { number: invoice.number }) : ''" max-width="460px" @update:visible="emit('update:visible', $event)">
         <form v-if="invoice" class="d-flex flex-column ga-4" @submit.prevent="submit">
             <div class="payment-due">
-                <span class="text-body-2 text-medium-emphasis">{{ t('billing.totalDue') }}</span>
-                <span class="text-h5 font-weight-bold app-tabular">{{ formatMoney(invoice.balance, invoice.currency, locale) }}</span>
+                <span class="text-body-2 text-medium-emphasis">{{ t(refund ? 'billing.refundable' : 'billing.totalDue') }}</span>
+                <span class="text-h5 font-weight-bold app-tabular">{{ formatMoney(Math.abs(invoice.balance), invoice.currency, locale) }}</span>
             </div>
 
             <AppInputNumber v-model="form.amount" :label="`${t('billing.amount')} (${invoice.currency})`" :min="0" :error="errors.amount?.[0]" />
             <AppSelect v-model="form.method" :options="methodOptions" option-label="label" option-value="value" :label="t('billing.method')" :error="errors.method?.[0]" />
-            <AppDatePicker v-model="form.paid_on" :label="t('billing.paidOn')" :error="errors.paid_on?.[0]" />
+            <AppDatePicker v-model="form.paid_on" :label="t(refund ? 'billing.refundOn' : 'billing.paidOn')" :error="errors.paid_on?.[0]" />
             <AppInputText v-model="form.reference" :label="t('billing.reference')" :placeholder="t('billing.referenceHint')" :error="errors.reference?.[0]" />
 
             <div class="d-flex justify-end ga-2 mt-2">
                 <AppButton severity="secondary" :label="t('common.cancel')" @click="emit('update:visible', false)" />
-                <AppButton type="submit" icon="mdi-cash-check" :label="t('billing.recordPayment')" :loading="saving" />
+                <AppButton type="submit" :icon="refund ? 'mdi-cash-refund' : 'mdi-cash-check'" :label="t(refund ? 'billing.refund' : 'billing.recordPayment')" :loading="saving" />
             </div>
         </form>
     </AppDialog>

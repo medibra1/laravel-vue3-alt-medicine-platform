@@ -27,6 +27,7 @@ class CareCategoryAdminResource extends JsonResource
             'label' => $this->getTranslations('label'),
             'order' => $this->order,
             'active' => $this->active,
+            'pricing_mode' => $this->pricing_mode,
         ];
     }
 }

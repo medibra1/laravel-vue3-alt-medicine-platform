@@ -3,6 +3,7 @@
 namespace App\Domains\Billing\Services;
 
 use App\Domains\Core\Models\Center;
+use App\Domains\Patients\Models\CareCategory;
 use App\Domains\Patients\Models\Patient;
 use App\Domains\Patients\Models\TreatmentSession;
 
@@ -18,6 +19,7 @@ class BillableSessionsResolver
     public function handle(Patient $patient, Center $center): array
     {
         $prices = $center->careItemPrices()->pluck('price', 'care_item_id');
+        $categoryPrices = $center->careCategoryPrices()->pluck('price', 'care_category_id');
 
         return TreatmentSession::query()
             ->whereHas('treatment', fn ($query) => $query->where('patient_id', $patient->id))
@@ -28,10 +30,10 @@ class BillableSessionsResolver
                     ->whereColumn('billing_invoice_lines.treatment_session_id', 'treatment_sessions.id')
                     ->whereNull('billing_invoices.cancelled_at');
             })
-            ->with('careItems')
+            ->with('careItems.category')
             ->orderBy('session_date')
             ->get()
-            ->map(function (TreatmentSession $session) use ($center, $prices) {
+            ->map(function (TreatmentSession $session) use ($center, $prices, $categoryPrices) {
                 $remote = $session->modality === 'remote';
                 $date = $session->session_date->format('d/m/Y');
 
@@ -43,7 +45,35 @@ class BillableSessionsResolver
                     'care_item_id' => null,
                 ]];
 
+                $flatBilled = [];
+
                 foreach ($session->careItems as $careItem) {
+                    $category = $careItem->category;
+                    $mode = $category->pricing_mode ?? CareCategory::PRICING_ITEM;
+
+                    if ($mode === CareCategory::PRICING_NONE) {
+                        continue;
+                    }
+
+                    // Flat price: one line per session for the whole
+                    // category, however many of its items were used.
+                    if ($mode === CareCategory::PRICING_CATEGORY) {
+                        $price = (float) ($categoryPrices[$category->id] ?? 0);
+
+                        if ($price > 0 && ! isset($flatBilled[$category->id])) {
+                            $flatBilled[$category->id] = true;
+                            $lines[] = [
+                                'label' => (string) $category->label,
+                                'quantity' => 1,
+                                'unit_price' => $price,
+                                'treatment_session_id' => null,
+                                'care_item_id' => null,
+                            ];
+                        }
+
+                        continue;
+                    }
+
                     if ((float) ($prices[$careItem->id] ?? 0) > 0) {
                         $lines[] = [
                             'label' => (string) $careItem->label,

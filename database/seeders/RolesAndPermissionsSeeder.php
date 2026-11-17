@@ -77,6 +77,12 @@ class RolesAndPermissionsSeeder extends Seeder
         // pattern as super_admin — see User::isAdmin(). Gets every
         // permission too; the distinction from super_admin is enforced
         // at the policy level (UserPolicy/CenterPolicy), not here: an
+        // Whatever the center roles need exists before anything is
+        // synced, so a permission added to RolePermissions never has to
+        // be repeated in the list above.
+        collect([...RolePermissions::manager(), ...RolePermissions::practitioner()])
+            ->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
+
         // admin can manage centers/users but never target another
         // admin/super_admin.
         $admin = Role::query()->firstOrCreate(

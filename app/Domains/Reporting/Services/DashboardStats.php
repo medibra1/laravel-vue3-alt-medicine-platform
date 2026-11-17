@@ -213,8 +213,9 @@ class DashboardStats
 
         $outstanding = Invoice::query()->active()
             ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
-            ->groupBy('currency')->selectRaw('currency, SUM(total - paid_total) as amount, COUNT(*) as invoices')
-            ->havingRaw('SUM(total - paid_total) > 0')->get();
+            ->whereRaw('total - credited_total - paid_total > 0')
+            ->groupBy('currency')->selectRaw('currency, SUM(total - credited_total - paid_total) as amount, COUNT(*) as invoices')
+            ->get();
 
         // A currency with unpaid invoices but no payment yet still gets a row.
         foreach ($outstanding as $row) {
@@ -237,7 +238,7 @@ class DashboardStats
                 'outstanding' => round((float) ($outstandingByCurrency[$row['currency']] ?? 0), 2),
             ])->values()->all(),
             'unpaid_invoices' => Invoice::query()->active()->when($centerId, fn ($query) => $query->where('center_id', $centerId))
-                ->whereColumn('paid_total', '<', 'total')->count(),
+                ->whereRaw('paid_total < total - credited_total')->count(),
         ];
     }
 }

@@ -49,6 +49,12 @@ class Center extends Model
         return $this->hasMany(CenterCareItemPrice::class);
     }
 
+    /** @return HasMany<CenterCareCategoryPrice, $this> */
+    public function careCategoryPrices(): HasMany
+    {
+        return $this->hasMany(CenterCareCategoryPrice::class);
+    }
+
     /** @return BelongsTo<Country, $this> */
     public function country(): BelongsTo
     {

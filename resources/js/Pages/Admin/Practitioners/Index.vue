@@ -13,10 +13,16 @@ import AppInputNumber from '@/Components/App/AppInputNumber.vue';
 import AppInputText from '@/Components/App/AppInputText.vue';
 import AppPageHeader from '@/Components/App/AppPageHeader.vue';
 import AppSelect from '@/Components/App/AppSelect.vue';
+import AccountModulesDialog from '@/Components/Auth/AccountModulesDialog.vue';
+import type { AppModule } from '@/types';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { fromLocalDateString, toLocalDateString } from '@/utils/date';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
+
+// Account whose module access is being edited (managers do it for the
+// practitioners of their center).
+const modulesAccount = ref<PractitionerAccount | null>(null);
 
 function dateBinding(form: { hired_at: string | null }) {
     return computed<Date | null>({
@@ -25,6 +31,13 @@ function dateBinding(form: { hired_at: string | null }) {
             form.hired_at = value ? toLocalDateString(value) : null;
         },
     });
+}
+
+interface PractitionerAccount {
+    id: number;
+    name: string;
+    modules: AppModule[] | null;
+    can_manage_modules: boolean;
 }
 
 interface Center {
@@ -53,6 +66,7 @@ interface Practitioner {
     address: string | null;
     email: string | null;
     user_id: number | null;
+    account: PractitionerAccount | null;
     center?: { id: number; name: string };
     grade?: { id: number; label: string } | null;
 }
@@ -366,6 +380,14 @@ function destroy(practitioner: Practitioner) {
                     <template #actions="{ item }">
                         <div class="d-flex ga-2">
                             <AppButton
+                                v-if="item.account?.can_manage_modules"
+                                :label="$t('users.manageModules')"
+                                icon="mdi-view-grid-plus-outline"
+                                severity="secondary"
+                                size="small"
+                                @click="modulesAccount = item.account"
+                            />
+                            <AppButton
                                 :label="$t('ui.modifier')"
                                 severity="secondary"
                                 size="small"
@@ -382,6 +404,8 @@ function destroy(practitioner: Practitioner) {
                 </AppDataTable>
             </AppCard>
         </div>
+
+        <AccountModulesDialog :account="modulesAccount" :available="$page.props.auth.modules" @close="modulesAccount = null" />
 
         <AppDialog :key="createDialogKey" v-model:visible="isCreating" :header="$t('ui.nouveauPraticien')">
             <form class="d-flex flex-column ga-4" @submit.prevent="submitCreate">

@@ -4,6 +4,7 @@ import { http, HttpError } from '@/lib/http';
 import { formatDate, formatMoney } from '@/lib/i18n';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import CreditNoteDialog from './CreditNoteDialog.vue';
 import InvoiceDialog from './InvoiceDialog.vue';
 import InvoiceStatusChip from './InvoiceStatusChip.vue';
 import PaymentDialog from './PaymentDialog.vue';
@@ -17,7 +18,7 @@ interface Payload {
     invoices: Invoice[];
     billable_sessions: BillableSession[];
     currency: string;
-    can: { create: boolean; pay: boolean; cancel: boolean };
+    can: { create: boolean; pay: boolean; cancel: boolean; credit: boolean; refund: boolean };
 }
 
 const data = ref<Payload | null>(null);
@@ -26,13 +27,16 @@ const error = ref<string | null>(null);
 const invoiceDialog = ref(false);
 const paymentDialog = ref(false);
 const payingInvoice = ref<Invoice | null>(null);
+const refunding = ref(false);
+const creditDialog = ref(false);
+const creditingInvoice = ref<Invoice | null>(null);
 const expanded = ref<number[]>([]);
 
 const money = (amount: number, currency?: string) => formatMoney(amount, currency ?? data.value?.currency ?? 'EUR', locale.value);
 
 const activeInvoices = computed(() => (data.value?.invoices ?? []).filter((invoice) => invoice.status !== 'cancelled'));
 const totals = computed(() => ({
-    billed: activeInvoices.value.reduce((sum, invoice) => sum + invoice.total, 0),
+    billed: activeInvoices.value.reduce((sum, invoice) => sum + invoice.total - invoice.credited_total, 0),
     paid: activeInvoices.value.reduce((sum, invoice) => sum + invoice.paid_total, 0),
     due: activeInvoices.value.reduce((sum, invoice) => sum + invoice.balance, 0),
 }));
@@ -50,7 +54,13 @@ async function load() {
     }
 }
 
-function pay(invoice: Invoice) {
+function credit(invoice: Invoice) {
+    creditingInvoice.value = invoice;
+    creditDialog.value = true;
+}
+
+function pay(invoice: Invoice, refund = false) {
+    refunding.value = refund;
     payingInvoice.value = invoice;
     paymentDialog.value = true;
 }
@@ -161,13 +171,26 @@ onMounted(load);
                             </tbody>
                         </v-table>
 
+                        <template v-if="invoice.credit_notes?.length">
+                            <div class="app-eyebrow mb-2">{{ t('billing.creditNotes') }}</div>
+                            <div v-for="creditNote in invoice.credit_notes" :key="creditNote.id" class="billing-payment">
+                                <v-icon icon="mdi-file-undo-outline" color="secondary" size="20" />
+                                <span class="app-tabular font-weight-bold">−{{ money(creditNote.amount, invoice.currency) }}</span>
+                                <span class="text-body-2 text-medium-emphasis">
+                                    {{ creditNote.number }} · {{ formatDate(creditNote.issued_on, locale) }}
+                                    <template v-if="creditNote.reason"> · {{ creditNote.reason }}</template>
+                                </span>
+                            </div>
+                            <div class="mb-3" />
+                        </template>
+
                         <template v-if="invoice.payments?.length">
                             <div class="app-eyebrow mb-2">{{ t('billing.payments') }}</div>
                             <div v-for="payment in invoice.payments" :key="payment.id" class="billing-payment">
-                                <v-icon icon="mdi-cash-check" color="success" size="20" />
+                                <v-icon :icon="payment.amount < 0 ? 'mdi-cash-refund' : 'mdi-cash-check'" :color="payment.amount < 0 ? 'error' : 'success'" size="20" />
                                 <span class="app-tabular font-weight-bold">{{ money(payment.amount, invoice.currency) }}</span>
                                 <span class="text-body-2 text-medium-emphasis">
-                                    {{ formatDate(payment.paid_on, locale) }} · {{ t(`domain.paymentMethod.${payment.method}`) }}
+                                    <template v-if="payment.amount < 0">{{ t('billing.refundLabel') }} · </template>{{ formatDate(payment.paid_on, locale) }} · {{ t(`domain.paymentMethod.${payment.method}`) }}
                                     <template v-if="payment.reference"> · {{ payment.reference }}</template>
                                 </span>
                                 <v-spacer />
@@ -187,12 +210,28 @@ onMounted(load);
 
                         <div class="d-flex flex-wrap justify-end ga-2 mt-4">
                             <AppButton
-                                v-if="data.can.cancel && invoice.status !== 'cancelled' && invoice.paid_total === 0"
+                                v-if="data.can.cancel && invoice.status !== 'cancelled' && !invoice.payments?.length && !invoice.credit_notes?.length"
                                 severity="secondary"
                                 size="small"
                                 icon="mdi-cancel"
                                 :label="t('billing.cancelInvoice')"
                                 @click="cancel(invoice)"
+                            />
+                            <AppButton
+                                v-if="data.can.credit && invoice.status !== 'cancelled' && invoice.total - invoice.credited_total > 0"
+                                severity="secondary"
+                                size="small"
+                                icon="mdi-file-undo-outline"
+                                :label="t('billing.issueCreditNote')"
+                                @click="credit(invoice)"
+                            />
+                            <AppButton
+                                v-if="data.can.refund && invoice.balance < 0"
+                                severity="danger"
+                                size="small"
+                                icon="mdi-cash-refund"
+                                :label="t('billing.refund')"
+                                @click="pay(invoice, true)"
                             />
                             <AppButton
                                 as="a"
@@ -222,7 +261,8 @@ onMounted(load);
                 :billable-sessions="data.billable_sessions"
                 @saved="load"
             />
-            <PaymentDialog v-model:visible="paymentDialog" :invoice="payingInvoice" @saved="load" />
+            <PaymentDialog v-model:visible="paymentDialog" :invoice="payingInvoice" :refund="refunding" @saved="load" />
+            <CreditNoteDialog v-model:visible="creditDialog" :invoice="creditingInvoice" @saved="load" />
         </template>
     </div>
 </template>

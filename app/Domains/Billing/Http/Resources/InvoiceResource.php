@@ -24,6 +24,7 @@ class InvoiceResource extends JsonResource
             'issued_on' => $this->issued_on->toDateString(),
             'total' => (float) $this->total,
             'paid_total' => (float) $this->paid_total,
+            'credited_total' => (float) $this->credited_total,
             'balance' => $this->balance(),
             'status' => $this->status(),
             'notes' => $this->notes,
@@ -39,6 +40,13 @@ class InvoiceResource extends JsonResource
                 'unit_price' => (float) $line->unit_price,
                 'total' => (float) $line->total,
                 'treatment_session_id' => $line->treatment_session_id,
+            ])->all()),
+            'credit_notes' => $this->whenLoaded('creditNotes', fn () => $this->creditNotes->map(fn ($creditNote) => [
+                'id' => $creditNote->id,
+                'number' => $creditNote->number,
+                'amount' => (float) $creditNote->amount,
+                'issued_on' => $creditNote->issued_on->toDateString(),
+                'reason' => $creditNote->reason,
             ])->all()),
             'payments' => $this->whenLoaded('payments', fn () => $this->payments->map(fn ($payment) => [
                 'id' => $payment->id,

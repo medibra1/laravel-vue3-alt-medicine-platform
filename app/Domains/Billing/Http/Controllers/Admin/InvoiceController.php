@@ -2,13 +2,16 @@
 
 namespace App\Domains\Billing\Http\Controllers\Admin;
 
+use App\Domains\Billing\Http\Requests\StoreCreditNoteRequest;
 use App\Domains\Billing\Http\Requests\StoreInvoiceRequest;
 use App\Domains\Billing\Http\Requests\StorePaymentRequest;
+use App\Domains\Billing\Http\Requests\StoreRefundRequest;
 use App\Domains\Billing\Http\Resources\InvoiceResource;
 use App\Domains\Billing\Models\Invoice;
 use App\Domains\Billing\Models\Payment;
 use App\Domains\Billing\Services\BillableSessionsResolver;
 use App\Domains\Billing\Services\CreateInvoiceAction;
+use App\Domains\Billing\Services\IssueCreditNoteAction;
 use App\Domains\Core\Models\Center;
 use App\Domains\Patients\Models\Patient;
 use App\Http\Controllers\Controller;
@@ -44,9 +47,12 @@ class InvoiceController extends Controller
                         ->orWhere('last_name', 'like', "%{$search}%"));
             }))
             ->when($status === 'cancelled', fn ($query) => $query->whereNotNull('cancelled_at'))
-            ->when($status === 'paid', fn ($query) => $query->active()->where('total', '>', 0)->whereColumn('paid_total', '>=', 'total'))
-            ->when($status === 'partial', fn ($query) => $query->active()->where('paid_total', '>', 0)->whereColumn('paid_total', '<', 'total'))
-            ->when($status === 'unpaid', fn ($query) => $query->active()->where('paid_total', '<=', 0))
+            // Same rules as Invoice::status(), in SQL.
+            ->when($status === 'refund_due', fn ($query) => $query->active()->whereRaw('paid_total > total - credited_total'))
+            ->when($status === 'credited', fn ($query) => $query->active()->where('total', '>', 0)->whereColumn('credited_total', '>=', 'total')->whereRaw('paid_total <= total - credited_total'))
+            ->when($status === 'paid', fn ($query) => $query->active()->whereColumn('credited_total', '<', 'total')->whereRaw('paid_total = total - credited_total'))
+            ->when($status === 'partial', fn ($query) => $query->active()->where('paid_total', '>', 0)->whereRaw('paid_total < total - credited_total'))
+            ->when($status === 'unpaid', fn ($query) => $query->active()->where('paid_total', '<=', 0)->whereColumn('credited_total', '<', 'total'))
             ->orderByDesc('issued_on')
             ->orderByDesc('id')
             ->paginate($request->integer('per_page', 15))
@@ -73,11 +79,14 @@ class InvoiceController extends Controller
                     DB::table('billing_invoices')
                         ->when($centerId, fn ($query) => $query->where('center_id', $centerId))
                         ->whereNull('cancelled_at')
+                        ->whereRaw('total - credited_total - paid_total > 0')
                         ->groupBy('currency')
-                        ->selectRaw('currency, SUM(total - paid_total) as amount'),
+                        ->selectRaw('currency, SUM(total - credited_total - paid_total) as amount'),
                 ),
-                'unpaid_count' => $scoped()->active()->whereColumn('paid_total', '<', 'total')->count(),
+                'unpaid_count' => $scoped()->active()->whereRaw('paid_total < total - credited_total')->count(),
             ],
+            'centers' => $this->exportCenters($request),
+            'can' => ['export' => $request->user()->isGlobalAdmin() || $request->user()->can('accounting.export')],
         ]);
     }
 
@@ -105,7 +114,7 @@ class InvoiceController extends Controller
 
         return response()->json([
             'invoices' => InvoiceResource::collection(
-                Invoice::query()->where('patient_id', $patient->id)->with(['lines', 'payments'])->orderByDesc('issued_on')->orderByDesc('id')->get(),
+                Invoice::query()->where('patient_id', $patient->id)->with(['lines', 'payments', 'creditNotes'])->orderByDesc('issued_on')->orderByDesc('id')->get(),
             ),
             'billable_sessions' => $billable->handle($patient, $center),
             'currency' => $center->currency,
@@ -113,6 +122,8 @@ class InvoiceController extends Controller
                 'create' => Gate::allows('create', Invoice::class),
                 'pay' => $request->user()->isGlobalAdmin() || $request->user()->can('payments.create'),
                 'cancel' => $request->user()->isGlobalAdmin() || $request->user()->can('invoices.cancel'),
+                'credit' => $request->user()->isGlobalAdmin() || $request->user()->can('invoices.credit'),
+                'refund' => $request->user()->isGlobalAdmin() || $request->user()->can('payments.refund'),
             ],
         ]);
     }
@@ -139,7 +150,7 @@ class InvoiceController extends Controller
             $invoice->refreshTotals();
         }
 
-        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments'])), 201);
+        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments', 'creditNotes'])), 201);
     }
 
     public function storePayment(StorePaymentRequest $request, Invoice $invoice): JsonResponse
@@ -150,7 +161,7 @@ class InvoiceController extends Controller
         ]);
         $invoice->refreshTotals();
 
-        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments'])), 201);
+        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments', 'creditNotes'])), 201);
     }
 
     public function destroyPayment(Payment $payment): JsonResponse
@@ -161,26 +172,122 @@ class InvoiceController extends Controller
         $payment->delete();
         $invoice->refreshTotals();
 
-        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments'])));
+        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments', 'creditNotes'])));
     }
 
     public function cancel(Invoice $invoice): JsonResponse
     {
         Gate::authorize('cancel', $invoice);
 
-        // Money already received must be refunded/removed first.
-        abort_if((float) $invoice->paid_total > 0, 422, __('Supprimez d\'abord les paiements de cette facture.'));
+        // An invoice that already moved money or was corrected is never
+        // cancelled: it is credited (credit note) instead.
+        abort_if($invoice->payments()->exists(), 422, __('Supprimez d\'abord les paiements de cette facture.'));
+        abort_if($invoice->creditNotes()->exists(), 422, __('Cette facture a déjà un avoir.'));
 
         $invoice->update(['cancelled_at' => now()]);
 
-        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments'])));
+        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments', 'creditNotes'])));
+    }
+
+    /**
+     * Credit note: lowers what is due on an invoice without editing it.
+     */
+    public function storeCreditNote(StoreCreditNoteRequest $request, Invoice $invoice, IssueCreditNoteAction $action): JsonResponse
+    {
+        $action->handle(
+            $invoice,
+            (float) $request->validated('amount'),
+            (string) $request->validated('issued_on'),
+            $request->validated('reason'),
+            $request->user(),
+        );
+
+        return response()->json(new InvoiceResource($invoice->refresh()->load(['lines', 'payments', 'creditNotes'])), 201);
+    }
+
+    /**
+     * Refund: money given back to the patient, stored as a negative
+     * payment. Only what was paid beyond the amount due can go back.
+     */
+    public function storeRefund(StoreRefundRequest $request, Invoice $invoice): JsonResponse
+    {
+        $invoice->payments()->create([
+            'amount' => -abs((float) $request->validated('amount')),
+            'method' => $request->validated('method'),
+            'paid_on' => $request->validated('paid_on'),
+            'reference' => $request->validated('reference'),
+            'notes' => $request->validated('notes'),
+            'received_by' => $request->user()->id,
+        ]);
+        $invoice->refreshTotals();
+
+        return response()->json(new InvoiceResource($invoice->load(['lines', 'payments', 'creditNotes'])), 201);
+    }
+
+    /**
+     * Every payment and refund, most recent first.
+     */
+    public function payments(Request $request): Response
+    {
+        Gate::authorize('viewAny', Invoice::class);
+
+        $centerId = $request->user()->isGlobalAdmin() ? null : getPermissionsTeamId();
+        $method = $request->string('method')->value();
+
+        $payments = Payment::query()
+            ->whereHas('invoice', fn ($query) => $query->when($centerId, fn ($query) => $query->where('center_id', $centerId)))
+            ->with(['invoice.patient', 'invoice.center', 'receivedBy'])
+            ->when(in_array($method, Payment::METHODS, true), fn ($query) => $query->where('method', $method))
+            ->when($request->date('from'), fn ($query, $from) => $query->whereDate('paid_on', '>=', $from))
+            ->when($request->date('to'), fn ($query, $to) => $query->whereDate('paid_on', '<=', $to))
+            ->orderByDesc('paid_on')
+            ->orderByDesc('id')
+            ->paginate($request->integer('per_page', 20))
+            ->withQueryString();
+
+        $payments->through(fn (Payment $payment) => [
+            'id' => $payment->id,
+            'amount' => (float) $payment->amount,
+            'method' => $payment->method,
+            'paid_on' => $payment->paid_on->toDateString(),
+            'reference' => $payment->reference,
+            'currency' => $payment->invoice->currency,
+            'invoice' => ['id' => $payment->invoice->id, 'number' => $payment->invoice->number],
+            'patient' => [
+                'id' => $payment->invoice->patient_id,
+                'name' => trim($payment->invoice->patient->first_name.' '.$payment->invoice->patient->last_name),
+            ],
+            'center' => $payment->invoice->center->name,
+            'received_by' => $payment->receivedBy?->name,
+        ]);
+
+        return Inertia::render('Admin/Billing/Payments', [
+            'payments' => $payments,
+            'filters' => (object) $request->only(['method', 'from', 'to']),
+        ]);
+    }
+
+    /**
+     * Centers a global admin can pick for the accounting export (a
+     * manager always exports their active center).
+     *
+     * @return array<int, array{id: int, name: string}>
+     */
+    private function exportCenters(Request $request): array
+    {
+        if (! $request->user()->isGlobalAdmin()) {
+            return [];
+        }
+
+        return Center::query()->orderBy('name')->get(['id', 'name'])
+            ->map(fn (Center $center) => ['id' => $center->id, 'name' => $center->name])->all();
     }
 
     public function pdf(Invoice $invoice): HttpResponse
     {
         Gate::authorize('view', $invoice);
 
-        $invoice->load(['lines', 'payments', 'patient', 'center.country']);
+        $invoice->load(['lines', 'payments', 'creditNotes', 'patient', 'center.country']);
 
         return Pdf::loadView('pdf.invoice', ['invoice' => $invoice])->stream($invoice->number.'.pdf');
     }

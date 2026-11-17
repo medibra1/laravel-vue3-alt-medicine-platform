@@ -29,6 +29,7 @@ class StoreCareCategoryRequest extends FormRequest
             'label.ar' => ['nullable', 'string', 'max:255'],
             'order' => ['sometimes', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
+            'pricing_mode' => ['sometimes', Rule::in(CareCategory::PRICING_MODES)],
         ];
     }
 }

@@ -15,7 +15,15 @@ export interface InvoicePayment {
     reference: string | null;
 }
 
-export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export interface InvoiceCreditNote {
+    id: number;
+    number: string;
+    amount: number;
+    issued_on: string;
+    reason: string | null;
+}
+
+export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled' | 'credited' | 'refund_due';
 
 export interface Invoice {
     id: number;
@@ -27,6 +35,7 @@ export interface Invoice {
     issued_on: string;
     total: number;
     paid_total: number;
+    credited_total: number;
     balance: number;
     status: InvoiceStatus;
     notes: string | null;
@@ -34,6 +43,7 @@ export interface Invoice {
     center?: { id: number; name: string };
     lines?: InvoiceLine[];
     payments?: InvoicePayment[];
+    credit_notes?: InvoiceCreditNote[];
 }
 
 export interface SuggestedLine {
@@ -59,6 +69,8 @@ export const INVOICE_STATUS_COLOR: Record<InvoiceStatus, string> = {
     partial: 'info',
     paid: 'success',
     cancelled: 'secondary',
+    credited: 'secondary',
+    refund_due: 'error',
 };
 
 export const INVOICE_STATUS_ICON: Record<InvoiceStatus, string> = {
@@ -66,4 +78,6 @@ export const INVOICE_STATUS_ICON: Record<InvoiceStatus, string> = {
     partial: 'mdi-circle-half-full',
     paid: 'mdi-check-circle-outline',
     cancelled: 'mdi-cancel',
+    credited: 'mdi-file-undo-outline',
+    refund_due: 'mdi-cash-refund',
 };

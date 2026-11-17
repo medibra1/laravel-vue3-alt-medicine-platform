@@ -19,6 +19,8 @@ import { useI18n } from 'vue-i18n';
 interface CareCategory {
     id: number;
     label: string;
+    pricing_mode: 'item' | 'category';
+    price: number | null;
     items: { id: number; label: string; price: number | null }[];
 }
 
@@ -75,7 +77,13 @@ const form = useForm({
     care_prices: props.careCategories.flatMap((category) =>
         category.items.map((item) => ({ care_item_id: item.id, price: item.price })),
     ) as { care_item_id: number; price: number | null }[],
+    // Categories billed as one flat price per session.
+    care_category_prices: props.careCategories
+        .filter((category) => category.pricing_mode === 'category')
+        .map((category) => ({ care_category_id: category.id, price: category.price })) as { care_category_id: number; price: number | null }[],
 });
+
+const categoryPriceIndex = computed(() => new Map(form.care_category_prices.map((row, index) => [row.care_category_id, index])));
 
 const priceIndex = computed(() => new Map(form.care_prices.map((row, index) => [row.care_item_id, index])));
 const timezoneOptions = computed(() => props.timezones.map((value) => ({ value, label: value.replace(/_/g, ' ') })));
@@ -86,7 +94,7 @@ const scheduleSummary = computed(() => summarizeSchedule(props.center.operating_
 const errorTab = computed(() => {
     const keys = Object.keys(form.errors);
 
-    if (keys.some((key) => key.startsWith('settings') || key.startsWith('care_prices'))) return 'pricing';
+    if (keys.some((key) => key.startsWith('settings') || key.startsWith('care_'))) return 'pricing';
     if (keys.some((key) => key.startsWith('modules'))) return 'modules';
 
     return keys.length ? 'general' : null;
@@ -220,6 +228,20 @@ function error(key: string): string | undefined {
 
                                     <div v-for="category in careCategories" :key="category.id" class="mb-5">
                                         <div class="app-eyebrow mb-2">{{ category.label }}</div>
+                                        <div v-if="category.pricing_mode === 'category'" class="care-price">
+                                            <span class="text-body-2">
+                                                {{ t('centers.settingsPage.flatPrice') }}
+                                                <span class="d-block text-caption text-medium-emphasis">{{ t('centers.settingsPage.flatPriceHint') }}</span>
+                                            </span>
+                                            <div style="width: 170px; flex: 0 0 auto">
+                                                <AppInputNumber
+                                                    v-model="form.care_category_prices[categoryPriceIndex.get(category.id)!].price"
+                                                    :min="0"
+                                                    :label="form.currency"
+                                                    :error="error(`care_category_prices.${categoryPriceIndex.get(category.id)}.price`)"
+                                                />
+                                            </div>
+                                        </div>
                                         <div v-for="item in category.items" :key="item.id" class="care-price">
                                             <span class="text-body-2">{{ item.label }}</span>
                                             <div style="width: 170px">

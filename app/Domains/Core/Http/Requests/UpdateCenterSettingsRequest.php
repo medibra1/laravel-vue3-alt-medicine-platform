@@ -32,6 +32,9 @@ class UpdateCenterSettingsRequest extends FormRequest
             'care_prices' => ['sometimes', 'array'],
             'care_prices.*.care_item_id' => ['required', 'integer', 'exists:care_items,id'],
             'care_prices.*.price' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'care_category_prices' => ['sometimes', 'array'],
+            'care_category_prices.*.care_category_id' => ['required', 'integer', 'exists:care_categories,id'],
+            'care_category_prices.*.price' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
         ];
     }
 }

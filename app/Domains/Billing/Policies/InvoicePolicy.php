@@ -42,4 +42,14 @@ class InvoicePolicy
     {
         return $user->can('payments.delete') && $invoice->center_id === getPermissionsTeamId();
     }
+
+    public function credit(User $user, Invoice $invoice): bool
+    {
+        return $user->can('invoices.credit') && $invoice->center_id === getPermissionsTeamId();
+    }
+
+    public function refund(User $user, Invoice $invoice): bool
+    {
+        return $user->can('payments.refund') && $invoice->center_id === getPermissionsTeamId();
+    }
 }

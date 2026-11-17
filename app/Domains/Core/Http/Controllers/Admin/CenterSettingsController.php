@@ -33,6 +33,7 @@ class CenterSettingsController extends Controller
         Gate::authorize('manageSettings', $center);
 
         $prices = $center->careItemPrices()->pluck('price', 'care_item_id');
+        $categoryPrices = $center->careCategoryPrices()->pluck('price', 'care_category_id');
 
         return Inertia::render('Admin/Centers/Settings', [
             'center' => [
@@ -53,11 +54,16 @@ class CenterSettingsController extends Controller
                 ],
                 'operating_hours' => CenterOperatingHoursResource::collection($center->operatingHours),
             ],
-            'careCategories' => CareCategory::query()->where('active', true)->with('items')->orderBy('order')->get()
+            // Categories that are never billed (pricing_mode 'none') have
+            // no price to set, so they are not sent at all.
+            'careCategories' => CareCategory::query()->where('active', true)->where('pricing_mode', '!=', CareCategory::PRICING_NONE)
+                ->with('items')->orderBy('order')->get()
                 ->map(fn (CareCategory $category) => [
                     'id' => $category->id,
                     'label' => (string) $category->label,
-                    'items' => $category->items->map(fn ($item) => [
+                    'pricing_mode' => $category->pricing_mode,
+                    'price' => isset($categoryPrices[$category->id]) ? (float) $categoryPrices[$category->id] : null,
+                    'items' => $category->pricing_mode !== CareCategory::PRICING_ITEM ? [] : $category->items->map(fn ($item) => [
                         'id' => $item->id,
                         'label' => (string) $item->label,
                         'price' => isset($prices[$item->id]) ? (float) $prices[$item->id] : null,
@@ -99,6 +105,19 @@ class CenterSettingsController extends Controller
 
                 $center->careItemPrices()->updateOrCreate(
                     ['care_item_id' => $row['care_item_id']],
+                    ['price' => $row['price']],
+                );
+            }
+
+            foreach ($validated['care_category_prices'] ?? [] as $row) {
+                if ($row['price'] === null || $row['price'] === '') {
+                    $center->careCategoryPrices()->where('care_category_id', $row['care_category_id'])->delete();
+
+                    continue;
+                }
+
+                $center->careCategoryPrices()->updateOrCreate(
+                    ['care_category_id' => $row['care_category_id']],
                     ['price' => $row['price']],
                 );
             }

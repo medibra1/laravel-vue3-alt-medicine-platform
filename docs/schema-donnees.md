@@ -1753,3 +1753,14 @@ ligne d'une facture non annulée la référence), `care_item_id` nullable.
 ### Champs traduisibles
 Les règles `*.ar` (nullable) ont été ajoutées à côté de `*.fr`/`*.en` :
 l'arabe est optionnel et retombe sur le français.
+
+
+## Facturation — avoirs, dépenses, séquences, tarifs par catégorie (2026-11-17)
+
+- `care_categories.pricing_mode` string(10), défaut `item` : `item` (prix par soin, `center_care_item_prices`), `category` (forfait par séance, `center_care_category_prices`), `none` (jamais facturé).
+- `center_care_category_prices` : `center_id`, `care_category_id`, `price` ; unique(centre, catégorie).
+- `billing_invoices.credited_total` : cache de la somme des avoirs. Dû = `total - credited_total - paid_total` (négatif = trop-perçu à rembourser).
+- `billing_credit_notes` : `center_id`, `invoice_id`, `number` (`AV-AAAA-NNNNN`, unique par centre), `amount`, `issued_on`, `reason`, `created_by`.
+- `billing_payments.amount` peut être **négatif** : c'est un remboursement.
+- `billing_sequences` : `center_id`, `type` (`invoice`/`credit_note`), `year`, `last_number` ; unique(centre, type, année). Lu sous verrou.
+- `billing_expenses` : `center_id`, `category_option_id` (→ `enum_options`, type `expense.category`), `label`, `supplier`, `amount`, `currency`, `spent_on`, `method`, `reference`, `notes`, `created_by` ; index(centre, date).

@@ -64,6 +64,9 @@
 
     <table class="totals">
         <tr><td>{{ __('Total') }}</td><td class="right">{{ number_format((float) $invoice->total, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
+        @foreach ($invoice->creditNotes as $creditNote)
+            <tr><td>{{ __('Avoir') }} {{ $creditNote->number }}</td><td class="right">-{{ number_format((float) $creditNote->amount, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
+        @endforeach
         <tr><td>{{ __('Déjà réglé') }}</td><td class="right">{{ number_format((float) $invoice->paid_total, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
         <tr class="grand"><td>{{ __('Reste à payer') }}</td><td class="right">{{ number_format($invoice->balance(), 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
     </table>

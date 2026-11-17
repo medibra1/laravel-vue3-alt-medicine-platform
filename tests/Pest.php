@@ -157,6 +157,13 @@ function grantBillingPermissions(): void
         'invoices.cancel',
         'payments.create',
         'payments.delete',
+        'invoices.credit',
+        'payments.refund',
+        'expenses.viewAny',
+        'expenses.create',
+        'expenses.update',
+        'expenses.delete',
+        'accounting.export',
     ])->each(fn (string $name) => Permission::findOrCreate($name, 'web'));
 }
 
@@ -242,6 +249,13 @@ function actingAsManagerOf(Center $center): User
         'invoices.cancel',
         'payments.create',
         'payments.delete',
+        'invoices.credit',
+        'payments.refund',
+        'expenses.viewAny',
+        'expenses.create',
+        'expenses.update',
+        'expenses.delete',
+        'accounting.export',
         'practitioners.viewAny',
         'practitioners.view',
         'practitioners.create',

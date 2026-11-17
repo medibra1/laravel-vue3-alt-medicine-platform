@@ -22,10 +22,12 @@ class Invoice extends Model
         'cancelled_at' => 'datetime',
         'total' => 'decimal:2',
         'paid_total' => 'decimal:2',
+        'credited_total' => 'decimal:2',
     ];
 
     /**
-     * Derived, never stored: cancelled / paid / partial / unpaid.
+     * Derived, never stored: cancelled / refund_due / credited / paid /
+     * partial / unpaid.
      */
     public function status(): string
     {
@@ -33,29 +35,41 @@ class Invoice extends Model
             return 'cancelled';
         }
 
-        $paid = (float) $this->paid_total;
         $total = (float) $this->total;
+        $paid = (float) $this->paid_total;
+        $net = $this->netTotal();
 
         return match (true) {
-            $paid >= $total && $total > 0 => 'paid',
+            $this->balance() < 0 => 'refund_due',
+            $total > 0 && $net <= 0 => 'credited',
+            $total > 0 && $paid >= $net => 'paid',
             $paid > 0 => 'partial',
             default => 'unpaid',
         };
     }
 
+    /** What is really owed once credit notes are deducted. */
+    public function netTotal(): float
+    {
+        return round((float) $this->total - (float) $this->credited_total, 2);
+    }
+
+    /** Negative when the patient paid more than is owed (refund due). */
     public function balance(): float
     {
-        return $this->cancelled_at !== null ? 0.0 : round((float) $this->total - (float) $this->paid_total, 2);
+        return $this->cancelled_at !== null ? 0.0 : round($this->netTotal() - (float) $this->paid_total, 2);
     }
 
     /**
-     * Recomputes the cached totals from the lines and payments.
+     * Recomputes the cached totals from the lines, payments (refunds are
+     * negative payments) and credit notes.
      */
     public function refreshTotals(): void
     {
         $this->update([
             'total' => $this->lines()->sum('total'),
             'paid_total' => $this->payments()->sum('amount'),
+            'credited_total' => $this->creditNotes()->sum('amount'),
         ]);
     }
 
@@ -102,5 +116,11 @@ class Invoice extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class)->orderByDesc('paid_on')->orderByDesc('id');
+    }
+
+    /** @return HasMany<CreditNote, $this> */
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNote::class)->orderBy('issued_on')->orderBy('id');
     }
 }

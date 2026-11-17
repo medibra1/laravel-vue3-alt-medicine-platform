@@ -47,6 +47,14 @@ class RolePermissions
             'invoices.cancel',
             'payments.create',
             'payments.delete',
+            // Corrections and money going out stay with the manager.
+            'invoices.credit',
+            'payments.refund',
+            'expenses.viewAny',
+            'expenses.create',
+            'expenses.update',
+            'expenses.delete',
+            'accounting.export',
         ];
     }
 

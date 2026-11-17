@@ -59,6 +59,25 @@ class EnumOptionSeeder extends Seeder
             );
         }
 
+        // Expense categories — open list, extend from the admin
+        // EnumOptions CRUD.
+        $expenseCategories = [
+            ['code' => 'RENT', 'label' => ['fr' => 'Loyer et charges', 'en' => 'Rent and utilities', 'ar' => 'الإيجار والمرافق']],
+            ['code' => 'SUPPLIES', 'label' => ['fr' => 'Fournitures et produits', 'en' => 'Supplies and products', 'ar' => 'اللوازم والمنتجات']],
+            ['code' => 'SALARIES', 'label' => ['fr' => 'Salaires et rémunérations', 'en' => 'Salaries and pay', 'ar' => 'الرواتب والأجور']],
+            ['code' => 'TRANSPORT', 'label' => ['fr' => 'Transport et déplacements', 'en' => 'Transport and travel', 'ar' => 'النقل والتنقل']],
+            ['code' => 'EQUIPMENT', 'label' => ['fr' => 'Matériel et entretien', 'en' => 'Equipment and maintenance', 'ar' => 'المعدات والصيانة']],
+            ['code' => 'TAXES', 'label' => ['fr' => 'Impôts et taxes', 'en' => 'Taxes', 'ar' => 'الضرائب والرسوم']],
+            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other', 'ar' => 'أخرى']],
+        ];
+
+        foreach ($expenseCategories as $index => $category) {
+            EnumOption::query()->firstOrCreate(
+                ['enum_type' => 'expense.category', 'code' => $category['code']],
+                ['label' => $category['label'], 'order' => $index + 1, 'active' => true]
+            );
+        }
+
         // Patient religion — open list, extend/correct from the admin
         // EnumOptions CRUD rather than editing this seeder later.
         $religions = [

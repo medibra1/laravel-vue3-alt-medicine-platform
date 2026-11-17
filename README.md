@@ -102,6 +102,8 @@ temps qu'un usage manuel actif de cette DB.
 
 ## État d'avancement (2026-11-17)
 
+- **2026-11-17** : avoirs et remboursements, dépenses, liste des règlements, export comptable CSV, tarif forfaitaire ou nul par catégorie de soin, gestion des modules des praticiens par le manager.
+
 **Domaines Vague 1** — voir `docs/schema-donnees.md` pour le détail complet :
 
 | Domaine | État |

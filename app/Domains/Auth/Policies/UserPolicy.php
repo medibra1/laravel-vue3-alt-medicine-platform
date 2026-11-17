@@ -59,11 +59,27 @@ class UserPolicy
     }
 
     /**
-     * Narrowing which modules an account can use — any non-admin account
-     * (manager or practitioner). super_admin already bypassed via before().
+     * Narrowing which modules an account can use. An admin does it for
+     * any non-admin account; a manager for the practitioners of the
+     * center they are working on (never another manager, never
+     * themselves). super_admin already bypassed via before().
      */
     public function manageModules(User $user, User $target): bool
     {
-        return $user->isAdmin() && ! $target->isAdmin() && ! $target->isSuperAdmin();
+        if ($target->isAdmin() || $target->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        $centerId = getPermissionsTeamId();
+
+        return $centerId !== null
+            && in_array($centerId, $user->managedCenterIds(), true)
+            && $target->isPractitioner()
+            && ! $target->isManager()
+            && in_array($centerId, $target->accessibleCenterIds(), true);
     }
 }

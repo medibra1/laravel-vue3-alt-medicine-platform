@@ -65,6 +65,24 @@ class PractitionerController extends Controller
             ->paginate($request->integer('per_page', 15))
             ->withQueryString();
 
+        // Module access of the practitioners who have an account: a
+        // manager narrows it from this page (see UserPolicy::manageModules).
+        $practitioners->through(function (Practitioner $practitioner) use ($request) {
+            $account = $practitioner->user;
+
+            return [
+                ...$practitioner->attributesToArray(),
+                'center' => $practitioner->relationLoaded('center') ? $practitioner->center : null,
+                'grade' => $practitioner->relationLoaded('grade') ? $practitioner->grade : null,
+                'account' => $account ? [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'modules' => $account->modules,
+                    'can_manage_modules' => $request->user()->can('manageModules', $account),
+                ] : null,
+            ];
+        });
+
         return Inertia::render('Admin/Practitioners/Index', [
             'practitioners' => $practitioners,
             'filters' => (object) $request->only(['filter', 'sort']),
