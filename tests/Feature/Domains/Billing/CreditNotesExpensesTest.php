@@ -175,22 +175,34 @@ test('care pricing follows the category mode: none, flat per session, or per ite
     expect($lines)->toHaveCount(2)->and($lines[1]['unit_price'])->toEqual(15);
 });
 
-test('a manager narrows the modules of a practitioner of their center, nobody else', function () {
+test('a manager narrows the modules of a practitioner on their own center only', function () {
     $center = Center::factory()->create();
     $other = Center::factory()->create();
     $manager = actingAsManagerOf($center);
-    $practitioner = actingAsPractitionerOf($center);
+    $practitioner = actingAsPractitionerOf($center, $other);
     $foreignPractitioner = actingAsPractitionerOf($other);
     $otherManager = actingAsManagerOf($center);
     Practitioner::factory()->create(['center_id' => $center->id, 'user_id' => $practitioner->id]);
 
-    $this->actingAs($manager)->put(route('admin.users.modules.update', $practitioner), ['modules' => ['patients']])->assertRedirect();
-    expect($practitioner->refresh()->modules)->toBe(['patients']);
+    $this->actingAs($manager)->put(route('admin.users.center-modules.update', $practitioner), ['modules' => ['patients']])->assertRedirect();
 
-    $this->actingAs($manager)->put(route('admin.users.modules.update', $foreignPractitioner), ['modules' => ['patients']])->assertForbidden();
-    $this->actingAs($manager)->put(route('admin.users.modules.update', $otherManager), ['modules' => ['patients']])->assertForbidden();
-    $this->actingAs($practitioner)->put(route('admin.users.modules.update', $practitioner), ['modules' => null])->assertForbidden();
+    // Narrowed here, untouched on the practitioner's other center.
+    expect($practitioner->enabledModules($center->id))->toBe(['patients'])
+        ->and($practitioner->enabledModules($other->id))->toContain('billing')
+        ->and($practitioner->refresh()->modules)->toBeNull();
+
+    $this->actingAs($manager)->put(route('admin.users.center-modules.update', $foreignPractitioner), ['modules' => ['patients']])->assertForbidden();
+    $this->actingAs($manager)->put(route('admin.users.center-modules.update', $otherManager), ['modules' => ['patients']])->assertForbidden();
+    $this->actingAs($practitioner)->put(route('admin.users.center-modules.update', $practitioner), ['modules' => null])->assertForbidden();
+    // The account-wide restriction stays with the admins.
+    $this->actingAs($manager)->put(route('admin.users.modules.update', $practitioner), ['modules' => ['patients']])->assertForbidden();
 
     $this->actingAs($manager)->get(route('admin.practitioners.index'))->assertOk()
-        ->assertInertia(fn ($page) => $page->where('practitioners.data.0.account.can_manage_modules', true));
+        ->assertInertia(fn ($page) => $page
+            ->where('practitioners.data.0.account.can_manage_modules', true)
+            ->where('practitioners.data.0.account.modules', ['patients']));
+
+    // Lifting it gives the center's modules back.
+    $this->actingAs($manager)->put(route('admin.users.center-modules.update', $practitioner), ['modules' => null])->assertRedirect();
+    expect($practitioner->enabledModules($center->id))->toContain('billing');
 });

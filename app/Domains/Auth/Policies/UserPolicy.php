@@ -19,6 +19,11 @@ class UserPolicy
      */
     public function before(User $user, string $ability): ?bool
     {
+        if ($ability === 'manageCenterModules') {
+            // Always tied to an active center: no global bypass.
+            return null;
+        }
+
         if (in_array($ability, ['update', 'delete', 'manageModules'], true)) {
             return $user->isSuperAdmin() ? true : null;
         }
@@ -59,27 +64,30 @@ class UserPolicy
     }
 
     /**
-     * Narrowing which modules an account can use. An admin does it for
-     * any non-admin account; a manager for the practitioners of the
-     * center they are working on (never another manager, never
-     * themselves). super_admin already bypassed via before().
+     * Account-wide restriction, whatever the center: an admin, for any
+     * non-admin account. super_admin already bypassed via before().
      */
     public function manageModules(User $user, User $target): bool
     {
-        if ($target->isAdmin() || $target->isSuperAdmin()) {
-            return false;
-        }
+        return $user->isAdmin() && ! $target->isAdmin() && ! $target->isSuperAdmin();
+    }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
+    /**
+     * Restriction limited to the center being worked on: its manager,
+     * for the practitioners of that center (never another manager,
+     * never themselves). What the practitioner can do on their other
+     * centers is untouched.
+     */
+    public function manageCenterModules(User $user, User $target): bool
+    {
         $centerId = getPermissionsTeamId();
 
         return $centerId !== null
             && in_array($centerId, $user->managedCenterIds(), true)
             && $target->isPractitioner()
             && ! $target->isManager()
+            && ! $target->isAdmin()
+            && ! $target->isSuperAdmin()
             && in_array($centerId, $target->accessibleCenterIds(), true);
     }
 }

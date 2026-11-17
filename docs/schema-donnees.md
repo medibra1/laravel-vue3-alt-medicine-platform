@@ -1764,3 +1764,4 @@ l'arabe est optionnel et retombe sur le français.
 - `billing_payments.amount` peut être **négatif** : c'est un remboursement.
 - `billing_sequences` : `center_id`, `type` (`invoice`/`credit_note`), `year`, `last_number` ; unique(centre, type, année). Lu sous verrou.
 - `billing_expenses` : `center_id`, `category_option_id` (→ `enum_options`, type `expense.category`), `label`, `supplier`, `amount`, `currency`, `spent_on`, `method`, `reference`, `notes`, `created_by` ; index(centre, date).
+- `user_center_modules` : `user_id`, `center_id`, `modules` (JSON) ; unique(utilisateur, centre). Restriction posée par le manager du centre, sans effet sur les autres centres du compte. Pas de ligne = pas de restriction.

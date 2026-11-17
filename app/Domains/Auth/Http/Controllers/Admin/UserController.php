@@ -175,8 +175,24 @@ class UserController extends Controller
 
         $user->update(['modules' => Modules::normalize($validated['modules'] ?? null)]);
 
-        // Reached from the users page (admins) and from the
-        // practitioners page (managers).
+        return back();
+    }
+
+    /**
+     * A manager narrowing what a practitioner can use on the center
+     * being worked on — and only there.
+     */
+    public function updateCenterModules(Request $request, User $user): RedirectResponse
+    {
+        Gate::authorize('manageCenterModules', $user);
+
+        $validated = $request->validate([
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(Modules::all())],
+        ]);
+
+        $user->setCenterModules((int) getPermissionsTeamId(), $validated['modules'] ?? null);
+
         return back();
     }
 

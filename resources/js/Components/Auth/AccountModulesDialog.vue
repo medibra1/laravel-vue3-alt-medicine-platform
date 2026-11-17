@@ -9,8 +9,9 @@ import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 /**
- * Narrows which modules one account can use (null = every module of
- * its center). Shared by whoever is allowed to do it for that account.
+ * A manager narrowing which modules one practitioner can use on the
+ * center being worked on (null = every module of that center). The
+ * practitioner's other centers are not affected.
  */
 const props = defineProps<{
     account: { id: number; name: string; modules: AppModule[] | null } | null;
@@ -37,7 +38,7 @@ function submit() {
         return;
     }
 
-    form.put(route('admin.users.modules.update', props.account.id), {
+    form.put(route('admin.users.center-modules.update', props.account.id), {
         preserveScroll: true,
         onSuccess: () => emit('close'),
     });
@@ -58,7 +59,7 @@ function submit() {
                     :label="t('users.restrict')"
                     @update:model-value="form.modules = $event ? [...available] : null"
                 />
-                <p class="text-caption text-medium-emphasis mb-3">{{ t('users.restrictHint') }}</p>
+                <p class="text-caption text-medium-emphasis mb-3">{{ t('users.restrictCenterHint') }}</p>
                 <AppModulePicker v-if="form.modules !== null" v-model="form.modules" :available="available" />
             </div>
 

@@ -182,7 +182,7 @@ class User extends Authenticatable implements MustVerifyEmail
     /**
      * Modules this user can use on the given center: everything for
      * super_admin/admin, otherwise the center's modules narrowed by the
-     * user's own restriction (null = none).
+     * account-wide restriction and by the one set for that center.
      *
      * @return array<int, string>
      */
@@ -194,9 +194,53 @@ class User extends Authenticatable implements MustVerifyEmail
 
         $center = $centerId !== null ? Center::query()->find($centerId) : null;
         $modules = $center ? $center->enabledModules() : Modules::all();
-        $own = Modules::normalize($this->modules);
+        // Two optional restrictions, both only ever narrowing: the
+        // account-wide one (set by an admin) and the one of this center
+        // (set by its manager).
+        foreach ([Modules::normalize($this->modules), $this->centerModules($centerId)] as $restriction) {
+            if ($restriction !== null) {
+                $modules = array_values(array_intersect($modules, $restriction));
+            }
+        }
 
-        return $own === null ? $modules : array_values(array_intersect($modules, $own));
+        return $modules;
+    }
+
+    /**
+     * Restriction set for this account on one center, null when none.
+     *
+     * @return array<int, string>|null
+     */
+    public function centerModules(?int $centerId): ?array
+    {
+        if ($centerId === null) {
+            return null;
+        }
+
+        $stored = DB::table('user_center_modules')->where('user_id', $this->getKey())->where('center_id', $centerId)->value('modules');
+
+        return $stored === null ? null : Modules::normalize(json_decode((string) $stored, true));
+    }
+
+    /**
+     * @param  array<int, string>|null  $modules  null lifts the restriction
+     */
+    public function setCenterModules(int $centerId, ?array $modules): void
+    {
+        $key = ['user_id' => $this->getKey(), 'center_id' => $centerId];
+        $modules = Modules::normalize($modules);
+
+        if ($modules === null) {
+            DB::table('user_center_modules')->where($key)->delete();
+
+            return;
+        }
+
+        DB::table('user_center_modules')->updateOrInsert($key, [
+            'modules' => json_encode($modules),
+            'updated_at' => now(),
+            'created_at' => now(),
+        ]);
     }
 
     public function hasModule(string $module, ?int $centerId): bool

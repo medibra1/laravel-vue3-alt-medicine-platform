@@ -66,7 +66,8 @@ class PractitionerController extends Controller
             ->withQueryString();
 
         // Module access of the practitioners who have an account: a
-        // manager narrows it from this page (see UserPolicy::manageModules).
+        // manager narrows it, for their center only, from this page (see
+        // UserPolicy::manageCenterModules).
         $practitioners->through(function (Practitioner $practitioner) use ($request) {
             $account = $practitioner->user;
 
@@ -77,8 +78,9 @@ class PractitionerController extends Controller
                 'account' => $account ? [
                     'id' => $account->id,
                     'name' => $account->name,
-                    'modules' => $account->modules,
-                    'can_manage_modules' => $request->user()->can('manageModules', $account),
+                    // The restriction on the center being worked on only.
+                    'modules' => $account->centerModules(getPermissionsTeamId()),
+                    'can_manage_modules' => $request->user()->can('manageCenterModules', $account),
                 ] : null,
             ];
         });

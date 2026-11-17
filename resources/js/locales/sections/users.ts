@@ -1,5 +1,6 @@
 export default {
     fr: {
+        restrictCenterHint: 'S\'applique à ce centre uniquement : les autres centres de ce praticien ne changent pas. Sans limitation, il utilise tous les modules du centre.',
         manageModules: 'Modules', pricingMode: 'Tarification', toggleMenu: 'Réduire ou déployer le menu',
         title: 'Utilisateurs', new: 'Nouvel utilisateur', edit: 'Modifier l\'utilisateur', searchLabel: 'Rechercher (nom, email)',
         role: 'Rôle', managedCenters: 'Centres gérés', chooseCenters: 'Choisir un ou plusieurs centres',
@@ -10,6 +11,7 @@ export default {
         restrict: 'Limiter les modules de ce compte', restrictHint: 'Sans limitation, le compte utilise tous les modules activés sur son centre.',
     },
     en: {
+        restrictCenterHint: 'Applies to this center only: the practitioner\'s other centers are unchanged. Without a restriction, they use every module of the center.',
         manageModules: 'Modules', pricingMode: 'Pricing', toggleMenu: 'Collapse or expand the menu',
         title: 'Users', new: 'New user', edit: 'Edit user', searchLabel: 'Search (name, email)',
         role: 'Role', managedCenters: 'Managed centers', chooseCenters: 'Choose one or more centers',
@@ -20,6 +22,7 @@ export default {
         restrict: 'Restrict this account\'s modules', restrictHint: 'Without restriction, the account uses every module enabled on its center.',
     },
     ar: {
+        restrictCenterHint: 'ينطبق على هذا المركز فقط: المراكز الأخرى لهذا المعالج لا تتغيّر. دون تقييد، يستخدم كل وحدات المركز.',
         manageModules: 'الوحدات', pricingMode: 'التسعير', toggleMenu: 'طيّ أو توسيع القائمة',
         title: 'المستخدمون', new: 'مستخدم جديد', edit: 'تعديل المستخدم', searchLabel: 'بحث (الاسم، البريد)',
         role: 'الدور', managedCenters: 'المراكز المُدارة', chooseCenters: 'اختر مركزاً أو أكثر',
