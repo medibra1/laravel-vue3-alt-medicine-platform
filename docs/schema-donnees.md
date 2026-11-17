@@ -1765,3 +1765,7 @@ l'arabe est optionnel et retombe sur le français.
 - `billing_sequences` : `center_id`, `type` (`invoice`/`credit_note`), `year`, `last_number` ; unique(centre, type, année). Lu sous verrou.
 - `billing_expenses` : `center_id`, `category_option_id` (→ `enum_options`, type `expense.category`), `label`, `supplier`, `amount`, `currency`, `spent_on`, `method`, `reference`, `notes`, `created_by` ; index(centre, date).
 - `user_center_modules` : `user_id`, `center_id`, `modules` (JSON) ; unique(utilisateur, centre). Restriction posée par le manager du centre, sans effet sur les autres centres du compte. Pas de ligne = pas de restriction.
+- `billing_invoice_lines` : + `description` (text, nullable), `care_category_id` (FK nullable, ligne forfait).
+- `billing_invoices` : + `subtotal` (somme des lignes), `discount_amount`, `discount_percent` (nullable, si saisie en %), `discount_reason_option_id` (→ `enum_options`, type `invoice.discount_reason`), `discount_note`. `total` = net à payer = `subtotal − discount_amount`.
+- `billing_invoice_installments` : `invoice_id`, `due_on`, `amount`, `position` ; index(facture, date). État de chaque échéance dérivé (payé imputé sur la plus ancienne).
+- `patients` : + `discount_percent`, `discount_reason_option_id` (tarif solidaire, pré-appliqué aux nouvelles factures).

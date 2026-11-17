@@ -883,5 +883,19 @@
     "results": "résultats",
     "to": "à",
     "total": "total",
-    "Åland Islands": "Les îles d'Åland"
+    "Åland Islands": "Les îles d'Åland",
+    "Séances": "Séances",
+    "Séance en présentiel": "Séance en présentiel",
+    "Séance à distance": "Séance à distance",
+    "Un échéancier compte au moins deux échéances.": "Un échéancier compte au moins deux échéances.",
+    "Les dates des échéances doivent se suivre.": "Les dates des échéances doivent se suivre.",
+    "La somme des échéances doit être égale au montant à payer.": "La somme des échéances doit être égale au montant à payer.",
+    "La remise dépasse le montant de la facture.": "La remise dépasse le montant de la facture.",
+    "Sous-total": "Sous-total",
+    "Remise": "Remise",
+    "Échéancier": "Échéancier",
+    "Cette facture a déjà un avoir.": "Cette facture a déjà un avoir.",
+    "L'avoir dépasse le montant restant de la facture.": "L'avoir dépasse le montant restant de la facture.",
+    "Le remboursement dépasse le trop-perçu de cette facture.": "Le remboursement dépasse le trop-perçu de cette facture.",
+    "Avoir": "Avoir"
 }

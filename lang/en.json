@@ -57,5 +57,19 @@
     "payment_method.mobile_money": "Mobile money",
     "payment_method.bank_transfer": "Bank transfer",
     "payment_method.cheque": "Cheque",
-    "payment_method.other": "Other"
+    "payment_method.other": "Other",
+    "Séances": "Sessions",
+    "Séance en présentiel": "In-person session",
+    "Séance à distance": "Remote session",
+    "Un échéancier compte au moins deux échéances.": "A payment schedule has at least two instalments.",
+    "Les dates des échéances doivent se suivre.": "Instalment dates must follow one another.",
+    "La somme des échéances doit être égale au montant à payer.": "The instalments must add up to the amount to pay.",
+    "La remise dépasse le montant de la facture.": "The discount exceeds the invoice amount.",
+    "Sous-total": "Subtotal",
+    "Remise": "Discount",
+    "Échéancier": "Payment schedule",
+    "Cette facture a déjà un avoir.": "This invoice already has a credit note.",
+    "L'avoir dépasse le montant restant de la facture.": "The credit note exceeds what is left on the invoice.",
+    "Le remboursement dépasse le trop-perçu de cette facture.": "The refund exceeds the overpayment on this invoice.",
+    "Avoir": "Credit note"
 }

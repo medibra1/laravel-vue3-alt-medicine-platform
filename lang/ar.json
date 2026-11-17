@@ -931,5 +931,19 @@
     "results": "نتيجة",
     "to": "إلى",
     "total": "الإجمالي",
-    "Åland Islands": "جزر آلاند"
+    "Åland Islands": "جزر آلاند",
+    "Séances": "الجلسات",
+    "Séance en présentiel": "جلسة حضورية",
+    "Séance à distance": "جلسة عن بُعد",
+    "Un échéancier compte au moins deux échéances.": "يتكوّن جدول السداد من قسطين على الأقل.",
+    "Les dates des échéances doivent se suivre.": "يجب أن تكون تواريخ الأقساط متتالية.",
+    "La somme des échéances doit être égale au montant à payer.": "يجب أن يساوي مجموع الأقساط المبلغ المستحق.",
+    "La remise dépasse le montant de la facture.": "الخصم يتجاوز مبلغ الفاتورة.",
+    "Sous-total": "المجموع الفرعي",
+    "Remise": "خصم",
+    "Échéancier": "جدول السداد",
+    "Cette facture a déjà un avoir.": "لهذه الفاتورة إشعار دائن مسبقاً.",
+    "L'avoir dépasse le montant restant de la facture.": "الإشعار الدائن يتجاوز المبلغ المتبقي من الفاتورة.",
+    "Le remboursement dépasse le trop-perçu de cette facture.": "الاسترداد يتجاوز المبلغ الزائد على هذه الفاتورة.",
+    "Avoir": "إشعار دائن"
 }

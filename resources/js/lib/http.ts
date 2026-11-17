@@ -55,5 +55,7 @@ export const http = {
         request<TResponse>('POST', url, body),
     patch: <TResponse>(url: string, body: Record<string, unknown>) =>
         request<TResponse>('PATCH', url, body),
+    put: <TResponse>(url: string, body: Record<string, unknown>) =>
+        request<TResponse>('PUT', url, body),
     delete: <TResponse>(url: string) => request<TResponse>('DELETE', url),
 };

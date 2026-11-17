@@ -5,8 +5,10 @@ namespace Database\Seeders;
 use App\Domains\Auth\Models\User;
 use App\Domains\Auth\Support\CenterScopedRoleAssigner;
 use App\Domains\Billing\Models\Expense;
+use App\Domains\Billing\Models\Invoice;
 use App\Domains\Billing\Services\BillableSessionsResolver;
 use App\Domains\Billing\Services\CreateInvoiceAction;
+use App\Domains\Billing\Services\ScheduleInstallmentsAction;
 use App\Domains\Common\Models\EnumOption;
 use App\Domains\Core\Models\Center;
 use App\Domains\Core\Models\CenterClosure;
@@ -477,6 +479,7 @@ class DemoDataSeeder extends Seeder
             }
         }
 
+        $socialReason = EnumOption::query()->where('enum_type', Invoice::DISCOUNT_REASON_TYPE)->where('code', 'SOCIAL')->value('id');
         $resolver = app(BillableSessionsResolver::class);
         $createInvoice = app(CreateInvoiceAction::class);
         $methods = ['cash', 'mobile_money', 'card'];
@@ -489,9 +492,19 @@ class DemoDataSeeder extends Seeder
             }
 
             $issuedOn = min($sessions[count($sessions) - 1]['session_date'], now()->toDateString());
+            // Every 5th patient (index 2) is a social case: half price,
+            // kept on the patient so their next invoices follow.
+            $discount = null;
+
+            if ($index % 5 === 2 && $socialReason !== null) {
+                $patient->update(['discount_percent' => 50, 'discount_reason_option_id' => $socialReason]);
+                $discount = ['percent' => 50, 'reason_option_id' => $socialReason];
+            }
+
             $invoice = $createInvoice->handle($patient, $center, [
                 'issued_on' => $issuedOn,
                 'lines' => array_merge(...array_column($sessions, 'lines')),
+                'discount' => $discount,
             ], $author);
 
             // 0-2: paid in full, 3: half paid, 4: unpaid.
@@ -509,6 +522,18 @@ class DemoDataSeeder extends Seeder
                     'received_by' => $author->id,
                 ]);
                 $invoice->refreshTotals();
+            }
+
+            // The half-paid invoice is paid in three goes: the first is
+            // settled, the second is overdue, the third is still to come.
+            if ($index % 5 === 3 && (float) $invoice->total > 0) {
+                $third = floor((float) $invoice->total * 100 / 3) / 100;
+
+                app(ScheduleInstallmentsAction::class)->handle($invoice, [
+                    ['due_on' => now()->subDays(40)->toDateString(), 'amount' => $third],
+                    ['due_on' => now()->subDays(10)->toDateString(), 'amount' => $third],
+                    ['due_on' => now()->addDays(20)->toDateString(), 'amount' => round((float) $invoice->total - 2 * $third, 2)],
+                ]);
             }
         }
     }

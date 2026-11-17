@@ -15,6 +15,8 @@ Route::middleware(['auth', 'verified', 'center.access', 'module:billing'])
         Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
         Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
         Route::post('invoices/{invoice}/payments', [InvoiceController::class, 'storePayment'])->name('invoices.payments.store');
+        Route::put('invoices/{invoice}/installments', [InvoiceController::class, 'updateInstallments'])->name('invoices.installments.update');
+        Route::put('patients/{patient}/billing-discount', [InvoiceController::class, 'updatePatientDiscount'])->name('patients.billing-discount.update');
         Route::post('invoices/{invoice}/credit-notes', [InvoiceController::class, 'storeCreditNote'])->name('invoices.credit-notes.store');
         Route::post('invoices/{invoice}/refunds', [InvoiceController::class, 'storeRefund'])->name('invoices.refunds.store');
         Route::get('billing/payments', [InvoiceController::class, 'payments'])->name('billing.payments');

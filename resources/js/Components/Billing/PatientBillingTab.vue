@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import AppButton from '@/Components/App/AppButton.vue';
+import AppDialog from '@/Components/App/AppDialog.vue';
+import AppInputNumber from '@/Components/App/AppInputNumber.vue';
+import AppSelect from '@/Components/App/AppSelect.vue';
 import { http, HttpError } from '@/lib/http';
 import { formatDate, formatMoney } from '@/lib/i18n';
 import { computed, onMounted, ref } from 'vue';
@@ -8,7 +11,8 @@ import CreditNoteDialog from './CreditNoteDialog.vue';
 import InvoiceDialog from './InvoiceDialog.vue';
 import InvoiceStatusChip from './InvoiceStatusChip.vue';
 import PaymentDialog from './PaymentDialog.vue';
-import type { BillableSession, Invoice } from './types';
+import InstallmentsDialog from './InstallmentsDialog.vue';
+import { INSTALLMENT_STATUS_COLOR, type BillableSession, type CatalogEntry, type DiscountReason, type Invoice, type PatientDiscount } from './types';
 
 const props = defineProps<{ patientId: number }>();
 
@@ -18,7 +22,10 @@ interface Payload {
     invoices: Invoice[];
     billable_sessions: BillableSession[];
     currency: string;
-    can: { create: boolean; pay: boolean; cancel: boolean; credit: boolean; refund: boolean };
+    catalog: CatalogEntry[];
+    discount_reasons: DiscountReason[];
+    patient_discount: PatientDiscount;
+    can: { create: boolean; pay: boolean; cancel: boolean; credit: boolean; refund: boolean; discount: boolean; schedule: boolean };
 }
 
 const data = ref<Payload | null>(null);
@@ -30,6 +37,37 @@ const payingInvoice = ref<Invoice | null>(null);
 const refunding = ref(false);
 const creditDialog = ref(false);
 const creditingInvoice = ref<Invoice | null>(null);
+const scheduleDialog = ref(false);
+const schedulingInvoice = ref<Invoice | null>(null);
+
+// Standing discount of the patient (social rate).
+const solidarityDialog = ref(false);
+const solidarity = ref<{ percent: number | null; reason_option_id: number | null }>({ percent: null, reason_option_id: null });
+const solidarityErrors = ref<Record<string, string[]>>({});
+const solidarityReason = computed(() => data.value?.discount_reasons.find((reason) => reason.id === data.value?.patient_discount.reason_option_id)?.label);
+
+function editSolidarity() {
+    solidarity.value = { ...(data.value?.patient_discount ?? { percent: null, reason_option_id: null }) };
+    solidarityErrors.value = {};
+    solidarityDialog.value = true;
+}
+
+async function saveSolidarity(remove = false) {
+    solidarityErrors.value = {};
+
+    try {
+        await http.put(route('admin.patients.billing-discount.update', props.patientId), remove ? { percent: null } : solidarity.value);
+        solidarityDialog.value = false;
+        await load();
+    } catch (exception) {
+        solidarityErrors.value = exception instanceof HttpError ? exception.errors : { percent: [t('common.error')] };
+    }
+}
+
+function schedule(invoice: Invoice) {
+    schedulingInvoice.value = invoice;
+    scheduleDialog.value = true;
+}
 const expanded = ref<number[]>([]);
 
 const money = (amount: number, currency?: string) => formatMoney(amount, currency ?? data.value?.currency ?? 'EUR', locale.value);
@@ -120,6 +158,21 @@ onMounted(load);
                 </v-col>
             </v-row>
 
+            <div v-if="data.can.discount || data.patient_discount.percent" class="billing-solidarity mb-4">
+                <v-icon icon="mdi-hand-heart-outline" color="primary" />
+                <div class="flex-1-1">
+                    <div class="font-weight-bold">
+                        {{ t('billing.solidarity') }} :
+                        <template v-if="data.patient_discount.percent">
+                            {{ data.patient_discount.percent }} %<template v-if="solidarityReason"> · {{ solidarityReason }}</template>
+                        </template>
+                        <span v-else class="font-weight-regular text-medium-emphasis">{{ t('billing.solidarityNone') }}</span>
+                    </div>
+                    <div class="text-caption text-medium-emphasis">{{ t('billing.solidarityHint') }}</div>
+                </div>
+                <AppButton v-if="data.can.discount" severity="secondary" size="small" :label="t('billing.editSolidarity')" @click="editSolidarity" />
+            </div>
+
             <div class="d-flex align-center justify-space-between flex-wrap ga-3 mb-4">
                 <v-chip v-if="data.billable_sessions.length" color="warning" variant="tonal" prepend-icon="mdi-alert-circle-outline">
                     {{ t('billing.unbilledSessions') }} · {{ data.billable_sessions.length }}
@@ -141,7 +194,12 @@ onMounted(load);
                                 <div class="font-weight-bold">{{ invoice.number }}</div>
                                 <div class="text-caption text-medium-emphasis">{{ formatDate(invoice.issued_on, locale) }}</div>
                             </div>
-                            <InvoiceStatusChip :status="invoice.status" />
+                            <div class="d-flex flex-wrap justify-end ga-1">
+                                <v-chip v-if="invoice.overdue_amount > 0" color="error" variant="tonal" size="small" prepend-icon="mdi-alert-circle-outline">
+                                    {{ t('billing.overdue') }}
+                                </v-chip>
+                                <InvoiceStatusChip :status="invoice.status" />
+                            </div>
                             <div class="text-end">
                                 <div class="font-weight-bold app-tabular">{{ money(invoice.total, invoice.currency) }}</div>
                                 <div v-if="invoice.balance > 0" class="text-caption text-medium-emphasis app-tabular">
@@ -163,13 +221,48 @@ onMounted(load);
                             </thead>
                             <tbody>
                                 <tr v-for="line in invoice.lines" :key="line.id">
-                                    <td>{{ line.label }}</td>
+                                    <td>
+                                        {{ line.label }}
+                                        <div v-if="line.description" class="text-caption text-medium-emphasis">{{ line.description }}</div>
+                                    </td>
                                     <td class="text-end app-tabular">{{ line.quantity }}</td>
                                     <td class="text-end app-tabular">{{ money(line.unit_price, invoice.currency) }}</td>
                                     <td class="text-end app-tabular font-weight-bold">{{ money(line.total, invoice.currency) }}</td>
                                 </tr>
                             </tbody>
                         </v-table>
+
+                        <div v-if="invoice.discount_amount > 0" class="billing-discount mb-4">
+                            <div class="d-flex justify-space-between text-body-2 text-medium-emphasis">
+                                <span>{{ t('billing.subtotal') }}</span>
+                                <span class="app-tabular">{{ money(invoice.subtotal, invoice.currency) }}</span>
+                            </div>
+                            <div class="d-flex justify-space-between text-body-2">
+                                <span>
+                                    {{ t('billing.discount') }}<template v-if="invoice.discount_percent"> {{ invoice.discount_percent }} %</template>
+                                    <template v-if="invoice.discount_reason"> · {{ invoice.discount_reason }}</template>
+                                    <template v-if="invoice.discount_note"> · {{ invoice.discount_note }}</template>
+                                </span>
+                                <span class="app-tabular">−{{ money(invoice.discount_amount, invoice.currency) }}</span>
+                            </div>
+                            <div class="d-flex justify-space-between font-weight-bold">
+                                <span>{{ t('billing.netToPay') }}</span>
+                                <span class="app-tabular">{{ money(invoice.total, invoice.currency) }}</span>
+                            </div>
+                        </div>
+
+                        <template v-if="invoice.installments?.length">
+                            <div class="app-eyebrow mb-2">{{ t('billing.schedule') }}</div>
+                            <div v-for="installment in invoice.installments" :key="installment.id" class="billing-payment">
+                                <v-icon icon="mdi-calendar-clock-outline" :color="INSTALLMENT_STATUS_COLOR[installment.status]" size="20" />
+                                <span class="app-tabular font-weight-bold">{{ money(installment.amount, invoice.currency) }}</span>
+                                <span class="text-body-2 text-medium-emphasis">{{ formatDate(installment.due_on, locale) }}</span>
+                                <v-chip :color="INSTALLMENT_STATUS_COLOR[installment.status]" size="x-small" variant="tonal">
+                                    {{ t(`billing.installmentStatus.${installment.status}`) }}
+                                </v-chip>
+                            </div>
+                            <div class="mb-3" />
+                        </template>
 
                         <template v-if="invoice.credit_notes?.length">
                             <div class="app-eyebrow mb-2">{{ t('billing.creditNotes') }}</div>
@@ -218,6 +311,14 @@ onMounted(load);
                                 @click="cancel(invoice)"
                             />
                             <AppButton
+                                v-if="data.can.schedule && invoice.status !== 'cancelled' && invoice.balance > 0"
+                                severity="secondary"
+                                size="small"
+                                icon="mdi-calendar-clock-outline"
+                                :label="t('billing.editSchedule')"
+                                @click="schedule(invoice)"
+                            />
+                            <AppButton
                                 v-if="data.can.credit && invoice.status !== 'cancelled' && invoice.total - invoice.credited_total > 0"
                                 severity="secondary"
                                 size="small"
@@ -259,10 +360,37 @@ onMounted(load);
                 :patient-id="patientId"
                 :currency="data.currency"
                 :billable-sessions="data.billable_sessions"
+                :catalog="data.catalog"
+                :discount-reasons="data.discount_reasons"
+                :patient-discount="data.patient_discount"
+                :can-discount="data.can.discount"
+                :can-schedule="data.can.schedule"
                 @saved="load"
             />
             <PaymentDialog v-model:visible="paymentDialog" :invoice="payingInvoice" :refund="refunding" @saved="load" />
             <CreditNoteDialog v-model:visible="creditDialog" :invoice="creditingInvoice" @saved="load" />
+            <InstallmentsDialog v-model:visible="scheduleDialog" :invoice="schedulingInvoice" @saved="load" />
+
+            <AppDialog v-model:visible="solidarityDialog" :header="t('billing.solidarity')" max-width="460px">
+                <form class="d-flex flex-column ga-4" @submit.prevent="saveSolidarity()">
+                    <p class="text-body-2 text-medium-emphasis">{{ t('billing.solidarityHint') }}</p>
+                    <AppInputNumber v-model="solidarity.percent" :label="t('billing.solidarityPercent')" :min="0" :max="100" :error="solidarityErrors.percent?.[0]" />
+                    <AppSelect
+                        v-model="solidarity.reason_option_id"
+                        :options="data.discount_reasons"
+                        option-label="label"
+                        option-value="id"
+                        :label="t('billing.discountReason')"
+                        :error="solidarityErrors.reason_option_id?.[0]"
+                    />
+                    <div class="d-flex justify-end ga-2">
+                        <AppButton v-if="data.patient_discount.percent" severity="danger" :label="t('billing.removeSolidarity')" @click="saveSolidarity(true)" />
+                        <v-spacer />
+                        <AppButton severity="secondary" :label="t('common.cancel')" @click="solidarityDialog = false" />
+                        <AppButton type="submit" :label="t('common.save')" />
+                    </div>
+                </form>
+            </AppDialog>
         </template>
     </div>
 </template>
@@ -310,6 +438,24 @@ onMounted(load);
     flex-wrap: wrap;
     gap: 10px;
     padding: 6px 0;
+}
+
+.billing-solidarity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(var(--v-theme-primary), 0.3);
+    background: rgba(var(--v-theme-primary), 0.05);
+}
+
+.billing-discount {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-width: 420px;
+    margin-inline-start: auto;
 }
 
 .billing-empty {

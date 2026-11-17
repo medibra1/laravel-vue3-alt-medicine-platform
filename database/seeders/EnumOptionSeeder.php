@@ -78,6 +78,21 @@ class EnumOptionSeeder extends Seeder
             );
         }
 
+        // Why a discount was granted on an invoice.
+        $discountReasons = [
+            ['code' => 'SOCIAL', 'label' => ['fr' => 'Cas social', 'en' => 'Social case', 'ar' => 'حالة اجتماعية']],
+            ['code' => 'GOODWILL', 'label' => ['fr' => 'Geste commercial', 'en' => 'Goodwill gesture', 'ar' => 'بادرة حسن نية']],
+            ['code' => 'FAMILY', 'label' => ['fr' => 'Famille / proche', 'en' => 'Family / relative', 'ar' => 'عائلة / قريب']],
+            ['code' => 'OTHER', 'label' => ['fr' => 'Autre', 'en' => 'Other', 'ar' => 'أخرى']],
+        ];
+
+        foreach ($discountReasons as $index => $reason) {
+            EnumOption::query()->firstOrCreate(
+                ['enum_type' => 'invoice.discount_reason', 'code' => $reason['code']],
+                ['label' => $reason['label'], 'order' => $index + 1, 'active' => true]
+            );
+        }
+
         // Patient religion — open list, extend/correct from the admin
         // EnumOptions CRUD rather than editing this seeder later.
         $religions = [

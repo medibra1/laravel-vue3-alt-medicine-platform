@@ -22,6 +22,11 @@ class InvoiceResource extends JsonResource
             'treatment_id' => $this->treatment_id,
             'currency' => $this->currency,
             'issued_on' => $this->issued_on->toDateString(),
+            'subtotal' => (float) $this->subtotal,
+            'discount_amount' => (float) $this->discount_amount,
+            'discount_percent' => $this->discount_percent !== null ? (float) $this->discount_percent : null,
+            'discount_reason' => $this->whenLoaded('discountReason', fn () => $this->discountReason?->localizedLabel()),
+            'discount_note' => $this->discount_note,
             'total' => (float) $this->total,
             'paid_total' => (float) $this->paid_total,
             'credited_total' => (float) $this->credited_total,
@@ -36,11 +41,17 @@ class InvoiceResource extends JsonResource
             'lines' => $this->whenLoaded('lines', fn () => $this->lines->map(fn ($line) => [
                 'id' => $line->id,
                 'label' => $line->label,
+                'description' => $line->description,
                 'quantity' => (float) $line->quantity,
                 'unit_price' => (float) $line->unit_price,
                 'total' => (float) $line->total,
                 'treatment_session_id' => $line->treatment_session_id,
             ])->all()),
+            'installments' => $this->whenLoaded('installments', fn () => $this->installmentsWithStatus()),
+            'overdue_amount' => $this->relationLoaded('installments')
+                ? $this->overdueAmount()
+                // List page: computed in SQL (see InvoiceController::index()).
+                : ($this->cancelled_at === null ? max(0.0, round((float) ($this->getAttribute('overdue_scheduled') ?? 0) - (float) $this->paid_total, 2)) : 0.0),
             'credit_notes' => $this->whenLoaded('creditNotes', fn () => $this->creditNotes->map(fn ($creditNote) => [
                 'id' => $creditNote->id,
                 'number' => $creditNote->number,

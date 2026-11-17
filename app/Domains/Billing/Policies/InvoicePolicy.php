@@ -52,4 +52,9 @@ class InvoicePolicy
     {
         return $user->can('payments.refund') && $invoice->center_id === getPermissionsTeamId();
     }
+
+    public function schedule(User $user, Invoice $invoice): bool
+    {
+        return $user->can('invoices.schedule') && $invoice->center_id === getPermissionsTeamId();
+    }
 }

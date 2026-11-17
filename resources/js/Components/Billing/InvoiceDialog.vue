@@ -10,15 +10,24 @@ import AppTextarea from '@/Components/App/AppTextarea.vue';
 import { http, HttpError } from '@/lib/http';
 import { formatDate, formatMoney } from '@/lib/i18n';
 import { toLocalDateString } from '@/utils/date';
-import { computed, reactive, ref, watch } from 'vue';
+import type { InstallmentDraft } from '@/utils/installments';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { PAYMENT_METHODS, type BillableSession, type Invoice, type SuggestedLine } from './types';
+import InstallmentsEditor from './InstallmentsEditor.vue';
+import { PAYMENT_METHODS, type BillableSession, type CatalogEntry, type DiscountReason, type Invoice, type PatientDiscount, type SuggestedLine } from './types';
 
 const props = defineProps<{
     visible: boolean;
     patientId: number;
     currency: string;
     billableSessions: BillableSession[];
+    /** Services the center sells; anything else is a free line. */
+    catalog: CatalogEntry[];
+    discountReasons: DiscountReason[];
+    /** Standing discount of the patient, pre-applied. */
+    patientDiscount: PatientDiscount;
+    canDiscount: boolean;
+    canSchedule: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,32 +37,101 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n();
 
+const FREE = 'free';
+
 interface DraftLine extends Omit<SuggestedLine, 'quantity' | 'unit_price'> {
     key: number;
+    /** Catalog key, or FREE for a hand-written line. */
+    service: string;
+    description: string;
     quantity: number | null;
     unit_price: number | null;
 }
 
 let nextKey = 1;
 const lines = ref<DraftLine[]>([]);
-const form = reactive({ issued_on: new Date() as Date | null, notes: '', payNow: false, method: 'cash', reference: '' });
+const form = reactive({
+    issued_on: new Date() as Date | null,
+    notes: '',
+    discountType: 'none' as 'none' | 'percent' | 'amount',
+    discountValue: null as number | null,
+    discountReason: null as number | null,
+    discountNote: '',
+    payNow: false,
+    payAmount: null as number | null,
+    method: 'cash',
+    reference: '',
+    scheduled: false,
+});
+const installments = ref<InstallmentDraft[]>([]);
+const scheduleEditor = ref<InstanceType<typeof InstallmentsEditor> | null>(null);
 const addedSessionIds = ref<Set<number>>(new Set());
 const errors = ref<Record<string, string[]>>({});
 const saving = ref(false);
 
 const methodOptions = computed(() => PAYMENT_METHODS.map((value) => ({ value, label: t(`domain.paymentMethod.${value}`) })));
+const discountTypeOptions = computed(() => [
+    { value: 'none', label: t('billing.discountNone') },
+    { value: 'percent', label: t('billing.discountPercent') },
+    { value: 'amount', label: t('billing.discountAmount') },
+]);
+const serviceOptions = computed(() => [
+    { value: FREE, label: t('billing.freeLine') },
+    ...props.catalog.map((entry) => ({
+        value: entry.key,
+        label: `${entry.group === entry.label ? entry.label : `${entry.group} · ${entry.label}`} — ${money(entry.unit_price)}`,
+    })),
+]);
 const remainingSessions = computed(() => props.billableSessions.filter((session) => !addedSessionIds.value.has(session.session_id)));
-const total = computed(() => lines.value.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0));
+
+const round = (amount: number) => Math.round(amount * 100) / 100;
+const subtotal = computed(() => round(lines.value.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0)));
+const discount = computed(() => {
+    const value = Number(form.discountValue) || 0;
+
+    if (form.discountType === 'percent') {
+        return round((subtotal.value * Math.min(value, 100)) / 100);
+    }
+
+    return form.discountType === 'amount' ? Math.min(value, subtotal.value) : 0;
+});
+const total = computed(() => round(subtotal.value - discount.value));
 const money = (amount: number) => formatMoney(amount, props.currency, locale.value);
 
+function catalogKeyFor(line: SuggestedLine, session?: BillableSession): string {
+    const key = line.care_item_id
+        ? `item-${line.care_item_id}`
+        : line.care_category_id
+          ? `category-${line.care_category_id}`
+          : session && line.treatment_session_id
+            ? session.modality === 'remote' ? 'session_price_remote' : 'session_price_in_person'
+            : FREE;
+
+    return props.catalog.some((entry) => entry.key === key) ? key : FREE;
+}
+
 function blankLine(): DraftLine {
-    return { key: nextKey++, label: '', quantity: 1, unit_price: 0, treatment_session_id: null, care_item_id: null };
+    return { key: nextKey++, service: FREE, label: '', description: '', quantity: 1, unit_price: 0, treatment_session_id: null, care_item_id: null, care_category_id: null };
+}
+
+/** Picking a service fills label and price; the price stays editable. */
+function onServiceChange(line: DraftLine, key: string) {
+    line.service = key;
+    const entry = props.catalog.find((candidate) => candidate.key === key);
+
+    line.care_item_id = entry?.care_item_id ?? null;
+    line.care_category_id = entry?.care_category_id ?? null;
+
+    if (entry) {
+        line.label = entry.label;
+        line.unit_price = entry.unit_price;
+    }
 }
 
 function addSession(session: BillableSession) {
     // Drop the untouched placeholder line rather than leave an empty row behind.
     lines.value = lines.value.filter((line) => line.label !== '' || line.unit_price !== 0);
-    lines.value.push(...session.lines.map((line) => ({ ...line, key: nextKey++ })));
+    lines.value.push(...session.lines.map((line) => ({ ...line, key: nextKey++, service: catalogKeyFor(line, session), description: '' })));
     addedSessionIds.value = new Set([...addedSessionIds.value, session.session_id]);
 }
 
@@ -71,7 +149,21 @@ watch(() => props.visible, (open) => {
     if (open) {
         lines.value = [];
         addedSessionIds.value = new Set();
-        Object.assign(form, { issued_on: new Date(), notes: '', payNow: false, method: 'cash', reference: '' });
+        installments.value = [];
+        Object.assign(form, {
+            issued_on: new Date(),
+            notes: '',
+            // The patient's standing discount comes pre-applied.
+            discountType: props.patientDiscount.percent ? 'percent' : 'none',
+            discountValue: props.patientDiscount.percent,
+            discountReason: props.patientDiscount.reason_option_id,
+            discountNote: '',
+            payNow: false,
+            payAmount: null,
+            method: 'cash',
+            reference: '',
+            scheduled: false,
+        });
         errors.value = {};
 
         // The common case: bill what was just done.
@@ -82,6 +174,26 @@ watch(() => props.visible, (open) => {
         }
     }
 }, { immediate: true });
+
+// The amount collected follows the net total until the user types a deposit.
+watch(total, (next, previous) => {
+    if (form.payAmount === null || form.payAmount === previous || form.payAmount > next) {
+        form.payAmount = next;
+    }
+
+    if (form.scheduled) {
+        nextTick(() => scheduleEditor.value?.generate());
+    }
+});
+
+watch(() => form.payNow, (on) => on && (form.payAmount = total.value));
+watch(() => form.scheduled, (on) => {
+    if (on) {
+        nextTick(() => scheduleEditor.value?.generate());
+    } else {
+        installments.value = [];
+    }
+});
 
 function lineError(index: number, field: string): string | undefined {
     return errors.value[`lines.${index}.${field}`]?.[0];
@@ -95,8 +207,22 @@ async function submit() {
         const invoice = await http.post<Invoice>(route('admin.patients.invoices.store', props.patientId), {
             issued_on: form.issued_on ? toLocalDateString(form.issued_on) : null,
             notes: form.notes || null,
-            lines: lines.value.map(({ label, quantity, unit_price, treatment_session_id, care_item_id }) => ({ label, quantity, unit_price, treatment_session_id, care_item_id })),
-            ...(form.payNow && total.value > 0 ? { payment: { amount: total.value, method: form.method, reference: form.reference || null } } : {}),
+            lines: lines.value.map(({ label, description, quantity, unit_price, treatment_session_id, care_item_id, care_category_id }) => ({
+                label, description: description || null, quantity, unit_price, treatment_session_id, care_item_id, care_category_id,
+            })),
+            ...(props.canDiscount && form.discountType !== 'none' && discount.value > 0
+                ? {
+                      discount: {
+                          [form.discountType]: form.discountValue,
+                          reason_option_id: form.discountReason,
+                          note: form.discountNote || null,
+                      },
+                  }
+                : {}),
+            ...(form.payNow && total.value > 0 && (form.payAmount ?? 0) > 0
+                ? { payment: { amount: form.payAmount, method: form.method, reference: form.reference || null } }
+                : {}),
+            ...(form.scheduled && installments.value.length ? { installments: installments.value } : {}),
         });
         emit('saved', invoice);
         emit('update:visible', false);
@@ -142,8 +268,23 @@ async function submit() {
                 <v-alert v-if="errors.lines" type="error" variant="tonal" density="compact" class="mb-3">{{ errors.lines[0] }}</v-alert>
 
                 <div v-for="(line, index) in lines" :key="line.key" class="invoice-line">
-                    <div class="invoice-line__label">
-                        <AppInputText v-model="line.label" :label="t('billing.designation')" :error="lineError(index, 'label')" />
+                    <div class="invoice-line__label d-flex flex-column ga-2">
+                        <AppSelect
+                            :model-value="line.service"
+                            :options="serviceOptions"
+                            option-label="label"
+                            option-value="value"
+                            :label="t('billing.service')"
+                            searchable
+                            @update:model-value="onServiceChange(line, String($event ?? FREE))"
+                        />
+                        <AppInputText
+                            v-if="line.service === FREE"
+                            v-model="line.label"
+                            :label="t('billing.designation')"
+                            :error="lineError(index, 'label')"
+                        />
+                        <AppInputText v-model="line.description" :label="t('billing.lineDescription')" :error="lineError(index, 'description')" />
                     </div>
                     <div class="invoice-line__qty">
                         <AppInputNumber v-model="line.quantity" :label="t('billing.quantity')" :min="0" :error="lineError(index, 'quantity')" />
@@ -160,15 +301,71 @@ async function submit() {
 
             <AppTextarea v-model="form.notes" :label="t('common.notes')" :rows="2" />
 
+            <div v-if="canDiscount">
+                <div class="app-eyebrow mb-2">{{ t('billing.discount') }}</div>
+                <v-row dense>
+                    <v-col cols="12" sm="4">
+                        <AppSelect v-model="form.discountType" :options="discountTypeOptions" option-label="label" option-value="value" :label="t('billing.discountType')" />
+                    </v-col>
+                    <template v-if="form.discountType !== 'none'">
+                        <v-col cols="12" sm="3">
+                            <AppInputNumber
+                                v-model="form.discountValue"
+                                :label="form.discountType === 'percent' ? '%' : currency"
+                                :min="0"
+                                :max="form.discountType === 'percent' ? 100 : undefined"
+                                :error="errors['discount.percent']?.[0] ?? errors['discount.amount']?.[0]"
+                            />
+                        </v-col>
+                        <v-col cols="12" sm="5">
+                            <AppSelect
+                                v-model="form.discountReason"
+                                :options="discountReasons"
+                                option-label="label"
+                                option-value="id"
+                                :label="t('billing.discountReason')"
+                                :error="errors['discount.reason_option_id']?.[0]"
+                            />
+                        </v-col>
+                        <v-col cols="12">
+                            <AppInputText v-model="form.discountNote" :label="t('billing.discountNote')" />
+                        </v-col>
+                    </template>
+                </v-row>
+            </div>
+            <v-alert v-else-if="patientDiscount.percent" type="info" variant="tonal" density="compact">
+                {{ t('billing.patientDiscountApplied', { percent: patientDiscount.percent }) }}
+            </v-alert>
+
             <div class="invoice-total">
-                <span class="text-body-1 font-weight-medium">{{ t('common.total') }}</span>
-                <span class="text-h5 font-weight-bold app-tabular">{{ money(total) }}</span>
+                <template v-if="discount > 0">
+                    <div class="invoice-total__row text-medium-emphasis">
+                        <span>{{ t('billing.subtotal') }}</span><span class="app-tabular">{{ money(subtotal) }}</span>
+                    </div>
+                    <div class="invoice-total__row text-medium-emphasis">
+                        <span>{{ t('billing.discount') }}</span><span class="app-tabular">−{{ money(discount) }}</span>
+                    </div>
+                </template>
+                <div class="invoice-total__row">
+                    <span class="text-body-1 font-weight-medium">{{ t(discount > 0 ? 'billing.netToPay' : 'common.total') }}</span>
+                    <span class="text-h5 font-weight-bold app-tabular">{{ money(total) }}</span>
+                </div>
             </div>
 
-            <div>
+            <div v-if="total > 0">
                 <AppCheckbox v-model="form.payNow" :label="t('billing.payNow')" />
                 <v-expand-transition>
                     <v-row v-if="form.payNow" dense class="mt-2">
+                        <v-col cols="12">
+                            <AppInputNumber
+                                v-model="form.payAmount"
+                                :label="`${t('billing.payAmount')} (${currency})`"
+                                :min="0"
+                                :max="total"
+                                :error="errors['payment.amount']?.[0]"
+                            />
+                            <p class="text-caption text-medium-emphasis mt-1">{{ t('billing.depositHint') }}</p>
+                        </v-col>
                         <v-col cols="12" sm="6">
                             <AppSelect v-model="form.method" :options="methodOptions" option-label="label" option-value="value" :label="t('billing.method')" />
                         </v-col>
@@ -176,6 +373,15 @@ async function submit() {
                             <AppInputText v-model="form.reference" :label="t('billing.reference')" :placeholder="t('billing.referenceHint')" />
                         </v-col>
                     </v-row>
+                </v-expand-transition>
+            </div>
+
+            <div v-if="canSchedule && total > 0">
+                <AppCheckbox v-model="form.scheduled" :label="t('billing.payInInstallments')" />
+                <v-expand-transition>
+                    <div v-if="form.scheduled" class="mt-2">
+                        <InstallmentsEditor ref="scheduleEditor" v-model="installments" :total="total" :currency="currency" :error="errors.installments?.[0]" />
+                    </div>
                 </v-expand-transition>
             </div>
 
@@ -214,15 +420,22 @@ async function submit() {
 }
 
 .invoice-line__total {
-    align-self: center;
+    align-self: start;
+    padding-top: 16px;
     text-align: end;
     font-weight: 700;
 }
 
-.invoice-total {
+.invoice-total__row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+}
+
+.invoice-total {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     padding: 14px 18px;
     border-radius: 14px;
     background: rgba(var(--v-theme-on-surface), 0.04);

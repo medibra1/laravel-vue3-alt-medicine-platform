@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class IssueCreditNoteAction
 {
-    public function __construct(private readonly InvoiceNumberGenerator $numbers) {}
+    public function __construct(
+        private readonly InvoiceNumberGenerator $numbers,
+        private readonly ScheduleInstallmentsAction $schedule,
+    ) {}
 
     public function handle(Invoice $invoice, float $amount, string $issuedOn, ?string $reason, ?User $author): CreditNote
     {
@@ -27,6 +30,7 @@ class IssueCreditNoteAction
             ]);
 
             $invoice->refreshTotals();
+            $this->schedule->fitToNetTotal($invoice);
 
             return $creditNote;
         });

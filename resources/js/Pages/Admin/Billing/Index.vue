@@ -33,7 +33,7 @@ const props = defineProps<{
         total: number;
     };
     filters: { search?: string; status?: string };
-    summary: { collected_this_month: Amount[]; outstanding: Amount[]; unpaid_count: number };
+    summary: { collected_this_month: Amount[]; outstanding: Amount[]; overdue: Amount[]; discounts_this_month: Amount[]; unpaid_count: number };
     centers: { id: number; name: string }[];
     can: { export: boolean };
 }>();
@@ -46,7 +46,11 @@ const paymentDialog = ref(false);
 const payingInvoice = ref<Invoice | null>(null);
 
 const statusOptions = computed(() =>
-    ['unpaid', 'partial', 'paid', 'refund_due', 'credited', 'cancelled'].map((value) => ({ value, label: t(`domain.invoiceStatus.${value}`) })),
+    [
+        // Not a status of its own: any invoice with a passed, unpaid instalment.
+        { value: 'overdue', label: t('billing.overdue') },
+        ...['unpaid', 'partial', 'paid', 'offered', 'refund_due', 'credited', 'cancelled'].map((value) => ({ value, label: t(`domain.invoiceStatus.${value}`) })),
+    ],
 );
 
 const columns = computed<AppDataTableColumn[]>(() => [
@@ -112,14 +116,23 @@ function patientUrl(invoice: Invoice): string {
         <BillingNav current="invoices" />
 
         <v-row dense class="mb-4">
-            <v-col cols="12" md="4">
+            <v-col cols="12" sm="6" lg="3">
                 <AppStatCard :label="t('billing.collectedMonth')" :value="sum(summary.collected_this_month)" icon="mdi-cash-check" color="success" />
             </v-col>
-            <v-col cols="12" md="4">
-                <AppStatCard :label="t('billing.outstanding')" :value="sum(summary.outstanding)" icon="mdi-cash-clock" color="warning" />
+            <v-col cols="12" sm="6" lg="3">
+                <AppStatCard
+                    :label="t('billing.outstanding')"
+                    :value="sum(summary.outstanding)"
+                    :hint="`${t('billing.unpaidCount')} : ${summary.unpaid_count}`"
+                    icon="mdi-cash-clock"
+                    color="warning"
+                />
             </v-col>
-            <v-col cols="12" md="4">
-                <AppStatCard :label="t('billing.unpaidCount')" :value="summary.unpaid_count" icon="mdi-receipt-text-clock-outline" color="info" />
+            <v-col cols="12" sm="6" lg="3">
+                <AppStatCard :label="t('billing.overdueAmount')" :value="sum(summary.overdue)" icon="mdi-alert-circle-outline" color="error" />
+            </v-col>
+            <v-col cols="12" sm="6" lg="3">
+                <AppStatCard :label="t('billing.discountsMonth')" :value="sum(summary.discounts_this_month)" icon="mdi-hand-heart-outline" color="primary" />
             </v-col>
         </v-row>
 
@@ -173,7 +186,12 @@ function patientUrl(invoice: Invoice): string {
                         {{ formatMoney(item.balance, item.currency, locale) }}
                     </span>
                 </template>
-                <template #column-status="{ item }"><InvoiceStatusChip :status="item.status" /></template>
+                <template #column-status="{ item }">
+                    <div class="d-flex flex-wrap ga-1">
+                        <InvoiceStatusChip :status="item.status" />
+                        <v-chip v-if="item.overdue_amount > 0" color="error" variant="tonal" size="small">{{ t('billing.overdue') }}</v-chip>
+                    </div>
+                </template>
                 <template #column-actions="{ item }">
                     <div class="d-flex justify-end ga-1">
                         <v-btn

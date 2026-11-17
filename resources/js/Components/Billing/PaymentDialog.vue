@@ -34,7 +34,9 @@ const methodOptions = computed(() => PAYMENT_METHODS.map((value) => ({ value, la
 
 watch(() => props.visible, (open) => {
     if (open && props.invoice) {
-        form.amount = Math.abs(props.invoice.balance);
+        // With a schedule, the next thing to pay is the oldest unpaid instalment.
+        const next = props.refund ? undefined : props.invoice.installments?.find((row) => row.status !== 'paid');
+        form.amount = next ? Math.min(Math.round((next.amount - next.paid) * 100) / 100, props.invoice.balance) : Math.abs(props.invoice.balance);
         form.method = 'cash';
         form.paid_on = new Date();
         form.reference = '';

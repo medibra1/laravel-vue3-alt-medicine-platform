@@ -53,7 +53,12 @@
         <tbody>
             @foreach ($invoice->lines as $line)
                 <tr>
-                    <td>{{ $line->label }}</td>
+                    <td>
+                        {{ $line->label }}
+                        @if ($line->description)
+                            <div class="muted">{{ $line->description }}</div>
+                        @endif
+                    </td>
                     <td class="right">{{ rtrim(rtrim(number_format((float) $line->quantity, 2, ',', ' '), '0'), ',') }}</td>
                     <td class="right">{{ number_format((float) $line->unit_price, 2, ',', ' ') }}</td>
                     <td class="right">{{ number_format((float) $line->total, 2, ',', ' ') }}</td>
@@ -63,6 +68,13 @@
     </table>
 
     <table class="totals">
+        @if ((float) $invoice->discount_amount > 0)
+            <tr><td>{{ __('Sous-total') }}</td><td class="right">{{ number_format((float) $invoice->subtotal, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
+            <tr>
+                <td>{{ __('Remise') }}@if ($invoice->discount_percent !== null) {{ rtrim(rtrim(number_format((float) $invoice->discount_percent, 2, ',', ''), '0'), ',') }} %@endif @if ($invoice->discountReason) — {{ $invoice->discountReason->localizedLabel() }}@endif</td>
+                <td class="right">-{{ number_format((float) $invoice->discount_amount, 2, ',', ' ') }} {{ $invoice->currency }}</td>
+            </tr>
+        @endif
         <tr><td>{{ __('Total') }}</td><td class="right">{{ number_format((float) $invoice->total, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
         @foreach ($invoice->creditNotes as $creditNote)
             <tr><td>{{ __('Avoir') }} {{ $creditNote->number }}</td><td class="right">-{{ number_format((float) $creditNote->amount, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
@@ -70,6 +82,18 @@
         <tr><td>{{ __('Déjà réglé') }}</td><td class="right">{{ number_format((float) $invoice->paid_total, 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
         <tr class="grand"><td>{{ __('Reste à payer') }}</td><td class="right">{{ number_format($invoice->balance(), 2, ',', ' ') }} {{ $invoice->currency }}</td></tr>
     </table>
+
+    @if ($invoice->installments->isNotEmpty())
+        <p class="muted" style="margin-top: 28px;">{{ __('Échéancier') }}</p>
+        <table class="lines">
+            @foreach ($invoice->installments as $installment)
+                <tr>
+                    <td>{{ $installment->due_on->format('d/m/Y') }}</td>
+                    <td class="right">{{ number_format((float) $installment->amount, 2, ',', ' ') }} {{ $invoice->currency }}</td>
+                </tr>
+            @endforeach
+        </table>
+    @endif
 
     @if ($invoice->payments->isNotEmpty())
         <p class="muted" style="margin-top: 28px;">{{ __('Paiements reçus') }}</p>

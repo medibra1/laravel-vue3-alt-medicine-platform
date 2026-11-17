@@ -14,7 +14,7 @@ use App\Domains\Patients\Models\TreatmentSession;
 class BillableSessionsResolver
 {
     /**
-     * @return array<int, array{session_id: int, treatment_id: int, session_date: string, modality: string, lines: array<int, array{label: string, quantity: int, unit_price: float, treatment_session_id: int|null, care_item_id: int|null}>}>
+     * @return array<int, array{session_id: int, treatment_id: int, session_date: string, modality: string, lines: array<int, array{label: string, quantity: int, unit_price: float, treatment_session_id: int|null, care_item_id: int|null, care_category_id: int|null}>}>
      */
     public function handle(Patient $patient, Center $center): array
     {
@@ -43,6 +43,7 @@ class BillableSessionsResolver
                     'unit_price' => (float) $center->setting($remote ? 'session_price_remote' : 'session_price_in_person', 0),
                     'treatment_session_id' => $session->id,
                     'care_item_id' => null,
+                    'care_category_id' => null,
                 ]];
 
                 $flatBilled = [];
@@ -68,6 +69,7 @@ class BillableSessionsResolver
                                 'unit_price' => $price,
                                 'treatment_session_id' => null,
                                 'care_item_id' => null,
+                                'care_category_id' => $category->id,
                             ];
                         }
 
@@ -81,6 +83,7 @@ class BillableSessionsResolver
                             'unit_price' => (float) $prices[$careItem->id],
                             'treatment_session_id' => null,
                             'care_item_id' => $careItem->id,
+                            'care_category_id' => null,
                         ];
                     }
                 }

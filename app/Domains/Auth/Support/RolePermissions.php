@@ -49,6 +49,10 @@ class RolePermissions
             'payments.delete',
             // Corrections and money going out stay with the manager.
             'invoices.credit',
+            'invoices.discount',
+            'invoices.schedule',
+            'invoices.discount',
+            'invoices.schedule',
             'payments.refund',
             'expenses.viewAny',
             'expenses.create',

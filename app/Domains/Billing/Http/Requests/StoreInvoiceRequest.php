@@ -34,7 +34,25 @@ class StoreInvoiceRequest extends FormRequest
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:9999'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'max:99999999'],
             'lines.*.treatment_session_id' => ['nullable', 'integer', 'exists:treatment_sessions,id'],
+            'lines.*.description' => ['nullable', 'string', 'max:1000'],
             'lines.*.care_item_id' => ['nullable', 'integer', 'exists:care_items,id'],
+            'lines.*.care_category_id' => ['nullable', 'integer', 'exists:care_categories,id'],
+            // Ignored for a user without invoices.discount: the patient's
+            // standing discount is applied instead (see InvoiceController).
+            'discount' => ['nullable', 'array'],
+            'discount.percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'discount.amount' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'discount.reason_option_id' => [
+                Rule::requiredIf(fn () => (float) $this->input('discount.percent') > 0 || (float) $this->input('discount.amount') > 0),
+                'nullable', 'integer',
+                Rule::exists('enum_options', 'id')->where('enum_type', Invoice::DISCOUNT_REASON_TYPE),
+            ],
+            'discount.note' => ['nullable', 'string', 'max:255'],
+            // Optional payment schedule, checked against the net total
+            // once the invoice exists.
+            'installments' => ['nullable', 'array', 'max:36'],
+            'installments.*.due_on' => ['required', 'date'],
+            'installments.*.amount' => ['required', 'numeric', 'gt:0'],
             // Optional payment taken on the spot.
             'payment' => ['nullable', 'array'],
             'payment.amount' => ['required_with:payment', 'numeric', 'gt:0'],
